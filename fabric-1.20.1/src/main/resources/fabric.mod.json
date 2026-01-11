@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "chatae",
+  "version": "${version}",
+  "name": "ChatAE",
+  "description": "AE2 AI Terminal addon",
+  "authors": ["controlnet"],
+  "license": "TBD",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["space.controlnet.chatae.fabric.ChatAEFabric"],
+    "client": ["space.controlnet.chatae.fabric.ChatAEFabricClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.20.1",
+    "architectury": ">=9.2.0",
+    "fabric-api": "*",
+    "appliedenergistics2": "*"
+  }
+}

@@ -1,0 +1,44 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+}
+
+loom {
+    silentMojangMappingsLicense()
+}
+
+architectury {
+    common(rootProject.enabled_platforms.split(","))
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    api project(":core")
+
+    // Fabric loader only for annotations/mixin deps; do not call loader APIs from common.
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+
+    // Architectury common
+    modImplementation "dev.architectury:architectury:${rootProject.architectury_version}"
+
+    // AE2 API (common uses the API types).
+    // Use the Forge artifact for compile-only API access; platform modules pull the correct runtime jar.
+    modCompileOnly "appeng:appliedenergistics2-forge:${rootProject.ae2_version}"
+
+    // LangChain4j + LangGraph4j (agent orchestration)
+    implementation("dev.langchain4j:langchain4j-core:1.10.0") {
+        exclude group: "org.slf4j"
+    }
+    implementation("dev.langchain4j:langchain4j-open-ai:1.10.0") {
+        exclude group: "org.slf4j"
+        exclude group: "ch.qos.logback"
+    }
+    implementation("org.bsc.langgraph4j:langgraph4j-core:1.7.10") {
+        exclude group: "org.slf4j"
+    }
+    implementation("org.bsc.langgraph4j:langgraph4j-langchain4j:1.7.10") {
+        exclude group: "org.slf4j"
+    }
+}

@@ -1,0 +1,66 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.github.johnrengelman.shadow"
+}
+
+loom {
+    silentMojangMappingsLicense()
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+configurations {
+    common
+    shadowCommon
+
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
+
+    // AE2 Fabric
+    modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
+
+    common(project(path: ":common-1.20.1", configuration: "namedElements")) { transitive false }
+    shadowCommon(project(path: ":common-1.20.1", configuration: "transformProductionFabric")) { transitive false }
+
+    common(project(path: ":core")) { transitive false }
+    shadowCommon(project(path: ":core")) { transitive false }
+}
+
+shadowJar {
+    exclude "architectury.common.json"
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = "dev-shadow"
+}
+
+remapJar {
+    inputFile.set(shadowJar.archiveFile)
+    dependsOn shadowJar
+    archiveClassifier = null
+    archiveFileName = "${rootProject.archives_base_name}-${rootProject.mod_version}-fabric-${rootProject.minecraft_version}.jar"
+}
+
+jar {
+    archiveClassifier = "dev"
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
