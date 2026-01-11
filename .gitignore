@@ -1,0 +1,33 @@
+.gradle/
+/build/
+**/build/
+/.idea/
+/.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+
+# Gradle
+.gradle/
+**/.gradle/
+
+# Java
+*.class
+out/
+
+# Logs
+*.log
+logs/
+
+# Runtime
+run/
+/.architectury-transformer
+
+# Local JDK
+.jdk/
+
+# Node
+node_modules/
