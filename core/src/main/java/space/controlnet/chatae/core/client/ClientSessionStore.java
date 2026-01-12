@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ClientSessionStore {
-    private static final AtomicReference<SessionSnapshot> SNAPSHOT = new AtomicReference<>(SessionSnapshot.empty());
+    private static final AtomicReference<SessionSnapshot> SNAPSHOT = new AtomicReference<>(SessionSnapshot.emptyClient());
     private static final AtomicLong VERSION = new AtomicLong();
 
     private ClientSessionStore() {

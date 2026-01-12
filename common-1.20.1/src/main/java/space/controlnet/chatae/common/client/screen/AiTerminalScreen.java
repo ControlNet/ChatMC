@@ -3,12 +3,6 @@ package space.controlnet.chatae.common.client.screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
-import space.controlnet.chatae.core.client.ClientSessionStore;
-import space.controlnet.chatae.core.proposal.ApprovalDecision;
-import space.controlnet.chatae.core.proposal.Proposal;
-import space.controlnet.chatae.core.proposal.ProposalDetails;
-import space.controlnet.chatae.core.session.ChatMessage;
-import space.controlnet.chatae.core.session.SessionSnapshot;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -19,10 +13,22 @@ import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.NotNull;
 import space.controlnet.chatae.common.ChatAENetwork;
 import space.controlnet.chatae.common.menu.AiTerminalMenu;
-
+import space.controlnet.chatae.common.team.TeamAccess;
+import space.controlnet.chatae.core.client.ClientSessionIndex;
+import space.controlnet.chatae.core.client.ClientSessionStore;
+import space.controlnet.chatae.core.proposal.ApprovalDecision;
+import space.controlnet.chatae.core.proposal.Proposal;
+import space.controlnet.chatae.core.proposal.ProposalDetails;
+import space.controlnet.chatae.core.session.ChatMessage;
+import space.controlnet.chatae.core.session.SessionListScope;
+import space.controlnet.chatae.core.session.SessionSnapshot;
+import space.controlnet.chatae.core.session.SessionSummary;
+import space.controlnet.chatae.core.session.SessionVisibility;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMenu> {
     private static final int PADDING = 8;
@@ -34,6 +40,19 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int PROPOSAL_BUTTON_WIDTH = 64;
     private static final int PROPOSAL_BUTTON_HEIGHT = 18;
     private static final int PROPOSAL_BUTTON_GAP = 4;
+    private static final int SESSION_TOGGLE_WIDTH = 72;
+    private static final int SESSION_TOGGLE_HEIGHT = 18;
+    private static final int SESSION_PANEL_WIDTH = 124;
+    private static final int SESSION_PANEL_PADDING = 6;
+    private static final int SESSION_HEADER_HEIGHT = 14;
+    private static final int SESSION_ROW_HEIGHT = 32;
+    private static final int SESSION_ROW_GAP = 4;
+    private static final int SESSION_OPEN_BUTTON_WIDTH = 36;
+    private static final int SESSION_DELETE_BUTTON_WIDTH = 22;
+    private static final int SESSION_VIS_BUTTON_WIDTH = 28;
+    private static final int SESSION_BUTTON_HEIGHT = 18;
+    private static final int SESSION_BUTTON_GAP = 4;
+    private static final int SESSION_NEW_BUTTON_HEIGHT = 18;
 
     private final List<Component> messages = new ArrayList<>();
     private final List<FormattedCharSequence> wrappedLines = new ArrayList<>();
@@ -42,6 +61,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private Button sendButton;
     private Button approveButton;
     private Button denyButton;
+    private Button sessionsToggleButton;
+    private Button newSessionButton;
 
     private String statusText = "Idle";
 
@@ -53,11 +74,25 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private int proposalY;
     private int proposalW;
     private int proposalH;
+    private int sessionPanelX;
+    private int sessionPanelY;
+    private int sessionPanelW;
+    private int sessionPanelH;
+    private int sessionInnerX;
+    private int sessionInnerW;
+    private int sessionListStartY;
+    private int sessionMaxRows;
 
     private Proposal pendingProposal;
 
     private int scrollOffsetLines;
     private long lastSnapshotVersion = -1;
+    private long lastSessionIndexVersion = -1;
+    private boolean sessionsOpen;
+    private UUID activeSessionId;
+
+    private List<SessionSummary> sessionSummaries = List.of();
+    private final List<SessionRow> sessionRows = new ArrayList<>();
 
     public AiTerminalScreen(AiTerminalMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, Component.translatable("item.chatae.ai_terminal"));
@@ -107,6 +142,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.addRenderableWidget(this.denyButton);
         updateProposalUi();
 
+        layoutSessionPanel();
+        initSessionsToggle();
+        initSessionPanelWidgets();
+        setSessionsPanelVisible(this.sessionsOpen);
+        ChatAENetwork.requestSessionList(SessionListScope.ALL);
+
         this.setInitialFocus(this.inputBox);
         rebuildWrappedLines();
     }
@@ -138,15 +179,22 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             guiGraphics.fill(this.proposalX, this.proposalY, this.proposalX + this.proposalW, this.proposalY + this.proposalH, 0x80202020);
             guiGraphics.renderOutline(this.proposalX, this.proposalY, this.proposalW, this.proposalH, 0xFF6A6A6A);
         }
+
+        if (this.sessionsOpen) {
+            guiGraphics.fill(this.sessionPanelX, this.sessionPanelY, this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, 0xCC111111);
+            guiGraphics.renderOutline(this.sessionPanelX, this.sessionPanelY, this.sessionPanelW, this.sessionPanelH, 0xFF5A5A5A);
+        }
     }
 
     @Override
     public void render(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncFromSessionStore();
+        syncFromSessionIndex();
         this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         renderChatLog(guiGraphics);
         renderProposalCard(guiGraphics);
+        renderSessionsPanel(guiGraphics);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }
 
@@ -200,6 +248,35 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
     }
 
+    private void renderSessionsPanel(GuiGraphics guiGraphics) {
+        if (!this.sessionsOpen) {
+            return;
+        }
+
+        int headerX = this.sessionInnerX;
+        int headerY = this.sessionPanelY + SESSION_PANEL_PADDING;
+        guiGraphics.drawString(this.font, Component.literal("Sessions"), headerX, headerY, 0xE0E0E0, false);
+
+        int visibleCount = Math.min(this.sessionSummaries.size(), this.sessionMaxRows);
+        for (int i = 0; i < visibleCount; i++) {
+            SessionSummary summary = this.sessionSummaries.get(i);
+            int rowY = this.sessionListStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+            String title = summary.title();
+            if (title == null || title.isBlank()) {
+                title = "Untitled";
+            }
+            boolean isActive = this.activeSessionId != null && this.activeSessionId.equals(summary.sessionId());
+            String label = isActive ? "* " + title : title;
+            int color = isActive ? 0xF0D27C : 0xE0E0E0;
+            String trimmed = this.font.plainSubstrByWidth(label, Math.max(1, this.sessionInnerW));
+            guiGraphics.drawString(this.font, trimmed, this.sessionInnerX, rowY + 2, color, false);
+        }
+
+        if (this.sessionSummaries.isEmpty()) {
+            guiGraphics.drawString(this.font, Component.literal("No sessions"), this.sessionInnerX, this.sessionListStartY + 2, 0x909090, false);
+        }
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (isWithinChat(mouseX, mouseY) && !this.wrappedLines.isEmpty()) {
@@ -208,6 +285,195 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    private void layoutSessionPanel() {
+        this.sessionPanelW = SESSION_PANEL_WIDTH;
+        this.sessionPanelH = this.chatH + PROPOSAL_CARD_HEIGHT + PROPOSAL_CARD_GAP;
+        this.sessionPanelX = this.leftPos + this.imageWidth - PADDING - this.sessionPanelW;
+        this.sessionPanelY = this.chatY;
+
+        this.sessionInnerX = this.sessionPanelX + SESSION_PANEL_PADDING;
+        this.sessionInnerW = this.sessionPanelW - (SESSION_PANEL_PADDING * 2);
+        this.sessionListStartY = this.sessionPanelY + SESSION_PANEL_PADDING + SESSION_HEADER_HEIGHT + 4;
+        int sessionListEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT - 4;
+
+        int availableHeight = Math.max(0, sessionListEndY - this.sessionListStartY);
+        this.sessionMaxRows = Math.max(1, availableHeight / (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+    }
+
+    private void initSessionsToggle() {
+        int toggleX = this.leftPos + this.imageWidth - PADDING - SESSION_TOGGLE_WIDTH;
+        int toggleY = this.topPos + PADDING - 1;
+        this.sessionsToggleButton = Button.builder(Component.literal("Sessions"), b -> toggleSessionsPanel())
+                .bounds(toggleX, toggleY, SESSION_TOGGLE_WIDTH, SESSION_TOGGLE_HEIGHT)
+                .build();
+        this.addRenderableWidget(this.sessionsToggleButton);
+        updateSessionsToggleLabel();
+    }
+
+    private void initSessionPanelWidgets() {
+        this.sessionRows.clear();
+        int newButtonY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
+        this.newSessionButton = Button.builder(Component.literal("New"), b -> ChatAENetwork.createSession())
+                .bounds(this.sessionInnerX, newButtonY, this.sessionInnerW, SESSION_NEW_BUTTON_HEIGHT)
+                .build();
+        this.addRenderableWidget(this.newSessionButton);
+
+        int listStartY = this.sessionListStartY;
+        for (int i = 0; i < this.sessionMaxRows; i++) {
+            int rowY = listStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+            int buttonY = rowY + SESSION_ROW_HEIGHT - SESSION_BUTTON_HEIGHT - 2;
+            int openX = this.sessionInnerX;
+            int deleteX = openX + SESSION_OPEN_BUTTON_WIDTH + SESSION_BUTTON_GAP;
+            int visX = deleteX + SESSION_DELETE_BUTTON_WIDTH + SESSION_BUTTON_GAP;
+
+            SessionRow row = new SessionRow();
+            row.openButton = Button.builder(Component.literal("Open"), b -> openSession(row))
+                    .bounds(openX, buttonY, SESSION_OPEN_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
+                    .build();
+            row.deleteButton = Button.builder(Component.literal("Del"), b -> deleteSession(row))
+                    .bounds(deleteX, buttonY, SESSION_DELETE_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
+                    .build();
+            row.visibilityButton = Button.builder(Component.literal("Priv"), b -> cycleSessionVisibility(row))
+                    .bounds(visX, buttonY, SESSION_VIS_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
+                    .build();
+
+            this.sessionRows.add(row);
+            this.addRenderableWidget(row.openButton);
+            this.addRenderableWidget(row.deleteButton);
+            this.addRenderableWidget(row.visibilityButton);
+        }
+    }
+
+    private void toggleSessionsPanel() {
+        setSessionsPanelVisible(!this.sessionsOpen);
+        if (this.sessionsOpen) {
+        ChatAENetwork.requestSessionList(SessionListScope.ALL);
+
+        }
+    }
+
+    private void setSessionsPanelVisible(boolean visible) {
+        this.sessionsOpen = visible;
+        updateSessionsToggleLabel();
+        if (this.newSessionButton != null) {
+            this.newSessionButton.visible = visible;
+            this.newSessionButton.active = visible;
+        }
+        for (SessionRow row : this.sessionRows) {
+            row.openButton.visible = visible;
+            row.deleteButton.visible = visible;
+            row.visibilityButton.visible = visible;
+        }
+        if (visible) {
+            rebuildSessionRows();
+        }
+    }
+
+    private void updateSessionsToggleLabel() {
+        if (this.sessionsToggleButton == null) {
+            return;
+        }
+        String label = this.sessionsOpen ? "Close" : "Sessions";
+        this.sessionsToggleButton.setMessage(Component.literal(label));
+    }
+
+    private void syncFromSessionIndex() {
+        long version = ClientSessionIndex.version();
+        if (version == this.lastSessionIndexVersion) {
+            return;
+        }
+        this.lastSessionIndexVersion = version;
+        this.sessionSummaries = ClientSessionIndex.get();
+        if (this.sessionsOpen) {
+            rebuildSessionRows();
+        }
+    }
+
+    private void rebuildSessionRows() {
+        int visibleCount = Math.min(this.sessionSummaries.size(), this.sessionMaxRows);
+        for (int i = 0; i < this.sessionRows.size(); i++) {
+            SessionRow row = this.sessionRows.get(i);
+            if (i < visibleCount) {
+                SessionSummary summary = this.sessionSummaries.get(i);
+                row.summary = summary;
+                row.openButton.visible = this.sessionsOpen;
+                row.deleteButton.visible = this.sessionsOpen;
+                row.visibilityButton.visible = this.sessionsOpen;
+                row.openButton.active = !isActiveSession(summary.sessionId());
+                row.deleteButton.active = isOwner(summary);
+                row.visibilityButton.active = isOwner(summary);
+                row.visibilityButton.setMessage(Component.literal(visibilityLabel(summary.visibility())));
+            } else {
+                row.summary = null;
+                row.openButton.visible = false;
+                row.deleteButton.visible = false;
+                row.visibilityButton.visible = false;
+            }
+        }
+        if (this.newSessionButton != null) {
+            this.newSessionButton.visible = this.sessionsOpen;
+            this.newSessionButton.active = this.sessionsOpen;
+        }
+    }
+
+    private void openSession(SessionRow row) {
+        if (row.summary == null) {
+            return;
+        }
+        ChatAENetwork.openSession(row.summary.sessionId());
+    }
+
+    private void deleteSession(SessionRow row) {
+        if (row.summary == null || !isOwner(row.summary)) {
+            return;
+        }
+        ChatAENetwork.deleteSession(row.summary.sessionId());
+    }
+
+    private void cycleSessionVisibility(SessionRow row) {
+        if (row.summary == null || !isOwner(row.summary)) {
+            return;
+        }
+        boolean teamsAvailable = TeamAccess.isTeamFeatureAvailable();
+        SessionVisibility next = nextVisibility(row.summary.visibility(), teamsAvailable);
+        ChatAENetwork.updateSession(row.summary.sessionId(), Optional.empty(), Optional.of(next));
+    }
+
+    private boolean isOwner(SessionSummary summary) {
+        UUID playerId = getPlayerId();
+        return playerId != null && playerId.equals(summary.ownerId());
+    }
+
+    private boolean isActiveSession(UUID sessionId) {
+        return this.activeSessionId != null && this.activeSessionId.equals(sessionId);
+    }
+
+    private UUID getPlayerId() {
+        return this.minecraft != null && this.minecraft.player != null ? this.minecraft.player.getUUID() : null;
+    }
+
+    private static SessionVisibility nextVisibility(SessionVisibility current, boolean teamsAvailable) {
+        if (!teamsAvailable) {
+            return current == SessionVisibility.PUBLIC ? SessionVisibility.PRIVATE : SessionVisibility.PUBLIC;
+        }
+        return switch (current) {
+            case PRIVATE -> SessionVisibility.TEAM;
+            case TEAM -> SessionVisibility.PUBLIC;
+            case PUBLIC -> SessionVisibility.PRIVATE;
+        };
+    }
+
+    private static String visibilityLabel(SessionVisibility visibility) {
+        if (!TeamAccess.isTeamFeatureAvailable() && visibility == SessionVisibility.TEAM) {
+            return "Priv";
+        }
+        return switch (visibility) {
+            case PRIVATE -> "Priv";
+            case TEAM -> "Team";
+            case PUBLIC -> "Pub";
+        };
     }
 
     @Override
@@ -272,7 +538,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         SessionSnapshot snapshot = ClientSessionStore.get();
         this.statusText = snapshot.state().name();
         this.pendingProposal = snapshot.pendingProposal().orElse(null);
+        this.activeSessionId = snapshot.metadata().sessionId();
         updateProposalUi();
+        if (this.sessionsOpen) {
+            rebuildSessionRows();
+        }
 
         this.messages.clear();
         for (ChatMessage msg : snapshot.messages()) {
@@ -346,5 +616,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static final class SessionRow {
+        private SessionSummary summary;
+        private Button openButton;
+        private Button deleteButton;
+        private Button visibilityButton;
     }
 }
