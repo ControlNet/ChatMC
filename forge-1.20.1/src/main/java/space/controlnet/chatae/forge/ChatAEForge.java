@@ -6,6 +6,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import space.controlnet.chatae.ChatAE;
 import space.controlnet.chatae.ChatAEClient;
+import space.controlnet.chatae.forge.ForgePartRegistries;
 
 @Mod(ChatAE.MOD_ID)
 public final class ChatAEForge {
@@ -13,6 +14,7 @@ public final class ChatAEForge {
         EventBuses.registerModEventBus(ChatAE.MOD_ID, FMLJavaModLoadingContext.get().getModEventBus());
 
         ChatAE.init();
+        ForgePartRegistries.init();
 
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ChatAEForge::onClientSetup);
     }

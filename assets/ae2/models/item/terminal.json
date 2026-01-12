@@ -7,6 +7,3 @@
     "front_dark": "ae2:part/terminal_dark"
   }
 }
-{
-  "parent": "ae2:item/terminal"
-}

@@ -3,7 +3,7 @@ package space.controlnet.chatae.tools;
 import com.google.gson.Gson;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.ChatAE;
-import space.controlnet.chatae.blockentity.AiTerminalBlockEntity;
+import space.controlnet.chatae.terminal.AiTerminalHost;
 import space.controlnet.chatae.core.policy.PolicyDecision;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.Proposal;
@@ -131,11 +131,11 @@ public final class ToolRouter {
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().listItems(args.query(), args.craftableOnly(), args.limit(), Optional.ofNullable(args.pageToken()));
+        var result = terminal.get().listItems(args.query(), args.craftableOnly(), args.limit(), args.pageToken());
         return ToolResult.ok(GSON.toJson(result));
     }
 
@@ -144,11 +144,11 @@ public final class ToolRouter {
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().listCraftables(args.query(), args.limit(), Optional.ofNullable(args.pageToken()));
+        var result = terminal.get().listCraftables(args.query(), args.limit(), args.pageToken());
         return ToolResult.ok(GSON.toJson(result));
     }
 
@@ -160,7 +160,7 @@ public final class ToolRouter {
         if (!isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + MAX_CRAFT_COUNT);
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
@@ -176,11 +176,11 @@ public final class ToolRouter {
         if (!isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + MAX_CRAFT_COUNT);
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().requestCraft(player, args.itemId(), args.count(), Optional.ofNullable(args.cpuName()));
+        var result = terminal.get().requestCraft(player, args.itemId(), args.count(), args.cpuName());
         return ToolResult.ok(GSON.toJson(result));
     }
 
@@ -189,7 +189,7 @@ public final class ToolRouter {
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
@@ -202,7 +202,7 @@ public final class ToolRouter {
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalBlockEntity> terminal = resolveOpenTerminal(player);
+        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
         if (terminal.isEmpty()) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
@@ -210,14 +210,15 @@ public final class ToolRouter {
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static Optional<AiTerminalBlockEntity> resolveOpenTerminal(ServerPlayer player) {
+    private static Optional<AiTerminalHost> resolveOpenTerminal(ServerPlayer player) {
         if (!(player.containerMenu instanceof AiTerminalMenu menu)) {
             return Optional.empty();
         }
-        var pos = menu.getPos();
-        var be = player.level().getBlockEntity(pos);
-        if (be instanceof AiTerminalBlockEntity terminal) {
-            return Optional.of(terminal);
+        if (menu.getHost().isPresent()) {
+            AiTerminalHost host = menu.getHost().get();
+            if (!host.isRemovedHost()) {
+                return Optional.of(host);
+            }
         }
         return Optional.empty();
     }

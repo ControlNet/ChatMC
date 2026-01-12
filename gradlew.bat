@@ -37,6 +37,33 @@ for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 set DEFAULT_JVM_OPTS=-Dfile.encoding=UTF-8 "-Xmx64m" "-Xms64m"
 
 @rem Find java.exe
+@rem ---------------------------------------------------------------------------
+@rem ChatAE note (Windows):
+@rem Minecraft 1.20.1 (and Forge/Fabric tooling) expects Java 17.
+@rem If JAVA_HOME is not set, try to locate a Java 17 JDK in common install paths.
+@rem This avoids build failures when a newer Java (e.g. 25) is on PATH.
+@rem ---------------------------------------------------------------------------
+if not defined JAVA_HOME (
+  for /d %%D in ("%ProgramFiles%\Java\jdk-17*") do (
+    if exist "%%D\bin\java.exe" (
+      set "JAVA_HOME=%%D"
+      goto findJavaFromJavaHome
+    )
+  )
+  for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-17*") do (
+    if exist "%%D\bin\java.exe" (
+      set "JAVA_HOME=%%D"
+      goto findJavaFromJavaHome
+    )
+  )
+  for /d %%D in ("%ProgramFiles%\Microsoft\jdk-17*") do (
+    if exist "%%D\bin\java.exe" (
+      set "JAVA_HOME=%%D"
+      goto findJavaFromJavaHome
+    )
+  )
+)
+
 if defined JAVA_HOME goto findJavaFromJavaHome
 
 set JAVA_EXE=java.exe

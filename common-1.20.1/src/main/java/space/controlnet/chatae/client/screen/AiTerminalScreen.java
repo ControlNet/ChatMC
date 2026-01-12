@@ -60,7 +60,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private long lastSnapshotVersion = -1;
 
     public AiTerminalScreen(AiTerminalMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, Component.translatable("block.chatae.ai_terminal"));
+        super(menu, inventory, Component.translatable("item.chatae.ai_terminal"));
         this.imageWidth = 248;
         this.imageHeight = 190;
     }
