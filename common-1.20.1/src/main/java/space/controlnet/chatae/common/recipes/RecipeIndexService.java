@@ -32,11 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class RecipeIndexService {
-    private final ExecutorService indexExecutor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "chatae-recipe-index");
-        t.setDaemon(true);
-        return t;
-    });
+    private final AtomicReference<ExecutorService> indexExecutorRef = new AtomicReference<>();
 
     private final AtomicReference<RecipeIndexSnapshot> snapshotRef = new AtomicReference<>();
     private final AtomicReference<CompletableFuture<Void>> indexingRef = new AtomicReference<>();
@@ -50,7 +46,11 @@ public final class RecipeIndexService {
     }
 
     public void shutdown() {
-        indexExecutor.shutdownNow();
+        ExecutorService executor = indexExecutorRef.getAndSet(null);
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+        indexingRef.set(null);
     }
 
     public CompletableFuture<Void> rebuildAsync(MinecraftServer server) {
@@ -59,12 +59,36 @@ public final class RecipeIndexService {
 
         snapshotRef.set(null);
 
+        ExecutorService executor = getOrCreateExecutor();
         CompletableFuture<Void> future = CompletableFuture
-                .supplyAsync(() -> buildSnapshot(server, recipeManager, recipeIds), indexExecutor)
+                .supplyAsync(() -> buildSnapshot(server, recipeManager, recipeIds), executor)
                 .thenAccept(snapshotRef::set);
 
         indexingRef.set(future);
         return future;
+    }
+
+    private ExecutorService getOrCreateExecutor() {
+        ExecutorService existing = indexExecutorRef.get();
+        if (existing != null && !existing.isShutdown() && !existing.isTerminated()) {
+            return existing;
+        }
+
+        ExecutorService created = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "chatae-recipe-index");
+            t.setDaemon(true);
+            return t;
+        });
+
+        if (indexExecutorRef.compareAndSet(existing, created)) {
+            if (existing != null) {
+                existing.shutdownNow();
+            }
+            return created;
+        }
+
+        created.shutdownNow();
+        return getOrCreateExecutor();
     }
 
     public RecipeSearchResult search(String query, RecipeSearchFilters filters, Optional<String> pageToken, int limit) {
