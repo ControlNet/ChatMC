@@ -10,6 +10,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
+import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
+import space.controlnet.chatae.core.recipes.RecipeSearchResult;
+import space.controlnet.chatae.core.recipes.RecipeSearchAlgorithm;
+import space.controlnet.chatae.core.recipes.RecipeSummary;
+import space.controlnet.chatae.core.recipes.RecipeIndexSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,28 +69,7 @@ public final class RecipeIndexService {
 
     public RecipeSearchResult search(String query, RecipeSearchFilters filters, Optional<String> pageToken, int limit) {
         RecipeIndexSnapshot snapshot = snapshotRef.get();
-        if (snapshot == null) {
-            return new RecipeSearchResult(List.of(), Optional.of("0"));
-        }
-
-        int safeLimit = Math.max(1, Math.min(limit, 100));
-        int offset = pageToken.flatMap(RecipeIndexService::parseOffset).orElse(0);
-
-        List<String> candidates = resolveCandidates(snapshot, query, filters);
-        List<RecipeSummary> results = new ArrayList<>(Math.min(candidates.size(), safeLimit));
-
-        for (int i = offset; i < candidates.size() && results.size() < safeLimit; i++) {
-            RecipeSummary summary = snapshot.byId().get(candidates.get(i));
-            if (summary != null) {
-                results.add(summary);
-            }
-        }
-
-        Optional<String> next = (offset + results.size()) < candidates.size()
-                ? Optional.of(Integer.toString(offset + results.size()))
-                : Optional.empty();
-
-        return new RecipeSearchResult(results, next);
+        return RecipeSearchAlgorithm.search(snapshot, query, filters, pageToken, limit);
     }
 
     public Optional<RecipeSummary> get(String recipeId) {
@@ -96,113 +80,6 @@ public final class RecipeIndexService {
         return Optional.ofNullable(snapshot.byId().get(recipeId));
     }
 
-    private static Optional<Integer> parseOffset(String token) {
-        try {
-            return Optional.of(Integer.parseInt(token));
-        } catch (NumberFormatException e) {
-            return Optional.empty();
-        }
-    }
-
-    private static List<String> resolveCandidates(RecipeIndexSnapshot snapshot, String query, RecipeSearchFilters filters) {
-        Optional<String> output = filters.outputItemId();
-        Optional<String> ingredient = filters.ingredientItemId();
-        Optional<String> tag = filters.tagId();
-
-        Set<String> candidateSet = null;
-
-        if (output.isPresent()) {
-            candidateSet = new HashSet<>(snapshot.byOutputItemId().getOrDefault(output.get(), List.of()));
-        }
-
-        if (ingredient.isPresent()) {
-            Set<String> s = new HashSet<>(snapshot.byIngredientItemId().getOrDefault(ingredient.get(), List.of()));
-            candidateSet = candidateSet == null ? s : intersect(candidateSet, s);
-        }
-
-        if (tag.isPresent()) {
-            Set<String> s = new HashSet<>(snapshot.byTagId().getOrDefault(tag.get(), List.of()));
-            candidateSet = candidateSet == null ? s : intersect(candidateSet, s);
-        }
-
-        List<String> tokens = tokenize(query);
-        Map<String, Integer> scores = new HashMap<>();
-        if (!tokens.isEmpty()) {
-            for (String token : tokens) {
-                for (String id : snapshot.byKeyword().getOrDefault(token, List.of())) {
-                    scores.merge(id, 1, Integer::sum);
-                }
-            }
-
-            Set<String> tokenSet = scores.keySet();
-            candidateSet = candidateSet == null ? new HashSet<>(tokenSet) : intersect(candidateSet, tokenSet);
-        }
-
-        if (candidateSet == null) {
-            candidateSet = new HashSet<>(snapshot.byId().keySet());
-        }
-
-        String modId = filters.modId().orElse(null);
-        String typeId = filters.recipeType().orElse(null);
-
-        List<String> candidates = new ArrayList<>(candidateSet.size());
-        for (String id : candidateSet) {
-            RecipeSummary summary = snapshot.byId().get(id);
-            if (summary == null) {
-                continue;
-            }
-
-            if (modId != null) {
-                int sep = id.indexOf(':');
-                if (sep <= 0 || !id.substring(0, sep).equals(modId)) {
-                    continue;
-                }
-            }
-
-            if (typeId != null && !typeId.equals(summary.recipeType())) {
-                continue;
-            }
-
-            candidates.add(id);
-        }
-
-        candidates.sort(Comparator
-                .comparingInt((String id) -> scores.getOrDefault(id, 0)).reversed()
-                .thenComparing(id -> id));
-
-        return candidates;
-    }
-
-    private static Set<String> intersect(Set<String> a, Set<String> b) {
-        Set<String> out = new HashSet<>(Math.min(a.size(), b.size()));
-        for (String x : a) {
-            if (b.contains(x)) {
-                out.add(x);
-            }
-        }
-        return out;
-    }
-
-    private static List<String> tokenize(String query) {
-        if (query == null) {
-            return List.of();
-        }
-        String normalized = query.toLowerCase(Locale.ROOT).trim();
-        if (normalized.isEmpty()) {
-            return List.of();
-        }
-
-        String[] parts = normalized.split("[^a-z0-9_:/.-]+",
-                -1);
-
-        List<String> out = new ArrayList<>();
-        for (String part : parts) {
-            if (!part.isBlank()) {
-                out.add(part);
-            }
-        }
-        return out;
-    }
 
     private static RecipeIndexSnapshot buildSnapshot(MinecraftServer server, RecipeManager recipeManager, List<ResourceLocation> recipeIds) {
         Map<String, RecipeSummary> byId = new HashMap<>();
@@ -247,12 +124,12 @@ public final class RecipeIndexService {
 
             addIndex(byOutput, outputItemId, recipeId);
 
-            for (String token : tokenize(outputItemId)) {
+            for (String token : RecipeSearchAlgorithm.tokenize(outputItemId)) {
                 addIndex(byKeyword, token, recipeId);
             }
 
             String displayName = result.getHoverName().getString();
-            for (String token : tokenize(displayName)) {
+            for (String token : RecipeSearchAlgorithm.tokenize(displayName)) {
                 addIndex(byKeyword, token, recipeId);
             }
 

@@ -1,4 +1,4 @@
-package space.controlnet.chatae.terminal;
+package space.controlnet.chatae.core.terminal;
 
 import java.util.List;
 import java.util.Optional;

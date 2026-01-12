@@ -7,6 +7,7 @@ import net.minecraft.world.level.Level;
 
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.security.IActionHost;
+import space.controlnet.chatae.core.terminal.AiTerminalData;
 
 /**
  * Common contract for AI Terminal hosts (block or AE2 part).

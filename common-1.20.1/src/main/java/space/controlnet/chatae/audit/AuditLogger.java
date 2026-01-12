@@ -3,11 +3,21 @@ package space.controlnet.chatae.audit;
 import space.controlnet.chatae.ChatAE;
 import space.controlnet.chatae.core.audit.AuditEvent;
 
-public final class AuditLogger {
+/**
+ * Minecraft-specific implementation of AuditLogger.
+ */
+public final class AuditLogger implements space.controlnet.chatae.core.audit.AuditLogger {
     private AuditLogger() {
     }
 
-    public static void log(AuditEvent event) {
+    private static final AuditLogger INSTANCE = new AuditLogger();
+
+    public static AuditLogger instance() {
+        return INSTANCE;
+    }
+
+    @Override
+    public void log(AuditEvent event) {
         ChatAE.LOGGER.info("audit player={} tool={} risk={} decision={} outcome={} duration={}ms error={}",
                 event.playerId(), event.toolName(), event.riskLevel(), event.decision(), event.outcome(), event.durationMillis(), event.error());
     }

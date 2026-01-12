@@ -44,22 +44,7 @@ dependencies {
     shadowCommon(project(path: ":core")) { transitive false }
 }
 
-shadowJar {
-    exclude "architectury.common.json"
-    configurations = [project.configurations.shadowCommon]
-    archiveClassifier = "dev-shadow"
-}
-
-remapJar {
-    inputFile.set(shadowJar.archiveFile)
-    dependsOn shadowJar
-    archiveClassifier = null
-    archiveFileName = "${rootProject.archives_base_name}-${rootProject.mod_version}-fabric-${rootProject.minecraft_version}.jar"
-}
-
-jar {
-    archiveClassifier = "dev"
-}
+// shadowJar, remapJar, and jar configurations are handled in root build.gradle
 
 processResources {
     inputs.property "version", project.version

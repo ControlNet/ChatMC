@@ -12,7 +12,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import org.jetbrains.annotations.NotNull;
 import space.controlnet.chatae.ChatAENetwork;
-import space.controlnet.chatae.client.ClientSessionStore;
+import space.controlnet.chatae.core.client.ClientSessionStore;
 import space.controlnet.chatae.core.proposal.ApprovalDecision;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalDetails;

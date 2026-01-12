@@ -1,14 +1,10 @@
-package space.controlnet.chatae.session;
+package space.controlnet.chatae.core.session;
 
 import space.controlnet.chatae.core.proposal.Proposal;
-import space.controlnet.chatae.core.session.ChatMessage;
-import space.controlnet.chatae.core.session.SessionSnapshot;
-import space.controlnet.chatae.core.session.SessionState;
-
-import java.util.Optional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 

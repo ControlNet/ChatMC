@@ -1,4 +1,4 @@
-package space.controlnet.chatae.client;
+package space.controlnet.chatae.core.client;
 
 import space.controlnet.chatae.core.session.SessionSnapshot;
 

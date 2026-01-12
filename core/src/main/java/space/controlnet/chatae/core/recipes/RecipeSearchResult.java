@@ -1,4 +1,4 @@
-package space.controlnet.chatae.recipes;
+package space.controlnet.chatae.core.recipes;
 
 import java.util.List;
 import java.util.Optional;

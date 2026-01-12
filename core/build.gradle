@@ -4,4 +4,9 @@ plugins {
 
 dependencies {
     // Pure domain module: no Minecraft/AE2/Architectury deps.
+    // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
+    rootProject.ext.addAgentDeps(dependencies, "api")
+    
+    // Gson for JSON parsing (used by LangChainToolCallParser)
+    api "com.google.code.gson:gson:2.10.1"
 }

@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 import space.controlnet.chatae.ChatAENetwork;
 import space.controlnet.chatae.forge.ForgePartRegistries;
 import space.controlnet.chatae.menu.AiTerminalMenu;
-import space.controlnet.chatae.terminal.AiTerminalData;
+import space.controlnet.chatae.core.terminal.AiTerminalData;
 import space.controlnet.chatae.terminal.AiTerminalHost;
 
 import java.util.*;

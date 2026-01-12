@@ -63,3 +63,25 @@ subprojects {
     }
 }
 
+// Common shadow/remap configuration for platform modules
+configure(subprojects.findAll { it.name.contains("forge") || it.name.contains("fabric") }) {
+    afterEvaluate {
+        shadowJar {
+            exclude "architectury.common.json"
+            configurations = [project.configurations.shadowCommon]
+            archiveClassifier = "dev-shadow"
+        }
+
+        remapJar {
+            inputFile.set(shadowJar.archiveFile)
+            dependsOn shadowJar
+            archiveClassifier = null
+            def loader = project.name.contains("forge") ? "forge" : "fabric"
+            archiveFileName = "${rootProject.archives_base_name}-${rootProject.mod_version}-${loader}-${rootProject.minecraft_version}.jar"
+        }
+
+        jar {
+            archiveClassifier = "dev"
+        }
+    }
+}

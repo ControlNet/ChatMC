@@ -5,23 +5,25 @@ import dev.architectury.networking.NetworkChannel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.audit.AuditLogger;
-import space.controlnet.chatae.client.ClientSessionStore;
 import space.controlnet.chatae.core.audit.AuditEvent;
 import space.controlnet.chatae.core.audit.AuditOutcome;
+import space.controlnet.chatae.core.client.ClientSessionStore;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.ApprovalDecision;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalDetails;
 import space.controlnet.chatae.core.session.ChatMessage;
 import space.controlnet.chatae.core.session.ChatRole;
+import space.controlnet.chatae.core.session.ServerSessionManager;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
+import space.controlnet.chatae.core.tools.ToolArgs;
 import space.controlnet.chatae.core.tools.ToolCall;
+import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolResult;
 import space.controlnet.chatae.net.c2s.C2SApprovalDecisionPacket;
 import space.controlnet.chatae.net.c2s.C2SSendChatPacket;
 import space.controlnet.chatae.net.s2c.S2CSessionSnapshotPacket;
-import space.controlnet.chatae.session.ServerSessionManager;
 import space.controlnet.chatae.tools.ToolRouter;
 
 import java.util.ArrayList;
@@ -245,7 +247,7 @@ public final class ChatAENetwork {
 
         SESSIONS.setState(playerId, SessionState.EXECUTING);
         long start = System.currentTimeMillis();
-        ToolRouter.ToolOutcome toolOutcome = AGENT.run(player, outcome.call());
+        ToolOutcome toolOutcome = AGENT.run(player, outcome.call());
         long duration = System.currentTimeMillis() - start;
 
         if (toolOutcome.hasProposal()) {
@@ -286,12 +288,12 @@ public final class ChatAENetwork {
             SESSIONS.setState(playerId, SessionState.FAILED);
         }
 
-        RiskLevel risk = ToolRouter.classifyRisk(call.toolName());
+        RiskLevel risk = space.controlnet.chatae.core.tools.ToolPolicy.classifyRisk(call.toolName());
         AuditOutcome outcome = result.success()
                 ? AuditOutcome.SUCCESS
                 : (result.error() != null && "denied".equals(result.error().code()) ? AuditOutcome.DENIED : AuditOutcome.ERROR);
 
-        AuditLogger.log(new AuditEvent(
+        AuditLogger.instance().log(new AuditEvent(
                 playerId.toString(),
                 System.currentTimeMillis(),
                 call.toolName(),
@@ -360,23 +362,23 @@ public final class ChatAENetwork {
         String lower = text.toLowerCase(Locale.ROOT);
         if (lower.startsWith("recipes.search ")) {
             String query = text.substring("recipes.search ".length()).trim();
-            return new ToolCall("recipes.search", GSON.toJson(new ToolRouter.RecipeSearchArgs(
+            return new ToolCall("recipes.search", GSON.toJson(new ToolArgs.RecipeSearchArgs(
                     query, null, 10, null, null, null, null, null)));
         }
 
         if (lower.startsWith("recipes.get ")) {
             String id = text.substring("recipes.get ".length()).trim();
-            return new ToolCall("recipes.get", GSON.toJson(new ToolRouter.RecipeGetArgs(id)));
+            return new ToolCall("recipes.get", GSON.toJson(new ToolArgs.RecipeGetArgs(id)));
         }
 
         if (lower.startsWith("ae2.list_items")) {
             String query = parseOptionalArg(text, "ae2.list_items");
-            return new ToolCall("ae2.list_items", GSON.toJson(new ToolRouter.Ae2ListArgs(query, false, 50, null)));
+            return new ToolCall("ae2.list_items", GSON.toJson(new ToolArgs.Ae2ListArgs(query, false, 50, null)));
         }
 
         if (lower.startsWith("ae2.list_craftables")) {
             String query = parseOptionalArg(text, "ae2.list_craftables");
-            return new ToolCall("ae2.list_craftables", GSON.toJson(new ToolRouter.Ae2ListArgs(query, true, 50, null)));
+            return new ToolCall("ae2.list_craftables", GSON.toJson(new ToolArgs.Ae2ListArgs(query, true, 50, null)));
         }
 
         if (lower.startsWith("ae2.simulate_craft ")) {
@@ -384,7 +386,7 @@ public final class ChatAENetwork {
             String[] parts = args.split("\\s+", 2);
             String itemId = parts[0];
             long count = parts.length > 1 ? parseLong(parts[1], 1) : 1;
-            return new ToolCall("ae2.simulate_craft", GSON.toJson(new ToolRouter.Ae2CraftArgs(itemId, count, null)));
+            return new ToolCall("ae2.simulate_craft", GSON.toJson(new ToolArgs.Ae2CraftArgs(itemId, count, null)));
         }
 
         if (lower.startsWith("ae2.request_craft ")) {
@@ -392,17 +394,17 @@ public final class ChatAENetwork {
             String[] parts = args.split("\\s+", 2);
             String itemId = parts[0];
             long count = parts.length > 1 ? parseLong(parts[1], 1) : 1;
-            return new ToolCall("ae2.request_craft", GSON.toJson(new ToolRouter.Ae2CraftArgs(itemId, count, null)));
+            return new ToolCall("ae2.request_craft", GSON.toJson(new ToolArgs.Ae2CraftArgs(itemId, count, null)));
         }
 
         if (lower.startsWith("ae2.job_status ")) {
             String jobId = text.substring("ae2.job_status ".length()).trim();
-            return new ToolCall("ae2.job_status", GSON.toJson(new ToolRouter.Ae2JobArgs(jobId)));
+            return new ToolCall("ae2.job_status", GSON.toJson(new ToolArgs.Ae2JobArgs(jobId)));
         }
 
         if (lower.startsWith("ae2.job_cancel ")) {
             String jobId = text.substring("ae2.job_cancel ".length()).trim();
-            return new ToolCall("ae2.job_cancel", GSON.toJson(new ToolRouter.Ae2JobArgs(jobId)));
+            return new ToolCall("ae2.job_cancel", GSON.toJson(new ToolArgs.Ae2JobArgs(jobId)));
         }
 
         return null;
@@ -412,19 +414,19 @@ public final class ChatAENetwork {
         private Object runner;
         private boolean initAttempted;
 
-        ToolRouter.ToolOutcome run(ServerPlayer player, ToolCall call) {
+        ToolOutcome run(ServerPlayer player, ToolCall call) {
             Object instance = ensureRunner();
             if (instance == null) {
-                return ToolRouter.ToolOutcome.result(null);
+                return ToolOutcome.result(ToolResult.error("no_agent", "Agent runner not available"));
             }
             try {
                 java.lang.reflect.Method runMethod = instance.getClass().getMethod("run", ServerPlayer.class, ToolCall.class);
                 Object result = runMethod.invoke(instance, player, call);
-                return result instanceof ToolRouter.ToolOutcome outcome ? outcome : ToolRouter.ToolOutcome.result(null);
+                return result instanceof ToolOutcome outcome ? outcome : ToolOutcome.result(ToolResult.error("invalid_result", "Agent returned invalid result"));
             } catch (Throwable t) {
                 ChatAE.LOGGER.error("Agent invocation failed, disabling agent", t);
                 runner = null;
-                return ToolRouter.ToolOutcome.result(null);
+                return ToolOutcome.result(ToolResult.error("agent_error", "Agent invocation failed: " + t.getMessage()));
             }
         }
 
@@ -479,9 +481,9 @@ public final class ChatAENetwork {
             }
             initAttempted = true;
             try {
-                Class<?> clazz = Class.forName("space.controlnet.chatae.agent.LangChainToolCallParser");
-                java.lang.reflect.Method createMethod = clazz.getMethod("create");
-                Object result = createMethod.invoke(null);
+                Class<?> clazz = Class.forName("space.controlnet.chatae.core.agent.LangChainToolCallParser");
+                java.lang.reflect.Method createMethod = clazz.getMethod("create", space.controlnet.chatae.core.agent.Logger.class);
+                Object result = createMethod.invoke(null, (space.controlnet.chatae.core.agent.Logger) (msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
                 if (result instanceof Optional<?> optional) {
                     parser = optional.orElse(null);
                 }
@@ -519,7 +521,7 @@ public final class ChatAENetwork {
         }
 
         if (packet.decision() == ApprovalDecision.DENY) {
-            AuditLogger.log(new AuditEvent(
+            AuditLogger.instance().log(new AuditEvent(
                     player.getUUID().toString(),
                     System.currentTimeMillis(),
                     proposal.toolCall().toolName(),
@@ -539,10 +541,10 @@ public final class ChatAENetwork {
 
         SESSIONS.setState(player.getUUID(), SessionState.EXECUTING);
         long start = System.currentTimeMillis();
-        ToolRouter.ToolOutcome outcome = ToolRouter.execute(player, proposal.toolCall(), true);
+        ToolOutcome outcome = ToolRouter.execute(player, proposal.toolCall(), true);
         long duration = System.currentTimeMillis() - start;
 
-        AuditLogger.log(new AuditEvent(
+        AuditLogger.instance().log(new AuditEvent(
                 player.getUUID().toString(),
                 System.currentTimeMillis(),
                 proposal.toolCall().toolName(),

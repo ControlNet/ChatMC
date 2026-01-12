@@ -10,6 +10,7 @@ import org.bsc.langgraph4j.action.NodeAction;
 import org.bsc.langgraph4j.state.AgentState;
 import space.controlnet.chatae.ChatAE;
 import space.controlnet.chatae.core.tools.ToolCall;
+import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.tools.ToolRouter;
 
 import java.util.Map;
@@ -35,7 +36,7 @@ public final class AgentRunner {
         }
     }
 
-    public ToolRouter.ToolOutcome run(ServerPlayer player, ToolCall call) {
+    public ToolOutcome run(ServerPlayer player, ToolCall call) {
         Map<String, Object> init = Map.of(
                 KEY_PLAYER, player,
                 KEY_MESSAGE, call,
@@ -44,21 +45,21 @@ public final class AgentRunner {
 
         Optional<SimpleState> state = graph.invoke(init);
         if (state.isEmpty()) {
-            return ToolRouter.ToolOutcome.result(null);
+            return ToolOutcome.result(space.controlnet.chatae.core.tools.ToolResult.error("empty_state", "Agent state is empty"));
         }
 
-        return state.get().value(KEY_OUTCOME).map(ToolRouter.ToolOutcome.class::cast)
-                .orElseGet(() -> ToolRouter.ToolOutcome.result(null));
+        return state.get().value(KEY_OUTCOME).map(ToolOutcome.class::cast)
+                .orElseGet(() -> ToolOutcome.result(space.controlnet.chatae.core.tools.ToolResult.error("no_outcome", "No outcome from agent")));
     }
 
     private static Map<String, Object> route(SimpleState state) {
         ServerPlayer player = state.value(KEY_PLAYER).map(ServerPlayer.class::cast).orElse(null);
         ToolCall call = state.value(KEY_MESSAGE).map(ToolCall.class::cast).orElse(null);
         if (player == null || call == null) {
-            return Map.of(KEY_OUTCOME, ToolRouter.ToolOutcome.result(null));
+            return Map.of(KEY_OUTCOME, ToolOutcome.result(space.controlnet.chatae.core.tools.ToolResult.error("invalid_input", "Player or call is null")));
         }
 
-        ToolRouter.ToolOutcome outcome = ToolRouter.execute(player, call, false);
+        ToolOutcome outcome = ToolRouter.execute(player, call, false);
         if (outcome.hasProposal()) {
             ChatAE.LOGGER.debug("Agent produced proposal {}", outcome.proposal().id());
         }
