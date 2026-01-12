@@ -6,6 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.PackType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import space.controlnet.chatae.part.ChatAEPartRegistries;
 import space.controlnet.chatae.recipes.RecipeIndexReloadListener;
 import space.controlnet.chatae.recipes.RecipeIndexService;
 
@@ -24,6 +25,7 @@ public final class ChatAE {
 
     public static void init() {
         ChatAERegistries.init();
+        ChatAEPartRegistries.init();
         ChatAENetwork.init();
 
         ReloadListenerRegistry.register(PackType.SERVER_DATA, new RecipeIndexReloadListener(RECIPE_INDEX, SERVER::get), ChatAERegistries.id("recipe_index"));

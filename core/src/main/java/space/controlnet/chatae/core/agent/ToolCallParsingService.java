@@ -1,0 +1,57 @@
+package space.controlnet.chatae.core.agent;
+
+import space.controlnet.chatae.core.tools.LocalCommandParser;
+import space.controlnet.chatae.core.tools.ParseOutcome;
+import space.controlnet.chatae.core.tools.ToolCall;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+
+public final class ToolCallParsingService {
+    private ToolCallParsingService() {
+    }
+
+    public static CompletableFuture<ParseOutcome> parseAsync(UUID playerId,
+                                                             String raw,
+                                                             ReflectiveToolCallParser llmParser,
+                                                             Executor executor,
+                                                             long timeoutMs,
+                                                             LlmRateLimiter rateLimiter) {
+        String text = raw == null ? "" : raw.trim();
+        if (text.isEmpty()) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "empty", "Empty command"));
+        }
+
+        ToolCall local = LocalCommandParser.parse(text);
+        if (local != null) {
+            return CompletableFuture.completedFuture(new ParseOutcome(local, null, null));
+        }
+
+        if (!llmParser.isAvailable()) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_unavailable", "LLM unavailable"));
+        }
+
+        if (!rateLimiter.allow(playerId)) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_rate_limited", "LLM rate limit exceeded"));
+        }
+
+        return CompletableFuture.supplyAsync(() -> llmParser.parse(text).orElse(null), executor)
+                .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                .handle((toolCall, error) -> {
+                    if (error != null) {
+                        Throwable cause = error instanceof CompletionException ? error.getCause() : error;
+                        if (cause instanceof java.util.concurrent.TimeoutException) {
+                            return new ParseOutcome(null, "llm_timeout", "LLM request timed out");
+                        }
+                        return new ParseOutcome(null, "llm_failed", "LLM request failed");
+                    }
+                    if (toolCall == null) {
+                        return new ParseOutcome(null, "unknown_command", "Unknown command");
+                    }
+                    return new ParseOutcome(toolCall, null, null);
+                });
+    }
+}

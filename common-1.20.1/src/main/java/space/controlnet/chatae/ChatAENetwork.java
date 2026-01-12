@@ -5,6 +5,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.audit.AuditLogger;
 import space.controlnet.chatae.core.agent.LlmRateLimiter;
+import space.controlnet.chatae.core.agent.ReflectiveToolCallParser;
+import space.controlnet.chatae.core.agent.ToolCallParsingService;
 import space.controlnet.chatae.core.audit.AuditEvent;
 import space.controlnet.chatae.core.audit.AuditOutcome;
 import space.controlnet.chatae.core.client.ClientSessionStore;
@@ -17,7 +19,6 @@ import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.ServerSessionManager;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
-import space.controlnet.chatae.core.tools.LocalCommandParser;
 import space.controlnet.chatae.core.tools.ParseOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +44,7 @@ public final class ChatAENetwork {
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
-    private static final LlmToolParser LLM_PARSER = new LlmToolParser();
+    private static final ReflectiveToolCallParser LLM_PARSER = new ReflectiveToolCallParser((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
     private static final ExecutorService LLM_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "chatae-llm");
         t.setDaemon(true);
@@ -305,39 +305,7 @@ public final class ChatAENetwork {
     }
 
     private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String raw) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.isEmpty()) {
-            return CompletableFuture.completedFuture(new ParseOutcome(null, "empty", "Empty command"));
-        }
-
-        ToolCall local = LocalCommandParser.parse(text);
-        if (local != null) {
-            return CompletableFuture.completedFuture(new ParseOutcome(local, null, null));
-        }
-
-        if (!LLM_PARSER.isAvailable()) {
-            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_unavailable", "LLM unavailable"));
-        }
-
-        if (!LLM_RATE_LIMITER.allow(playerId)) {
-            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_rate_limited", "LLM rate limit exceeded"));
-        }
-
-        return CompletableFuture.supplyAsync(() -> LLM_PARSER.parse(text).orElse(null), LLM_EXECUTOR)
-                .orTimeout(LLM_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .handle((toolCall, error) -> {
-                    if (error != null) {
-                        Throwable cause = error instanceof CompletionException ? error.getCause() : error;
-                        if (cause instanceof java.util.concurrent.TimeoutException) {
-                            return new ParseOutcome(null, "llm_timeout", "LLM request timed out");
-                        }
-                        return new ParseOutcome(null, "llm_failed", "LLM request failed");
-                    }
-                    if (toolCall == null) {
-                        return new ParseOutcome(null, "unknown_command", "Unknown command");
-                    }
-                    return new ParseOutcome(toolCall, null, null);
-                });
+        return ToolCallParsingService.parseAsync(playerId, raw, LLM_PARSER, LLM_EXECUTOR, LLM_TIMEOUT_MS, LLM_RATE_LIMITER);
     }
 
 
@@ -377,55 +345,6 @@ public final class ChatAENetwork {
             }
         }
     }
-
-    private static final class LlmToolParser {
-        private Object parser;
-        private boolean initAttempted;
-
-        boolean isAvailable() {
-            ensureParser();
-            return parser != null;
-        }
-
-        Optional<ToolCall> parse(String text) {
-            Object instance = ensureParser();
-            if (instance == null) {
-                return Optional.empty();
-            }
-            try {
-                java.lang.reflect.Method parseMethod = instance.getClass().getMethod("parse", String.class);
-                Object result = parseMethod.invoke(instance, text);
-                if (result instanceof Optional<?> optional) {
-                    Object value = optional.orElse(null);
-                    return value instanceof ToolCall call ? Optional.of(call) : Optional.empty();
-                }
-                return Optional.empty();
-            } catch (Throwable t) {
-                ChatAE.LOGGER.warn("LLM parse failed", t);
-                return Optional.empty();
-            }
-        }
-
-        private Object ensureParser() {
-            if (parser != null || initAttempted) {
-                return parser;
-            }
-            initAttempted = true;
-            try {
-                Class<?> clazz = Class.forName("space.controlnet.chatae.core.agent.LangChainToolCallParser");
-                java.lang.reflect.Method createMethod = clazz.getMethod("create", space.controlnet.chatae.core.agent.Logger.class);
-                Object result = createMethod.invoke(null, (space.controlnet.chatae.core.agent.Logger) (msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
-                if (result instanceof Optional<?> optional) {
-                    parser = optional.orElse(null);
-                }
-            } catch (Throwable t) {
-                ChatAE.LOGGER.warn("LLM runtime unavailable, continuing without LLM support", t);
-                parser = null;
-            }
-            return parser;
-        }
-    }
-
 
     private static void handleApprovalDecision(ServerPlayer player, C2SApprovalDecisionPacket packet) {
         SessionSnapshot snapshot = SESSIONS.get(player.getUUID());
