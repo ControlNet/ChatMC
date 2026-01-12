@@ -18,6 +18,7 @@
 *.class
 out/
 dist/
+/appeng/
 
 # Logs
 *.log
