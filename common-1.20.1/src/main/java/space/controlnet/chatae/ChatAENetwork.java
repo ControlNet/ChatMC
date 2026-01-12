@@ -1,10 +1,10 @@
 package space.controlnet.chatae;
 
-import com.google.gson.Gson;
 import dev.architectury.networking.NetworkChannel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.audit.AuditLogger;
+import space.controlnet.chatae.core.agent.LlmRateLimiter;
 import space.controlnet.chatae.core.audit.AuditEvent;
 import space.controlnet.chatae.core.audit.AuditOutcome;
 import space.controlnet.chatae.core.client.ClientSessionStore;
@@ -17,7 +17,8 @@ import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.ServerSessionManager;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
-import space.controlnet.chatae.core.tools.ToolArgs;
+import space.controlnet.chatae.core.tools.LocalCommandParser;
+import space.controlnet.chatae.core.tools.ParseOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolResult;
@@ -28,20 +29,16 @@ import space.controlnet.chatae.tools.ToolRouter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
-    private static final Gson GSON = new Gson();
     private static final int PROTOCOL_VERSION = 1;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
@@ -52,9 +49,9 @@ public final class ChatAENetwork {
         t.setDaemon(true);
         return t;
     });
-    private static final ConcurrentHashMap<UUID, AtomicLong> LAST_LLM_CALL = new ConcurrentHashMap<>();
     private static final long LLM_TIMEOUT_MS = 5000;
     private static final long LLM_COOLDOWN_MS = 1500;
+    private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS);
 
     private ChatAENetwork() {
     }
@@ -312,7 +309,7 @@ public final class ChatAENetwork {
             return CompletableFuture.completedFuture(new ParseOutcome(null, "empty", "Empty command"));
         }
 
-        ToolCall local = parseCommandLocal(text);
+        ToolCall local = LocalCommandParser.parse(text);
         if (local != null) {
             return CompletableFuture.completedFuture(new ParseOutcome(local, null, null));
         }
@@ -321,7 +318,7 @@ public final class ChatAENetwork {
             return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_unavailable", "LLM unavailable"));
         }
 
-        if (!allowLlm(playerId)) {
+        if (!LLM_RATE_LIMITER.allow(playerId)) {
             return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_rate_limited", "LLM rate limit exceeded"));
         }
 
@@ -342,73 +339,6 @@ public final class ChatAENetwork {
                 });
     }
 
-    private static boolean allowLlm(UUID playerId) {
-        AtomicLong last = LAST_LLM_CALL.computeIfAbsent(playerId, id -> new AtomicLong(0));
-        long now = System.currentTimeMillis();
-        long prev = last.get();
-        if (now - prev < LLM_COOLDOWN_MS) {
-            return false;
-        }
-        last.set(now);
-        return true;
-    }
-
-    private static ToolCall parseCommandLocal(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.isEmpty()) {
-            return null;
-        }
-
-        String lower = text.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("recipes.search ")) {
-            String query = text.substring("recipes.search ".length()).trim();
-            return new ToolCall("recipes.search", GSON.toJson(new ToolArgs.RecipeSearchArgs(
-                    query, null, 10, null, null, null, null, null)));
-        }
-
-        if (lower.startsWith("recipes.get ")) {
-            String id = text.substring("recipes.get ".length()).trim();
-            return new ToolCall("recipes.get", GSON.toJson(new ToolArgs.RecipeGetArgs(id)));
-        }
-
-        if (lower.startsWith("ae2.list_items")) {
-            String query = parseOptionalArg(text, "ae2.list_items");
-            return new ToolCall("ae2.list_items", GSON.toJson(new ToolArgs.Ae2ListArgs(query, false, 50, null)));
-        }
-
-        if (lower.startsWith("ae2.list_craftables")) {
-            String query = parseOptionalArg(text, "ae2.list_craftables");
-            return new ToolCall("ae2.list_craftables", GSON.toJson(new ToolArgs.Ae2ListArgs(query, true, 50, null)));
-        }
-
-        if (lower.startsWith("ae2.simulate_craft ")) {
-            String args = text.substring("ae2.simulate_craft ".length()).trim();
-            String[] parts = args.split("\\s+", 2);
-            String itemId = parts[0];
-            long count = parts.length > 1 ? parseLong(parts[1], 1) : 1;
-            return new ToolCall("ae2.simulate_craft", GSON.toJson(new ToolArgs.Ae2CraftArgs(itemId, count, null)));
-        }
-
-        if (lower.startsWith("ae2.request_craft ")) {
-            String args = text.substring("ae2.request_craft ".length()).trim();
-            String[] parts = args.split("\\s+", 2);
-            String itemId = parts[0];
-            long count = parts.length > 1 ? parseLong(parts[1], 1) : 1;
-            return new ToolCall("ae2.request_craft", GSON.toJson(new ToolArgs.Ae2CraftArgs(itemId, count, null)));
-        }
-
-        if (lower.startsWith("ae2.job_status ")) {
-            String jobId = text.substring("ae2.job_status ".length()).trim();
-            return new ToolCall("ae2.job_status", GSON.toJson(new ToolArgs.Ae2JobArgs(jobId)));
-        }
-
-        if (lower.startsWith("ae2.job_cancel ")) {
-            String jobId = text.substring("ae2.job_cancel ".length()).trim();
-            return new ToolCall("ae2.job_cancel", GSON.toJson(new ToolArgs.Ae2JobArgs(jobId)));
-        }
-
-        return null;
-    }
 
     private static final class AgentInvoker {
         private Object runner;
@@ -495,18 +425,6 @@ public final class ChatAENetwork {
         }
     }
 
-    private static long parseLong(String raw, long fallback) {
-        try {
-            return Long.parseLong(raw);
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    private static String parseOptionalArg(String text, String prefix) {
-        String remainder = text.substring(prefix.length()).trim();
-        return remainder.isEmpty() ? "" : remainder;
-    }
 
     private static void handleApprovalDecision(ServerPlayer player, C2SApprovalDecisionPacket packet) {
         SessionSnapshot snapshot = SESSIONS.get(player.getUUID());
@@ -567,6 +485,4 @@ public final class ChatAENetwork {
         sendSessionSnapshot(player);
     }
 
-    private record ParseOutcome(ToolCall call, String errorCode, String errorMessage) {
-    }
 }

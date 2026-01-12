@@ -7,7 +7,7 @@ import space.controlnet.chatae.terminal.AiTerminalHost;
 import space.controlnet.chatae.core.policy.PolicyDecision;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.Proposal;
-import space.controlnet.chatae.core.proposal.ProposalDetails;
+import space.controlnet.chatae.core.proposal.ProposalFactory;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
 import space.controlnet.chatae.core.tools.ToolCall;
@@ -18,9 +18,7 @@ import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolArgs;
 import space.controlnet.chatae.core.tools.ToolPolicy;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 public final class ToolRouter {
     private static final Gson GSON = new Gson();
@@ -33,7 +31,7 @@ public final class ToolRouter {
         if (!approved) {
             PolicyDecision decision = ToolPolicy.policyFor(risk);
             if (decision == PolicyDecision.REQUIRE_APPROVAL) {
-                Proposal proposal = buildProposal(risk, call);
+                Proposal proposal = ProposalFactory.build(risk, call);
                 return space.controlnet.chatae.core.tools.ToolOutcome.proposal(proposal);
             }
             if (decision == PolicyDecision.DENY) {
@@ -174,29 +172,6 @@ public final class ToolRouter {
         }
         var result = terminal.get().cancelJob(args.jobId());
         return ToolResult.ok(GSON.toJson(result));
-    }
-
-    private static Proposal buildProposal(RiskLevel risk, ToolCall call) {
-        ProposalDetails details = ProposalDetails.empty();
-        String summary = call.toolName();
-
-        if ("ae2.request_craft".equals(call.toolName())) {
-            var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2CraftArgs.class);
-            String itemId = args == null ? "" : args.itemId();
-            long count = args == null ? 0 : args.count();
-            summary = "Craft " + count + " " + itemId;
-            String note = args != null && args.cpuName() != null && !args.cpuName().isBlank()
-                    ? "CPU hint: " + args.cpuName() + ". Feasibility: unknown (run ae2.simulate_craft). Cancel after submit with ae2.job_cancel <jobId>."
-                    : "Feasibility: unknown (run ae2.simulate_craft). Cancel after submit with ae2.job_cancel <jobId>.";
-            details = new ProposalDetails("Craft", itemId, count, List.of(), note);
-        } else if ("ae2.job_cancel".equals(call.toolName())) {
-            var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2JobArgs.class);
-            String jobId = args == null ? "" : args.jobId();
-            summary = "Cancel job " + jobId;
-            details = new ProposalDetails("Cancel job", jobId, 0L, List.of(), "Stops an active crafting job.");
-        }
-
-        return new Proposal(UUID.randomUUID().toString(), risk, summary, call, System.currentTimeMillis(), details);
     }
 
     private static Optional<AiTerminalHost> resolveOpenTerminal(ServerPlayer player) {
