@@ -4,8 +4,8 @@ import dev.architectury.platform.forge.EventBuses;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import space.controlnet.chatae.ChatAE;
-import space.controlnet.chatae.ChatAEClient;
+import space.controlnet.chatae.common.ChatAE;
+import space.controlnet.chatae.common.ChatAEClient;
 
 @Mod(ChatAE.MOD_ID)
 public final class ChatAEForge {

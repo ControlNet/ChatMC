@@ -32,6 +32,7 @@ dependencies {
 
     // AE2 Fabric
     modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
+    modImplementation "teamreborn:energy:3.0.0"
 
     // Agent dependencies (runtime + shaded into jar)
     addAgentDeps(dependencies, "implementation")

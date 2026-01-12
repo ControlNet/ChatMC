@@ -24,8 +24,9 @@ dependencies {
     modImplementation "dev.architectury:architectury:${rootProject.architectury_version}"
 
     // AE2 API (common uses the API types).
-    // Use the Forge artifact for compile-only API access; platform modules pull the correct runtime jar.
-    modCompileOnly "appeng:appliedenergistics2-forge:${rootProject.ae2_version}"
+    // Match ae2_pattern_counter: use Fabric AE2 in common for access widener support.
+    modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
 
     // LangChain4j + LangGraph4j (agent orchestration)
     addAgentDeps(dependencies, "implementation")
