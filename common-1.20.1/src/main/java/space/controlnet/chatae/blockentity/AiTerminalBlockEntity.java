@@ -47,10 +47,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public final class AiTerminalBlockEntity extends BlockEntity implements ExtendedMenuProvider, IInWorldGridNodeHost, IActionHost, ICraftingRequester {
     private static final String NBT_NODE = "gridNode";
+    private static final long CRAFT_CALC_TIMEOUT_MS = 30000;
 
     private final IManagedGridNode mainNode;
     private boolean nodeInitScheduled;
@@ -145,8 +148,9 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
         }
     }
 
-    public record Ae2JobStatus(String jobId, String status, Optional<String> error) {
+    public record Ae2JobStatus(String jobId, String status, List<Ae2PlanItem> missingItems, Optional<String> error) {
         public Ae2JobStatus {
+            missingItems = List.copyOf(missingItems);
             error = error == null ? Optional.empty() : error;
         }
     }
@@ -228,7 +232,7 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
         }
 
         String jobId = UUID.randomUUID().toString();
-        CraftJob job = new CraftJob(jobId, CraftJobState.CALCULATING, null, Optional.empty());
+        CraftJob job = new CraftJob(jobId, CraftJobState.CALCULATING, null, List.of(), Optional.empty());
         jobs.put(jobId, job);
 
         ICraftingSimulationRequester requester = new SimulationRequester(player, this);
@@ -246,7 +250,7 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
             jobs.put(jobId, job.withPlan(plan, missing));
         });
 
-        return new Ae2CraftSimulation(jobId, job.state().name().toLowerCase(Locale.ROOT), List.of(), Optional.empty());
+        return new Ae2CraftSimulation(jobId, job.state().name().toLowerCase(Locale.ROOT), job.missingItems(), Optional.empty());
     }
 
     public Ae2CraftRequest requestCraft(Player player, String itemId, long count, Optional<String> cpuName) {
@@ -261,7 +265,7 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
         }
 
         String jobId = UUID.randomUUID().toString();
-        CraftJob job = new CraftJob(jobId, CraftJobState.CALCULATING, null, Optional.empty());
+        CraftJob job = new CraftJob(jobId, CraftJobState.CALCULATING, null, List.of(), Optional.empty());
         jobs.put(jobId, job);
 
         ICraftingSimulationRequester requester = new SimulationRequester(player, this);
@@ -278,7 +282,7 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
 
             List<Ae2PlanItem> missing = toPlanItems(plan.missingItems());
             if (plan.simulation()) {
-                jobs.put(jobId, job.withError("Missing items: " + missing.stream().map(Ae2PlanItem::itemId).collect(Collectors.joining(", "))));
+                jobs.put(jobId, job.withPlan(plan, missing));
                 return;
             }
 
@@ -288,23 +292,30 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
                 return;
             }
 
+            jobs.put(jobId, job.withMissingItems(missing));
+
             levelRef.getServer().execute(() -> {
+                CraftJob current = jobs.getOrDefault(jobId, job);
                 IGrid grid = gridOpt.get();
                 ICraftingCPU target = selectCpu(grid.getCraftingService().getCpus(), cpuName);
+                if (cpuName.isPresent() && target == null) {
+                    jobs.put(jobId, current.withError("CPU unavailable"));
+                    return;
+                }
                 IActionSource actionSource = IActionSource.ofPlayer(player, this);
                 ICraftingSubmitResult submit = grid.getCraftingService().submitJob(plan, this, target, false, actionSource);
                 if (!submit.successful()) {
-                    jobs.put(jobId, job.withError("Crafting submit failed: " + submit.errorCode()));
+                    jobs.put(jobId, current.withError("Crafting submit failed: " + submit.errorCode()));
                     return;
                 }
 
                 ICraftingLink link = submit.link();
                 if (link == null) {
-                    jobs.put(jobId, job.withError("Crafting link unavailable"));
+                    jobs.put(jobId, current.withError("Crafting link unavailable"));
                     return;
                 }
 
-                jobs.put(jobId, job.withLink(link));
+                jobs.put(jobId, current.withLink(link));
             });
         });
 
@@ -314,20 +325,20 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
     public Ae2JobStatus jobStatus(String jobId) {
         CraftJob job = jobs.get(jobId);
         if (job == null) {
-            return new Ae2JobStatus(jobId, "unknown", Optional.of("Job not found"));
+            return new Ae2JobStatus(jobId, "unknown", List.of(), Optional.of("Job not found"));
         }
 
         job = refreshJob(job);
         jobs.put(jobId, job);
 
         Optional<String> error = job.error();
-        return new Ae2JobStatus(jobId, job.state().name().toLowerCase(Locale.ROOT), error);
+        return new Ae2JobStatus(jobId, job.state().name().toLowerCase(Locale.ROOT), job.missingItems(), error);
     }
 
     public Ae2JobStatus cancelJob(String jobId) {
         CraftJob job = jobs.get(jobId);
         if (job == null) {
-            return new Ae2JobStatus(jobId, "unknown", Optional.of("Job not found"));
+            return new Ae2JobStatus(jobId, "unknown", List.of(), Optional.of("Job not found"));
         }
 
         if (job.link() != null) {
@@ -336,7 +347,7 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
 
         job = job.withState(CraftJobState.CANCELED);
         jobs.put(jobId, job);
-        return new Ae2JobStatus(jobId, job.state().name().toLowerCase(Locale.ROOT), job.error());
+        return new Ae2JobStatus(jobId, job.state().name().toLowerCase(Locale.ROOT), job.missingItems(), job.error());
     }
 
     private static Optional<Integer> parseOffset(String token) {
@@ -362,7 +373,9 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
     private static CompletableFuture<ICraftingPlan> toCompletable(java.util.concurrent.Future<ICraftingPlan> future) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return future.get();
+                return future.get(CRAFT_CALC_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                throw new RuntimeException("Crafting calculation timed out", e);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -460,27 +473,32 @@ public final class AiTerminalBlockEntity extends BlockEntity implements Extended
         FAILED
     }
 
-    private record CraftJob(String jobId, CraftJobState state, ICraftingLink link, Optional<String> error) {
+    private record CraftJob(String jobId, CraftJobState state, ICraftingLink link, List<Ae2PlanItem> missingItems, Optional<String> error) {
         CraftJob {
+            missingItems = missingItems == null ? List.of() : List.copyOf(missingItems);
             error = error == null ? Optional.empty() : error;
         }
 
         CraftJob withPlan(ICraftingPlan plan, List<Ae2PlanItem> missing) {
-            return new CraftJob(jobId, plan.simulation() ? CraftJobState.FAILED : CraftJobState.SUBMITTED, link, plan.simulation()
+            return new CraftJob(jobId, plan.simulation() ? CraftJobState.FAILED : CraftJobState.SUBMITTED, link, missing, plan.simulation()
                     ? Optional.of("Missing items: " + missing.stream().map(Ae2PlanItem::itemId).collect(Collectors.joining(", ")))
                     : Optional.empty());
         }
 
         CraftJob withLink(ICraftingLink link) {
-            return new CraftJob(jobId, CraftJobState.SUBMITTED, link, error);
+            return new CraftJob(jobId, CraftJobState.SUBMITTED, link, missingItems, error);
+        }
+
+        CraftJob withMissingItems(List<Ae2PlanItem> missing) {
+            return new CraftJob(jobId, state, link, missing, error);
         }
 
         CraftJob withError(String message) {
-            return new CraftJob(jobId, CraftJobState.FAILED, link, Optional.ofNullable(message));
+            return new CraftJob(jobId, CraftJobState.FAILED, link, missingItems, Optional.ofNullable(message));
         }
 
         CraftJob withState(CraftJobState state) {
-            return new CraftJob(jobId, state, link, error);
+            return new CraftJob(jobId, state, link, missingItems, error);
         }
     }
 

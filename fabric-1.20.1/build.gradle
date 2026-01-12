@@ -33,6 +33,35 @@ dependencies {
     // AE2 Fabric
     modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
 
+    // Agent dependencies (runtime + shaded into jar)
+    implementation("dev.langchain4j:langchain4j-core:${rootProject.langchain4j_version}") {
+        exclude group: "org.slf4j"
+    }
+    implementation("dev.langchain4j:langchain4j-open-ai:${rootProject.langchain4j_version}") {
+        exclude group: "org.slf4j"
+        exclude group: "ch.qos.logback"
+    }
+    implementation("org.bsc.langgraph4j:langgraph4j-core:${rootProject.langgraph4j_version}") {
+        exclude group: "org.slf4j"
+    }
+    implementation("org.bsc.langgraph4j:langgraph4j-langchain4j:${rootProject.langgraph4j_version}") {
+        exclude group: "org.slf4j"
+    }
+
+    shadowCommon("dev.langchain4j:langchain4j-core:${rootProject.langchain4j_version}") {
+        exclude group: "org.slf4j"
+    }
+    shadowCommon("dev.langchain4j:langchain4j-open-ai:${rootProject.langchain4j_version}") {
+        exclude group: "org.slf4j"
+        exclude group: "ch.qos.logback"
+    }
+    shadowCommon("org.bsc.langgraph4j:langgraph4j-core:${rootProject.langgraph4j_version}") {
+        exclude group: "org.slf4j"
+    }
+    shadowCommon("org.bsc.langgraph4j:langgraph4j-langchain4j:${rootProject.langgraph4j_version}") {
+        exclude group: "org.slf4j"
+    }
+
     common(project(path: ":common-1.20.1", configuration: "namedElements")) { transitive false }
     shadowCommon(project(path: ":common-1.20.1", configuration: "transformProductionFabric")) { transitive false }
 

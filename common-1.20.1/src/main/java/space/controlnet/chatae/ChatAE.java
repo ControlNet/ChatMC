@@ -36,6 +36,7 @@ public final class ChatAE {
         LifecycleEvent.SERVER_STOPPED.register(server -> {
             SERVER.set(null);
             RECIPE_INDEX.shutdown();
+            ChatAENetwork.shutdown();
         });
 
         LOGGER.info("ChatAE initialized");

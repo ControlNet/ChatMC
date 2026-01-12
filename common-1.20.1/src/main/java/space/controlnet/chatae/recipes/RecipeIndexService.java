@@ -52,6 +52,8 @@ public final class RecipeIndexService {
         RecipeManager recipeManager = server.getRecipeManager();
         List<ResourceLocation> recipeIds = recipeManager.getRecipeIds().toList();
 
+        snapshotRef.set(null);
+
         CompletableFuture<Void> future = CompletableFuture
                 .supplyAsync(() -> buildSnapshot(server, recipeManager, recipeIds), indexExecutor)
                 .thenAccept(snapshotRef::set);
@@ -246,6 +248,11 @@ public final class RecipeIndexService {
             addIndex(byOutput, outputItemId, recipeId);
 
             for (String token : tokenize(outputItemId)) {
+                addIndex(byKeyword, token, recipeId);
+            }
+
+            String displayName = result.getHoverName().getString();
+            for (String token : tokenize(displayName)) {
                 addIndex(byKeyword, token, recipeId);
             }
 

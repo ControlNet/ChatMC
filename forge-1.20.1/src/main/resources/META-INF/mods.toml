@@ -23,7 +23,7 @@ ordering="NONE"
 side="BOTH"
 
 [[dependencies.chatae]]
-modId="appliedenergistics2"
+modId="ae2"
 mandatory=true
 versionRange="[15,)"
 ordering="NONE"

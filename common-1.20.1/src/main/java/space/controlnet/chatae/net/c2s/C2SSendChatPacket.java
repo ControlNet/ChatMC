@@ -1,4 +1,4 @@
 package space.controlnet.chatae.net.c2s;
 
-public record C2SSendChatPacket(String text) {
+public record C2SSendChatPacket(int protocolVersion, String text) {
 }

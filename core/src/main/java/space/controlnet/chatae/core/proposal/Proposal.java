@@ -8,6 +8,10 @@ public record Proposal(
         RiskLevel riskLevel,
         String summary,
         ToolCall toolCall,
-        long createdAtMillis
+        long createdAtMillis,
+        ProposalDetails details
 ) {
+    public Proposal {
+        details = details == null ? ProposalDetails.empty() : details;
+    }
 }

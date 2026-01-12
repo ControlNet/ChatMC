@@ -1,7 +1,8 @@
 {
   "variants": {
-    "": {
-      "model": "chatae:block/ai_terminal"
-    }
+    "facing=north": { "model": "chatae:block/ai_terminal" },
+    "facing=east": { "model": "chatae:block/ai_terminal", "y": 90 },
+    "facing=south": { "model": "chatae:block/ai_terminal", "y": 180 },
+    "facing=west": { "model": "chatae:block/ai_terminal", "y": 270 }
   }
 }

@@ -35,10 +35,18 @@ public final class LangChainToolCallParser {
     }
 
     public Optional<ToolCall> parse(String message) {
-        String prompt = "Return a JSON object with fields 'tool' and 'args'. "
+        String prompt = "Return ONLY JSON with fields 'tool' and 'args'. "
                 + "Tool must be one of: recipes.search, recipes.get, ae2.list_items, ae2.list_craftables, "
                 + "ae2.simulate_craft, ae2.request_craft, ae2.job_status, ae2.job_cancel. "
-                + "Args must be JSON for that tool.";
+                + "Args schema:\n"
+                + "- recipes.search: {query, pageToken?, limit, modId?, recipeType?, outputItemId?, ingredientItemId?, tagId?}\n"
+                + "- recipes.get: {recipeId}\n"
+                + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
+                + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
+                + "- ae2.simulate_craft: {itemId, count}\n"
+                + "- ae2.request_craft: {itemId, count, cpuName?}\n"
+                + "- ae2.job_status: {jobId}\n"
+                + "- ae2.job_cancel: {jobId}.";
 
         try {
             ChatRequest request = ChatRequest.builder()

@@ -28,17 +28,17 @@ dependencies {
     modCompileOnly "appeng:appliedenergistics2-forge:${rootProject.ae2_version}"
 
     // LangChain4j + LangGraph4j (agent orchestration)
-    implementation("dev.langchain4j:langchain4j-core:1.10.0") {
+    implementation("dev.langchain4j:langchain4j-core:${rootProject.langchain4j_version}") {
         exclude group: "org.slf4j"
     }
-    implementation("dev.langchain4j:langchain4j-open-ai:1.10.0") {
+    implementation("dev.langchain4j:langchain4j-open-ai:${rootProject.langchain4j_version}") {
         exclude group: "org.slf4j"
         exclude group: "ch.qos.logback"
     }
-    implementation("org.bsc.langgraph4j:langgraph4j-core:1.7.10") {
+    implementation("org.bsc.langgraph4j:langgraph4j-core:${rootProject.langgraph4j_version}") {
         exclude group: "org.slf4j"
     }
-    implementation("org.bsc.langgraph4j:langgraph4j-langchain4j:1.7.10") {
+    implementation("org.bsc.langgraph4j:langgraph4j-langchain4j:${rootProject.langgraph4j_version}") {
         exclude group: "org.slf4j"
     }
 }

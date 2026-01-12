@@ -2,5 +2,5 @@ package space.controlnet.chatae.net.s2c;
 
 import space.controlnet.chatae.core.session.SessionSnapshot;
 
-public record S2CSessionSnapshotPacket(SessionSnapshot snapshot) {
+public record S2CSessionSnapshotPacket(int protocolVersion, SessionSnapshot snapshot) {
 }

@@ -15,6 +15,7 @@ import space.controlnet.chatae.ChatAENetwork;
 import space.controlnet.chatae.client.ClientSessionStore;
 import space.controlnet.chatae.core.proposal.ApprovalDecision;
 import space.controlnet.chatae.core.proposal.Proposal;
+import space.controlnet.chatae.core.proposal.ProposalDetails;
 import space.controlnet.chatae.core.session.ChatMessage;
 import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.SessionSnapshot;
@@ -28,7 +29,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int INPUT_HEIGHT = 20;
     private static final int SEND_BUTTON_WIDTH = 52;
     private static final int MAX_MESSAGES = 200;
-    private static final int PROPOSAL_CARD_HEIGHT = 34;
+    private static final int PROPOSAL_CARD_HEIGHT = 46;
     private static final int PROPOSAL_CARD_GAP = 6;
     private static final int PROPOSAL_BUTTON_WIDTH = 64;
     private static final int PROPOSAL_BUTTON_HEIGHT = 18;
@@ -178,14 +179,25 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         String summary = this.pendingProposal.summary();
-        String label = summary == null || summary.isBlank() ? "Proposal pending" : "Proposal: " + summary;
+        String risk = this.pendingProposal.riskLevel().name();
+        String label = summary == null || summary.isBlank()
+                ? "Proposal [" + risk + "] pending"
+                : "Proposal [" + risk + "]: " + summary;
+        String detail = buildProposalDetailLine(this.pendingProposal);
 
         int textMaxWidth = this.proposalW - (PROPOSAL_BUTTON_WIDTH * 2) - (PROPOSAL_BUTTON_GAP * 3) - 8;
         int textX = this.proposalX + 6;
-        int textY = this.proposalY + (this.proposalH - this.font.lineHeight) / 2;
+        int lineHeight = this.font.lineHeight;
+        int lineCount = detail.isBlank() ? 1 : 2;
+        int totalHeight = lineCount * lineHeight;
+        int textY = this.proposalY + (this.proposalH - totalHeight) / 2;
 
         String trimmed = this.font.plainSubstrByWidth(label, Math.max(1, textMaxWidth));
         guiGraphics.drawString(this.font, trimmed, textX, textY, 0xE0E0E0, false);
+        if (!detail.isBlank()) {
+            String detailTrimmed = this.font.plainSubstrByWidth(detail, Math.max(1, textMaxWidth));
+            guiGraphics.drawString(this.font, detailTrimmed, textX, textY + lineHeight, 0xB0B0B0, false);
+        }
     }
 
     @Override
@@ -205,8 +217,23 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 submitInput();
                 return true;
             }
+            if (keyCode != InputConstants.KEY_ESCAPE) {
+                if (this.inputBox.keyPressed(keyCode, scanCode, modifiers)) {
+                    return true;
+                }
+                // Swallow other keybinds (like inventory) while typing.
+                return true;
+            }
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (this.inputBox != null && this.inputBox.isFocused() && this.inputBox.charTyped(codePoint, modifiers)) {
+            return true;
+        }
+        return super.charTyped(codePoint, modifiers);
     }
 
     private void submitInput() {
@@ -280,6 +307,20 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         };
 
         return prefix.append(Component.literal(message.text()).withStyle(ChatFormatting.WHITE));
+    }
+
+    private static String buildProposalDetailLine(Proposal proposal) {
+        ProposalDetails details = proposal.details();
+        if (details == null) {
+            return "";
+        }
+        if (!details.missingItems().isEmpty()) {
+            return "Missing: " + String.join(", ", details.missingItems());
+        }
+        if (!details.note().isBlank()) {
+            return details.note();
+        }
+        return "";
     }
 
     private void appendMessage(Component message) {

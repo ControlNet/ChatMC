@@ -4,8 +4,6 @@ import com.google.gson.Gson;
 import dev.architectury.networking.NetworkChannel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import space.controlnet.chatae.agent.AgentRunner;
-import space.controlnet.chatae.agent.LangChainToolCallParser;
 import space.controlnet.chatae.audit.AuditLogger;
 import space.controlnet.chatae.client.ClientSessionStore;
 import space.controlnet.chatae.core.audit.AuditEvent;
@@ -13,6 +11,7 @@ import space.controlnet.chatae.core.audit.AuditOutcome;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.ApprovalDecision;
 import space.controlnet.chatae.core.proposal.Proposal;
+import space.controlnet.chatae.core.proposal.ProposalDetails;
 import space.controlnet.chatae.core.session.ChatMessage;
 import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.SessionSnapshot;
@@ -30,14 +29,30 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
     private static final Gson GSON = new Gson();
+    private static final int PROTOCOL_VERSION = 1;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
-    private static final AgentRunner AGENT = new AgentRunner();
-    private static final Optional<LangChainToolCallParser> LLM_PARSER = LangChainToolCallParser.create();
+    private static final AgentInvoker AGENT = new AgentInvoker();
+    private static final LlmToolParser LLM_PARSER = new LlmToolParser();
+    private static final ExecutorService LLM_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r, "chatae-llm");
+        t.setDaemon(true);
+        return t;
+    });
+    private static final ConcurrentHashMap<UUID, AtomicLong> LAST_LLM_CALL = new ConcurrentHashMap<>();
+    private static final long LLM_TIMEOUT_MS = 5000;
+    private static final long LLM_COOLDOWN_MS = 1500;
 
     private ChatAENetwork() {
     }
@@ -45,61 +60,90 @@ public final class ChatAENetwork {
     public static void init() {
         CHANNEL.register(
                 C2SSendChatPacket.class,
-                (packet, buf) -> buf.writeUtf(packet.text(), 256),
-                buf -> new C2SSendChatPacket(buf.readUtf(256)),
+                (packet, buf) -> {
+                    buf.writeVarInt(packet.protocolVersion());
+                    buf.writeUtf(packet.text(), 256);
+                },
+                buf -> new C2SSendChatPacket(buf.readVarInt(), buf.readUtf(256)),
                 (packet, context) -> context.get().queue(() -> {
                     ServerPlayer player = (ServerPlayer) context.get().getPlayer();
-                    long now = System.currentTimeMillis();
-
-                    SESSIONS.appendMessage(player.getUUID(), new ChatMessage(ChatRole.USER, packet.text(), now));
-
-                    ToolRouter.ToolOutcome outcome = handleChatCommand(player, packet.text());
-                    if (outcome.hasProposal()) {
-                        SESSIONS.setProposal(player.getUUID(), outcome.proposal());
-                    } else if (outcome.result() != null) {
-                        String payload = outcome.result().payloadJson();
-                        if (payload == null && outcome.result().error() != null) {
-                            payload = "Error: " + outcome.result().error().message();
-                        }
-                        SESSIONS.appendMessage(player.getUUID(), new ChatMessage(ChatRole.ASSISTANT, payload == null ? "" : payload, now));
+                    if (packet.protocolVersion() != PROTOCOL_VERSION) {
+                        return;
                     }
-
-                    sendSessionSnapshot(player);
+                    handleChatPacket(player, packet.text());
                 })
         );
 
         CHANNEL.register(
                 C2SApprovalDecisionPacket.class,
                 (packet, buf) -> {
+                    buf.writeVarInt(packet.protocolVersion());
                     buf.writeUtf(packet.proposalId(), 64);
                     buf.writeVarInt(packet.decision().ordinal());
                 },
-                buf -> new C2SApprovalDecisionPacket(buf.readUtf(64), ApprovalDecision.values()[buf.readVarInt()]),
+                buf -> new C2SApprovalDecisionPacket(buf.readVarInt(), buf.readUtf(64), ApprovalDecision.values()[buf.readVarInt()]),
                 (packet, context) -> context.get().queue(() -> {
                     ServerPlayer player = (ServerPlayer) context.get().getPlayer();
+                    if (packet.protocolVersion() != PROTOCOL_VERSION) {
+                        return;
+                    }
                     handleApprovalDecision(player, packet);
                 })
         );
 
         CHANNEL.register(
                 S2CSessionSnapshotPacket.class,
-                (packet, buf) -> writeSnapshot(buf, packet.snapshot()),
-                buf -> new S2CSessionSnapshotPacket(readSnapshot(buf)),
-                (packet, context) -> context.get().queue(() -> ClientSessionStore.set(packet.snapshot()))
+                (packet, buf) -> {
+                    buf.writeVarInt(packet.protocolVersion());
+                    writeSnapshot(buf, packet.snapshot());
+                },
+                buf -> new S2CSessionSnapshotPacket(buf.readVarInt(), readSnapshot(buf)),
+                (packet, context) -> context.get().queue(() -> {
+                    if (packet.protocolVersion() != PROTOCOL_VERSION) {
+                        return;
+                    }
+                    ClientSessionStore.set(packet.snapshot());
+                })
         );
     }
 
+    public static void shutdown() {
+        LLM_EXECUTOR.shutdownNow();
+    }
+
     public static void sendChatToServer(String text) {
-        CHANNEL.sendToServer(new C2SSendChatPacket(text));
+        CHANNEL.sendToServer(new C2SSendChatPacket(PROTOCOL_VERSION, text));
     }
 
     public static void sendApprovalDecision(String proposalId, ApprovalDecision decision) {
-        CHANNEL.sendToServer(new C2SApprovalDecisionPacket(proposalId, decision));
+        CHANNEL.sendToServer(new C2SApprovalDecisionPacket(PROTOCOL_VERSION, proposalId, decision));
     }
 
     public static void sendSessionSnapshot(ServerPlayer player) {
         SessionSnapshot snapshot = SESSIONS.get(player.getUUID());
-        CHANNEL.sendToPlayer(player, new S2CSessionSnapshotPacket(snapshot));
+        if (!ChatAE.RECIPE_INDEX.isReady()
+                && (snapshot.state() == SessionState.IDLE || snapshot.state() == SessionState.DONE)) {
+            snapshot = SESSIONS.setState(player.getUUID(), SessionState.INDEXING);
+        }
+        CHANNEL.sendToPlayer(player, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
+    }
+
+    private static void handleChatPacket(ServerPlayer player, String text) {
+        long now = System.currentTimeMillis();
+        UUID playerId = player.getUUID();
+
+        SESSIONS.appendMessage(playerId, new ChatMessage(ChatRole.USER, text, now));
+        SESSIONS.setState(playerId, SessionState.THINKING);
+        sendSessionSnapshot(player);
+
+        parseCommandAsync(playerId, text)
+                .whenComplete((outcome, error) -> player.getServer().execute(() -> {
+                    if (error != null) {
+                        applyParseFailure(player, "LLM error: " + error.getMessage());
+                        return;
+                    }
+                    handleParsedOutcome(player, outcome);
+                }));
     }
 
     private static void writeSnapshot(FriendlyByteBuf buf, SessionSnapshot snapshot) {
@@ -129,6 +173,15 @@ public final class ChatAENetwork {
             buf.writeUtf(proposal.toolCall().toolName(), 128);
             buf.writeUtf(proposal.toolCall().argsJson(), 2048);
             buf.writeLong(proposal.createdAtMillis());
+            ProposalDetails details = proposal.details();
+            buf.writeUtf(details.action(), 64);
+            buf.writeUtf(details.itemId(), 256);
+            buf.writeLong(details.count());
+            buf.writeVarInt(details.missingItems().size());
+            for (String missing : details.missingItems()) {
+                buf.writeUtf(missing, 256);
+            }
+            buf.writeUtf(details.note(), 512);
         }
     }
 
@@ -157,35 +210,158 @@ public final class ChatAENetwork {
             String toolName = buf.readUtf(128);
             String argsJson = buf.readUtf(2048);
             long createdAt = buf.readLong();
-            proposal = new Proposal(id, risk, summary, new ToolCall(toolName, argsJson), createdAt);
+            String action = buf.readUtf(64);
+            String itemId = buf.readUtf(256);
+            long count = buf.readLong();
+            int missingCount = buf.readVarInt();
+            List<String> missingItems = new ArrayList<>(missingCount);
+            for (int i = 0; i < missingCount; i++) {
+                missingItems.add(buf.readUtf(256));
+            }
+            String note = buf.readUtf(512);
+            ProposalDetails details = new ProposalDetails(action, itemId, count, missingItems, note);
+            proposal = new Proposal(id, risk, summary, new ToolCall(toolName, argsJson), createdAt, details);
         }
 
         return new SessionSnapshot(messages, state, Optional.ofNullable(proposal), error);
     }
 
-    private static ToolRouter.ToolOutcome handleChatCommand(ServerPlayer player, String raw) {
-        ToolCall call = parseCommand(raw);
-        if (call == null) {
-            return ToolRouter.ToolOutcome.result(ToolResult.ok(""));
+    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome) {
+        UUID playerId = player.getUUID();
+        if (outcome == null || outcome.call() == null) {
+            if (outcome != null && outcome.errorMessage() != null) {
+                SESSIONS.appendMessage(playerId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + outcome.errorMessage(), System.currentTimeMillis()));
+                if ("llm_timeout".equals(outcome.errorCode()) || "llm_failed".equals(outcome.errorCode())) {
+                    SESSIONS.setError(playerId, outcome.errorMessage());
+                } else {
+                    SESSIONS.setState(playerId, SessionState.IDLE);
+                }
+            } else {
+                SESSIONS.setState(playerId, SessionState.IDLE);
+            }
+            sendSessionSnapshot(player);
+            return;
         }
-        return AGENT.run(player, call);
+
+        SESSIONS.setState(playerId, SessionState.EXECUTING);
+        long start = System.currentTimeMillis();
+        ToolRouter.ToolOutcome toolOutcome = AGENT.run(player, outcome.call());
+        long duration = System.currentTimeMillis() - start;
+
+        if (toolOutcome.hasProposal()) {
+            SESSIONS.setProposal(playerId, toolOutcome.proposal());
+        } else if (toolOutcome.result() != null) {
+            applyToolResult(player, outcome.call(), toolOutcome.result(), "AUTO_APPROVE", duration);
+        } else {
+            SESSIONS.setState(playerId, SessionState.IDLE);
+        }
+
+        sendSessionSnapshot(player);
     }
 
-    private static ToolCall parseCommand(String raw) {
+    private static void applyParseFailure(ServerPlayer player, String message) {
+        UUID playerId = player.getUUID();
+        SESSIONS.appendMessage(playerId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + message, System.currentTimeMillis()));
+        SESSIONS.setError(playerId, message);
+        sendSessionSnapshot(player);
+    }
+
+    private static void applyToolResult(ServerPlayer player, ToolCall call, ToolResult result, String decision, long durationMillis) {
+        UUID playerId = player.getUUID();
+        String payload = result.payloadJson();
+        if (payload == null && result.error() != null) {
+            payload = "Error: " + result.error().message();
+        }
+        if (payload != null && !payload.isBlank()) {
+            SESSIONS.appendMessage(playerId, new ChatMessage(ChatRole.ASSISTANT, payload, System.currentTimeMillis()));
+        }
+
+        if (result.success()) {
+            SESSIONS.setState(playerId, SessionState.DONE);
+        } else if (result.error() != null && "index_not_ready".equals(result.error().code())) {
+            SESSIONS.setState(playerId, SessionState.INDEXING);
+        } else if (result.error() != null) {
+            SESSIONS.setError(playerId, result.error().message());
+        } else {
+            SESSIONS.setState(playerId, SessionState.FAILED);
+        }
+
+        RiskLevel risk = ToolRouter.classifyRisk(call.toolName());
+        AuditOutcome outcome = result.success()
+                ? AuditOutcome.SUCCESS
+                : (result.error() != null && "denied".equals(result.error().code()) ? AuditOutcome.DENIED : AuditOutcome.ERROR);
+
+        AuditLogger.log(new AuditEvent(
+                playerId.toString(),
+                System.currentTimeMillis(),
+                call.toolName(),
+                call.argsJson(),
+                risk,
+                decision,
+                durationMillis,
+                outcome,
+                result.error() != null ? result.error().message() : null
+        ));
+    }
+
+    private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String raw) {
+        String text = raw == null ? "" : raw.trim();
+        if (text.isEmpty()) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "empty", "Empty command"));
+        }
+
+        ToolCall local = parseCommandLocal(text);
+        if (local != null) {
+            return CompletableFuture.completedFuture(new ParseOutcome(local, null, null));
+        }
+
+        if (!LLM_PARSER.isAvailable()) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_unavailable", "LLM unavailable"));
+        }
+
+        if (!allowLlm(playerId)) {
+            return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_rate_limited", "LLM rate limit exceeded"));
+        }
+
+        return CompletableFuture.supplyAsync(() -> LLM_PARSER.parse(text).orElse(null), LLM_EXECUTOR)
+                .orTimeout(LLM_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .handle((toolCall, error) -> {
+                    if (error != null) {
+                        Throwable cause = error instanceof CompletionException ? error.getCause() : error;
+                        if (cause instanceof java.util.concurrent.TimeoutException) {
+                            return new ParseOutcome(null, "llm_timeout", "LLM request timed out");
+                        }
+                        return new ParseOutcome(null, "llm_failed", "LLM request failed");
+                    }
+                    if (toolCall == null) {
+                        return new ParseOutcome(null, "unknown_command", "Unknown command");
+                    }
+                    return new ParseOutcome(toolCall, null, null);
+                });
+    }
+
+    private static boolean allowLlm(UUID playerId) {
+        AtomicLong last = LAST_LLM_CALL.computeIfAbsent(playerId, id -> new AtomicLong(0));
+        long now = System.currentTimeMillis();
+        long prev = last.get();
+        if (now - prev < LLM_COOLDOWN_MS) {
+            return false;
+        }
+        last.set(now);
+        return true;
+    }
+
+    private static ToolCall parseCommandLocal(String raw) {
         String text = raw == null ? "" : raw.trim();
         if (text.isEmpty()) {
             return null;
         }
 
-        ToolCall llmCall = LLM_PARSER.flatMap(parser -> parser.parse(text)).orElse(null);
-        if (llmCall != null) {
-            return llmCall;
-        }
-
         String lower = text.toLowerCase(Locale.ROOT);
         if (lower.startsWith("recipes.search ")) {
             String query = text.substring("recipes.search ".length()).trim();
-            return new ToolCall("recipes.search", GSON.toJson(new ToolRouter.RecipeSearchArgs(query, null, 10)));
+            return new ToolCall("recipes.search", GSON.toJson(new ToolRouter.RecipeSearchArgs(
+                    query, null, 10, null, null, null, null, null)));
         }
 
         if (lower.startsWith("recipes.get ")) {
@@ -232,6 +408,91 @@ public final class ChatAENetwork {
         return null;
     }
 
+    private static final class AgentInvoker {
+        private Object runner;
+        private boolean initAttempted;
+
+        ToolRouter.ToolOutcome run(ServerPlayer player, ToolCall call) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return ToolRouter.ToolOutcome.result(null);
+            }
+            try {
+                java.lang.reflect.Method runMethod = instance.getClass().getMethod("run", ServerPlayer.class, ToolCall.class);
+                Object result = runMethod.invoke(instance, player, call);
+                return result instanceof ToolRouter.ToolOutcome outcome ? outcome : ToolRouter.ToolOutcome.result(null);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.error("Agent invocation failed, disabling agent", t);
+                runner = null;
+                return ToolRouter.ToolOutcome.result(null);
+            }
+        }
+
+        private Object ensureRunner() {
+            if (runner != null || initAttempted) {
+                return runner;
+            }
+            initAttempted = true;
+            try {
+                Class<?> clazz = Class.forName("space.controlnet.chatae.agent.AgentRunner");
+                runner = clazz.getConstructor().newInstance();
+                return runner;
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Agent runtime unavailable, continuing without LLM support", t);
+                runner = null;
+                return null;
+            }
+        }
+    }
+
+    private static final class LlmToolParser {
+        private Object parser;
+        private boolean initAttempted;
+
+        boolean isAvailable() {
+            ensureParser();
+            return parser != null;
+        }
+
+        Optional<ToolCall> parse(String text) {
+            Object instance = ensureParser();
+            if (instance == null) {
+                return Optional.empty();
+            }
+            try {
+                java.lang.reflect.Method parseMethod = instance.getClass().getMethod("parse", String.class);
+                Object result = parseMethod.invoke(instance, text);
+                if (result instanceof Optional<?> optional) {
+                    Object value = optional.orElse(null);
+                    return value instanceof ToolCall call ? Optional.of(call) : Optional.empty();
+                }
+                return Optional.empty();
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("LLM parse failed", t);
+                return Optional.empty();
+            }
+        }
+
+        private Object ensureParser() {
+            if (parser != null || initAttempted) {
+                return parser;
+            }
+            initAttempted = true;
+            try {
+                Class<?> clazz = Class.forName("space.controlnet.chatae.agent.LangChainToolCallParser");
+                java.lang.reflect.Method createMethod = clazz.getMethod("create");
+                Object result = createMethod.invoke(null);
+                if (result instanceof Optional<?> optional) {
+                    parser = optional.orElse(null);
+                }
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("LLM runtime unavailable, continuing without LLM support", t);
+                parser = null;
+            }
+            return parser;
+        }
+    }
+
     private static long parseLong(String raw, long fallback) {
         try {
             return Long.parseLong(raw);
@@ -258,11 +519,25 @@ public final class ChatAENetwork {
         }
 
         if (packet.decision() == ApprovalDecision.DENY) {
+            AuditLogger.log(new AuditEvent(
+                    player.getUUID().toString(),
+                    System.currentTimeMillis(),
+                    proposal.toolCall().toolName(),
+                    proposal.toolCall().argsJson(),
+                    proposal.riskLevel(),
+                    packet.decision().name(),
+                    0,
+                    AuditOutcome.DENIED,
+                    "User denied proposal"
+            ));
+
             SESSIONS.clearProposal(player.getUUID());
+            SESSIONS.setState(player.getUUID(), SessionState.IDLE);
             sendSessionSnapshot(player);
             return;
         }
 
+        SESSIONS.setState(player.getUUID(), SessionState.EXECUTING);
         long start = System.currentTimeMillis();
         ToolRouter.ToolOutcome outcome = ToolRouter.execute(player, proposal.toolCall(), true);
         long duration = System.currentTimeMillis() - start;
@@ -282,9 +557,14 @@ public final class ChatAENetwork {
         SESSIONS.clearProposal(player.getUUID());
 
         if (outcome.result() != null) {
-            SESSIONS.appendMessage(player.getUUID(), new ChatMessage(ChatRole.ASSISTANT, outcome.result().payloadJson(), System.currentTimeMillis()));
+            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration);
+        } else {
+            SESSIONS.setState(player.getUUID(), SessionState.DONE);
         }
 
         sendSessionSnapshot(player);
+    }
+
+    private record ParseOutcome(ToolCall call, String errorCode, String errorMessage) {
     }
 }
