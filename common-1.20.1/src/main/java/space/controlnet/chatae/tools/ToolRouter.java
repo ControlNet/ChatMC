@@ -1,22 +1,18 @@
 package space.controlnet.chatae.tools;
 
 import com.google.gson.Gson;
-import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.ChatAE;
-import space.controlnet.chatae.terminal.AiTerminalHost;
 import space.controlnet.chatae.core.policy.PolicyDecision;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalFactory;
-import space.controlnet.chatae.core.session.SessionSnapshot;
-import space.controlnet.chatae.core.session.SessionState;
-import space.controlnet.chatae.core.tools.ToolCall;
-import space.controlnet.chatae.core.tools.ToolResult;
-import space.controlnet.chatae.menu.AiTerminalMenu;
 import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
-import space.controlnet.chatae.core.tools.ToolOutcome;
+import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.tools.ToolArgs;
+import space.controlnet.chatae.core.tools.ToolCall;
+import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolPolicy;
+import space.controlnet.chatae.core.tools.ToolResult;
 
 import java.util.Optional;
 
@@ -26,7 +22,7 @@ public final class ToolRouter {
     private ToolRouter() {
     }
 
-    public static space.controlnet.chatae.core.tools.ToolOutcome execute(ServerPlayer player, ToolCall call, boolean approved) {
+    public static space.controlnet.chatae.core.tools.ToolOutcome execute(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
         RiskLevel risk = ToolPolicy.classifyRisk(call.toolName());
         if (!approved) {
             PolicyDecision decision = ToolPolicy.policyFor(risk);
@@ -43,12 +39,12 @@ public final class ToolRouter {
             ToolResult result = switch (call.toolName()) {
                 case "recipes.search" -> handleRecipeSearch(call);
                 case "recipes.get" -> handleRecipeGet(call);
-                case "ae2.list_items" -> handleAe2ListItems(player, call);
-                case "ae2.list_craftables" -> handleAe2ListCraftables(player, call);
-                case "ae2.simulate_craft" -> handleAe2Simulate(player, call);
-                case "ae2.request_craft" -> handleAe2Request(player, call);
-                case "ae2.job_status" -> handleAe2JobStatus(player, call);
-                case "ae2.job_cancel" -> handleAe2JobCancel(player, call);
+                case "ae2.list_items" -> handleAe2ListItems(terminal, call);
+                case "ae2.list_craftables" -> handleAe2ListCraftables(terminal, call);
+                case "ae2.simulate_craft" -> handleAe2Simulate(terminal, call);
+                case "ae2.request_craft" -> handleAe2Request(terminal, call);
+                case "ae2.job_status" -> handleAe2JobStatus(terminal, call);
+                case "ae2.job_cancel" -> handleAe2JobCancel(terminal, call);
                 default -> ToolResult.error("unknown_tool", "Unknown tool: " + call.toolName());
             };
             return space.controlnet.chatae.core.tools.ToolOutcome.result(result);
@@ -90,33 +86,33 @@ public final class ToolRouter {
         return ToolResult.ok(GSON.toJson(result.orElse(null)));
     }
 
-    private static ToolResult handleAe2ListItems(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2ListItems(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2ListArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().listItems(args.query(), args.craftableOnly(), args.limit(), args.pageToken());
+        var result = context.listItems(args.query(), args.craftableOnly(), args.limit(), args.pageToken());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleAe2ListCraftables(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2ListCraftables(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2ListArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().listCraftables(args.query(), args.limit(), args.pageToken());
+        var result = context.listCraftables(args.query(), args.limit(), args.pageToken());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleAe2Simulate(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2Simulate(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2CraftArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
@@ -124,15 +120,15 @@ public final class ToolRouter {
         if (!ToolPolicy.isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + ToolPolicy.getMaxCraftCount());
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().simulateCraft(player, args.itemId(), args.count());
+        var result = context.simulateCraft(args.itemId(), args.count());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleAe2Request(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2Request(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2CraftArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
@@ -140,51 +136,38 @@ public final class ToolRouter {
         if (!ToolPolicy.isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + ToolPolicy.getMaxCraftCount());
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().requestCraft(player, args.itemId(), args.count(), args.cpuName());
+        var result = context.requestCraft(args.itemId(), args.count(), args.cpuName());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleAe2JobStatus(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2JobStatus(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2JobArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().jobStatus(args.jobId());
+        var result = context.jobStatus(args.jobId());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleAe2JobCancel(ServerPlayer player, ToolCall call) {
+    private static ToolResult handleAe2JobCancel(Optional<TerminalContext> terminal, ToolCall call) {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.Ae2JobArgs.class);
         if (args == null) {
             return ToolResult.error("invalid_args", "Missing arguments");
         }
-        Optional<AiTerminalHost> terminal = resolveOpenTerminal(player);
-        if (terminal.isEmpty()) {
+        TerminalContext context = terminal.orElse(null);
+        if (context == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
-        var result = terminal.get().cancelJob(args.jobId());
+        var result = context.cancelJob(args.jobId());
         return ToolResult.ok(GSON.toJson(result));
-    }
-
-    private static Optional<AiTerminalHost> resolveOpenTerminal(ServerPlayer player) {
-        if (!(player.containerMenu instanceof AiTerminalMenu menu)) {
-            return Optional.empty();
-        }
-        if (menu.getHost().isPresent()) {
-            AiTerminalHost host = menu.getHost().get();
-            if (!host.isRemovedHost()) {
-                return Optional.of(host);
-            }
-        }
-        return Optional.empty();
     }
 
 

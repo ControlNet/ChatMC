@@ -11,6 +11,7 @@ import org.bsc.langgraph4j.state.AgentState;
 import space.controlnet.chatae.ChatAE;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
+import space.controlnet.chatae.terminal.TerminalContextFactory;
 import space.controlnet.chatae.tools.ToolRouter;
 
 import java.util.Map;
@@ -59,7 +60,7 @@ public final class AgentRunner {
             return Map.of(KEY_OUTCOME, ToolOutcome.result(space.controlnet.chatae.core.tools.ToolResult.error("invalid_input", "Player or call is null")));
         }
 
-        ToolOutcome outcome = ToolRouter.execute(player, call, false);
+        ToolOutcome outcome = ToolRouter.execute(TerminalContextFactory.fromPlayer(player), call, false);
         if (outcome.hasProposal()) {
             ChatAE.LOGGER.debug("Agent produced proposal {}", outcome.proposal().id());
         }

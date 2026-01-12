@@ -25,6 +25,7 @@ import space.controlnet.chatae.core.tools.ToolResult;
 import space.controlnet.chatae.net.c2s.C2SApprovalDecisionPacket;
 import space.controlnet.chatae.net.c2s.C2SSendChatPacket;
 import space.controlnet.chatae.net.s2c.S2CSessionSnapshotPacket;
+import space.controlnet.chatae.terminal.TerminalContextFactory;
 import space.controlnet.chatae.tools.ToolRouter;
 
 import java.util.ArrayList;
@@ -459,7 +460,7 @@ public final class ChatAENetwork {
 
         SESSIONS.setState(player.getUUID(), SessionState.EXECUTING);
         long start = System.currentTimeMillis();
-        ToolOutcome outcome = ToolRouter.execute(player, proposal.toolCall(), true);
+        ToolOutcome outcome = ToolRouter.execute(TerminalContextFactory.fromPlayer(player), proposal.toolCall(), true);
         long duration = System.currentTimeMillis() - start;
 
         AuditLogger.instance().log(new AuditEvent(
