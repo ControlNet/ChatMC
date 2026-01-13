@@ -14,6 +14,7 @@ public record LlmConfig(
         Optional<Integer> maxTokens,
         Duration timeout,
         int maxRetries,
+        long cooldownMillis,
         boolean strictJsonSchema,
         boolean logRequests,
         boolean logResponses
@@ -30,6 +31,7 @@ public record LlmConfig(
                 Optional.empty(),
                 Duration.ofSeconds(5),
                 2,
+                0L,
                 true,
                 false,
                 false

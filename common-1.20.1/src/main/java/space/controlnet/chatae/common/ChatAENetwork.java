@@ -68,8 +68,8 @@ public final class ChatAENetwork {
         return t;
     });
     private static final long LLM_TIMEOUT_MS = 5000;
-    private static final long LLM_COOLDOWN_MS = 1500;
-    private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS);
+    private static final java.util.concurrent.atomic.AtomicLong LLM_COOLDOWN_MS = new java.util.concurrent.atomic.AtomicLong(1500);
+    private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS.get());
 
     private static final String TOOL_LIST = String.join(", ",
             "recipes.search",
@@ -291,6 +291,14 @@ public final class ChatAENetwork {
 
         VIEWERS_BY_SESSION.clear();
         SESSION_BY_VIEWER.clear();
+    }
+
+    public static void updateLlmCooldown(long cooldownMillis) {
+        if (cooldownMillis < 0) {
+            return;
+        }
+        LLM_COOLDOWN_MS.set(cooldownMillis);
+        LLM_RATE_LIMITER.setCooldownMillis(cooldownMillis);
     }
 
     public static void onTerminalOpened(ServerPlayer player) {

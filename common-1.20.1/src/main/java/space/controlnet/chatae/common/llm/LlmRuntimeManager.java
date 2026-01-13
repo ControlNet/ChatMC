@@ -11,6 +11,7 @@ public final class LlmRuntimeManager {
     public static void reload(MinecraftServer server) {
         LlmConfig config = LlmConfigLoader.load(server);
         LlmRuntime.reload(config);
+        space.controlnet.chatae.common.ChatAENetwork.updateLlmCooldown(config.cooldownMillis());
     }
 
     public static void clear() {
