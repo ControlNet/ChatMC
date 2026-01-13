@@ -11,6 +11,7 @@ import org.bsc.langgraph4j.action.NodeAction;
 import org.bsc.langgraph4j.state.AgentState;
 import space.controlnet.chatae.common.ChatAE;
 import space.controlnet.chatae.common.ChatAENetwork;
+import space.controlnet.chatae.common.audit.AuditLogger;
 import space.controlnet.chatae.common.llm.PromptRuntime;
 import space.controlnet.chatae.common.terminal.TerminalContextFactory;
 import space.controlnet.chatae.common.tools.ToolRouter;
@@ -18,6 +19,7 @@ import space.controlnet.chatae.core.agent.AgentDecision;
 import space.controlnet.chatae.core.agent.AgentLoopResult;
 import space.controlnet.chatae.core.agent.AgentReasoningService;
 import space.controlnet.chatae.core.agent.ConversationHistoryBuilder;
+import space.controlnet.chatae.core.agent.LlmRateLimiter;
 import space.controlnet.chatae.core.agent.PromptId;
 import space.controlnet.chatae.core.session.ChatMessage;
 import space.controlnet.chatae.core.session.ChatRole;
@@ -33,10 +35,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class AgentRunner {
     private static final int MAX_ITERATIONS = 20;
     private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final long DEFAULT_TIMEOUT_MS = 30000;
+    private static final long DEFAULT_COOLDOWN_MS = 1500;
 
     // State keys
     private static final String KEY_PLAYER = "player";
@@ -69,9 +76,25 @@ public final class AgentRunner {
 
     private final CompiledGraph<LoopState> graph;
     private final AgentReasoningService reasoningService;
+    private final LlmRateLimiter rateLimiter;
+    private final ExecutorService llmExecutor;
+    private final AtomicLong timeoutMs;
 
     public AgentRunner() {
-        this.reasoningService = new AgentReasoningService((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
+        this.rateLimiter = new LlmRateLimiter(DEFAULT_COOLDOWN_MS);
+        this.llmExecutor = Executors.newFixedThreadPool(2, r -> {
+            Thread t = new Thread(r, "chatae-agent-llm");
+            t.setDaemon(true);
+            return t;
+        });
+        this.timeoutMs = new AtomicLong(DEFAULT_TIMEOUT_MS);
+        this.reasoningService = new AgentReasoningService(
+                (msg, ex) -> ChatAE.LOGGER.warn(msg, ex),
+                rateLimiter,
+                llmExecutor,
+                timeoutMs.get(),
+                AuditLogger.instance()
+        );
 
         try {
             StateGraph<LoopState> graphDef = new StateGraph<>(LoopState::new);
@@ -104,6 +127,20 @@ public final class AgentRunner {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to build agent graph", e);
         }
+    }
+
+    /**
+     * Update the rate limiter cooldown.
+     */
+    public void setRateLimitCooldown(long cooldownMs) {
+        rateLimiter.setCooldownMillis(cooldownMs);
+    }
+
+    /**
+     * Update the LLM timeout.
+     */
+    public void setTimeoutMs(long timeoutMs) {
+        this.timeoutMs.set(timeoutMs);
     }
 
     /**
@@ -182,8 +219,8 @@ public final class AgentRunner {
         String prompt = PromptRuntime.render(PromptId.AGENT_REASON, locale, variables);
         ChatAE.LOGGER.debug("Agent reason iteration={} locale={}", iteration, locale);
 
-        // Call LLM
-        Optional<AgentDecision> decision = reasoningService.reason(prompt);
+        // Call LLM with player ID for rate limiting, locale and iteration for audit
+        Optional<AgentDecision> decision = reasoningService.reason(player.getUUID(), prompt, locale, iteration);
         if (decision.isEmpty()) {
             return Map.of(KEY_RESULT, AgentLoopResult.withError("LLM failed to produce a decision", iteration));
         }

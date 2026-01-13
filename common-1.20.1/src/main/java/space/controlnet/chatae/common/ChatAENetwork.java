@@ -10,7 +10,6 @@ import space.controlnet.chatae.common.team.TeamAccess;
 import space.controlnet.chatae.common.terminal.TerminalContextFactory;
 import space.controlnet.chatae.common.session.ChatAESessionsSavedData;
 import space.controlnet.chatae.common.tools.ToolRouter;
-import space.controlnet.chatae.core.agent.LlmRateLimiter;
 import space.controlnet.chatae.core.audit.AuditEvent;
 import space.controlnet.chatae.core.audit.AuditOutcome;
 import space.controlnet.chatae.core.client.ClientSessionIndex;
@@ -69,15 +68,13 @@ public final class ChatAENetwork {
         t.setDaemon(true);
         return t;
     });
-    private static final long LLM_TIMEOUT_MS = 5000;
-    private static final java.util.concurrent.atomic.AtomicLong LLM_COOLDOWN_MS = new java.util.concurrent.atomic.AtomicLong(1500);
-    private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS.get());
 
     private static final java.util.concurrent.atomic.AtomicReference<MinecraftServer> SERVER = new java.util.concurrent.atomic.AtomicReference<>();
     private static final java.util.concurrent.atomic.AtomicReference<ChatAESessionsSavedData> SAVED_SESSIONS = new java.util.concurrent.atomic.AtomicReference<>();
 
     private static final java.util.concurrent.ConcurrentHashMap<UUID, java.util.Set<UUID>> VIEWERS_BY_SESSION = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.concurrent.ConcurrentHashMap<UUID, UUID> SESSION_BY_VIEWER = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<UUID, String> SESSION_LOCALE = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static final Pattern ITEM_TAG_PATTERN = Pattern.compile("<item\\s+id=\"([^\"]+)\"(?:\\s+display_name=\"([^\"]+)\")?\\s*>");
 
@@ -281,8 +278,14 @@ public final class ChatAENetwork {
         if (cooldownMillis < 0) {
             return;
         }
-        LLM_COOLDOWN_MS.set(cooldownMillis);
-        LLM_RATE_LIMITER.setCooldownMillis(cooldownMillis);
+        AGENT.setRateLimitCooldown(cooldownMillis);
+    }
+
+    public static void updateLlmTimeout(long timeoutMillis) {
+        if (timeoutMillis < 0) {
+            return;
+        }
+        AGENT.setTimeoutMs(timeoutMillis);
     }
 
     public static void onTerminalOpened(ServerPlayer player) {
@@ -536,6 +539,9 @@ public final class ChatAENetwork {
         persistSessions();
         broadcastSessionSnapshot(sessionId);
 
+        // Store locale for potential approval resume
+        SESSION_LOCALE.put(sessionId, effectiveLocale);
+
         // Run the agent loop asynchronously
         runAgentLoopAsync(player, sessionId, binding.orElse(null), effectiveLocale)
                 .whenComplete((result, error) -> player.getServer().execute(() -> {
@@ -543,7 +549,7 @@ public final class ChatAENetwork {
                         applyAgentError(sessionId, "Agent error: " + error.getMessage());
                         return;
                     }
-                    handleAgentLoopResult(player, result, sessionId, binding.orElse(null));
+                    handleAgentLoopResult(player, result, sessionId, binding.orElse(null), effectiveLocale);
                 }));
     }
 
@@ -699,7 +705,7 @@ public final class ChatAENetwork {
     }
 
     private static void handleAgentLoopResult(ServerPlayer player,
-            space.controlnet.chatae.core.agent.AgentLoopResult result, UUID sessionId, TerminalBinding binding) {
+            space.controlnet.chatae.core.agent.AgentLoopResult result, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
         if (result == null) {
             applyAgentError(sessionId, "Agent returned null result");
             return;
@@ -707,17 +713,22 @@ public final class ChatAENetwork {
 
         if (result.hasProposal()) {
             // Set proposal and move to WAIT_APPROVAL
+            // Keep locale stored for approval resume
             if (!SESSIONS.trySetProposal(sessionId, result.proposal().get(), binding)) {
                 SESSIONS.setState(sessionId, SessionState.IDLE);
+                SESSION_LOCALE.remove(sessionId);
             }
         } else if (result.hasResponse()) {
             // Response already appended by agent, just set state to DONE
             SESSIONS.setState(sessionId, SessionState.DONE);
+            SESSION_LOCALE.remove(sessionId);
         } else if (result.hasError()) {
             applyAgentError(sessionId, result.error().get());
+            SESSION_LOCALE.remove(sessionId);
             return;
         } else {
             SESSIONS.setState(sessionId, SessionState.IDLE);
+            SESSION_LOCALE.remove(sessionId);
         }
 
         persistSessions();
@@ -885,6 +896,32 @@ public final class ChatAENetwork {
             }
         }
 
+        void setRateLimitCooldown(long cooldownMs) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setRateLimitCooldown", long.class);
+                method.invoke(instance, cooldownMs);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set rate limit cooldown", t);
+            }
+        }
+
+        void setTimeoutMs(long timeoutMs) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setTimeoutMs", long.class);
+                method.invoke(instance, timeoutMs);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set timeout", t);
+            }
+        }
+
         private Object ensureRunner() {
             if (runner != null || initAttempted) {
                 return runner;
@@ -997,18 +1034,20 @@ public final class ChatAENetwork {
             persistSessions();
             broadcastSessionSnapshot(sessionId);
 
-            // Resume agent loop to generate response
-            String effectiveLocale = resolveEffectiveLocale(null, null);
+            // Resume agent loop to generate response using stored locale
+            String effectiveLocale = SESSION_LOCALE.getOrDefault(sessionId, "en_us");
             runAgentLoopAsync(player, sessionId, binding.orElse(null), effectiveLocale)
                     .whenComplete((result, error) -> player.getServer().execute(() -> {
                         if (error != null) {
                             applyAgentError(sessionId, "Agent error: " + error.getMessage());
+                            SESSION_LOCALE.remove(sessionId);
                             return;
                         }
-                        handleAgentLoopResult(player, result, sessionId, binding.orElse(null));
+                        handleAgentLoopResult(player, result, sessionId, binding.orElse(null), effectiveLocale);
                     }));
         } else {
             SESSIONS.setState(sessionId, SessionState.DONE);
+            SESSION_LOCALE.remove(sessionId);
             persistSessions();
             broadcastSessionSnapshot(sessionId);
         }

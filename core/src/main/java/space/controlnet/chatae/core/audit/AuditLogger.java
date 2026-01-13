@@ -6,8 +6,14 @@ package space.controlnet.chatae.core.audit;
  */
 public interface AuditLogger {
     /**
-     * Logs an audit event.
+     * Logs a tool execution audit event.
      * @param event The audit event to log
      */
     void log(AuditEvent event);
+
+    /**
+     * Logs an LLM call audit event.
+     * @param event The LLM audit event to log
+     */
+    void logLlm(LlmAuditEvent event);
 }

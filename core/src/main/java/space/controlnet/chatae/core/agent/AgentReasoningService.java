@@ -5,9 +5,19 @@ import com.google.gson.JsonObject;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import space.controlnet.chatae.core.audit.AuditLogger;
+import space.controlnet.chatae.core.audit.LlmAuditEvent;
+import space.controlnet.chatae.core.audit.LlmAuditOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Service that asks the LLM to decide the next action in the agent loop.
@@ -17,37 +27,109 @@ public final class AgentReasoningService {
     private static final Gson GSON = new Gson();
 
     private final Logger logger;
+    private final LlmRateLimiter rateLimiter;
+    private final ExecutorService executor;
+    private final long timeoutMs;
+    private final AuditLogger auditLogger;
 
-    public AgentReasoningService(Logger logger) {
+    public AgentReasoningService(Logger logger, LlmRateLimiter rateLimiter, ExecutorService executor, long timeoutMs, AuditLogger auditLogger) {
         this.logger = logger;
+        this.rateLimiter = rateLimiter;
+        this.executor = executor;
+        this.timeoutMs = timeoutMs;
+        this.auditLogger = auditLogger;
     }
 
     /**
      * Given a rendered prompt, ask the LLM to decide the next action.
      *
+     * @param playerId The player ID for rate limiting
      * @param prompt The fully rendered prompt including conversation history
+     * @param locale The locale used for the prompt
+     * @param iteration The current iteration number
      * @return AgentDecision with either tool_call or respond action
      */
-    public Optional<AgentDecision> reason(String prompt) {
+    public Optional<AgentDecision> reason(UUID playerId, String prompt, String locale, int iteration) {
+        long startTime = System.currentTimeMillis();
+        String playerIdStr = playerId != null ? playerId.toString() : "unknown";
+
+        // Check rate limit
+        if (rateLimiter != null && playerId != null && !rateLimiter.allow(playerId)) {
+            logger.warn("Rate limit exceeded for player " + playerId, null);
+            logLlmAudit(playerIdStr, locale, iteration, 0, LlmAuditOutcome.RATE_LIMITED, "Rate limit exceeded");
+            return Optional.empty();
+        }
+
         Optional<ChatModel> modelOpt = LlmRuntime.model();
         if (modelOpt.isEmpty()) {
             logger.warn("LLM model not available for reasoning", null);
+            logLlmAudit(playerIdStr, locale, iteration, 0, LlmAuditOutcome.ERROR, "LLM model not available");
             return Optional.empty();
         }
 
         try {
             ChatModel model = modelOpt.get();
-            ChatRequest request = ChatRequest.builder()
-                    .messages(java.util.List.of(new UserMessage(prompt)))
-                    .build();
+            Callable<String> llmCall = () -> {
+                ChatRequest request = ChatRequest.builder()
+                        .messages(java.util.List.of(new UserMessage(prompt)))
+                        .build();
+                var response = model.chat(request);
+                return response.aiMessage().text();
+            };
 
-            var response = model.chat(request);
-            String content = response.aiMessage().text();
+            String content;
+            if (executor != null && timeoutMs > 0) {
+                // Execute with timeout
+                Future<String> future = executor.submit(llmCall);
+                try {
+                    content = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    future.cancel(true);
+                    long duration = System.currentTimeMillis() - startTime;
+                    logger.warn("LLM call timed out after " + timeoutMs + "ms", null);
+                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.TIMEOUT, "Timeout after " + timeoutMs + "ms");
+                    return Optional.empty();
+                } catch (ExecutionException e) {
+                    long duration = System.currentTimeMillis() - startTime;
+                    logger.warn("LLM call failed", e.getCause());
+                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.ERROR, e.getCause() != null ? e.getCause().getMessage() : "Unknown error");
+                    return Optional.empty();
+                }
+            } else {
+                // Execute directly without timeout
+                content = llmCall.call();
+            }
 
-            return parseDecision(content);
+            long duration = System.currentTimeMillis() - startTime;
+            Optional<AgentDecision> decision = parseDecision(content);
+
+            if (decision.isEmpty()) {
+                logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.PARSE_ERROR, "Failed to parse LLM response");
+            } else {
+                logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.SUCCESS, null);
+            }
+
+            return decision;
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
             logger.warn("Agent reasoning failed", e);
+            logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.ERROR, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    private void logLlmAudit(String playerId, String locale, int iteration, long durationMillis, LlmAuditOutcome outcome, String error) {
+        if (auditLogger != null) {
+            auditLogger.logLlm(new LlmAuditEvent(
+                    playerId,
+                    System.currentTimeMillis(),
+                    "agent.reason",
+                    locale,
+                    iteration,
+                    durationMillis,
+                    outcome,
+                    error
+            ));
         }
     }
 
