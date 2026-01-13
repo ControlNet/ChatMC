@@ -1,9 +1,9 @@
 {
   "parent": "ae2:item/display_base",
   "textures": {
-    "front": "ae2:part/terminal",
-    "front_bright": "chatae:part/ai_terminal_bright",
-    "front_medium": "chatae:part/ai_terminal_medium",
-    "front_dark": "chatae:part/ai_terminal_dark"
+    "front": "ae2:part/monitor_light",
+    "front_bright": "chatae:part/ai_terminal_static",
+    "front_medium": "ae2:part/monitor_light",
+    "front_dark": "ae2:part/monitor_light"
   }
 }

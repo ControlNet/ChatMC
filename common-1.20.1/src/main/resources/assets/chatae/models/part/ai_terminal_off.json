@@ -6,14 +6,14 @@
 	},
 	"elements": [
 		{
-			"comment": "Background - solid screen area (dim when off)",
+			"comment": "Background - solid screen area (medium tint like other terminals)",
 			"shade": false,
 			"from": [2, 2, 0],
 			"to": [14, 14, 2],
 			"faces": {
 				"north": {
 					"texture": "#background",
-					"tintindex": 1
+					"tintindex": 2
 				}
 			}
 		},
@@ -25,7 +25,7 @@
 			"faces": {
 				"north": {
 					"texture": "#staticCube",
-					"tintindex": 1
+					"tintindex": 2
 				}
 			}
 		}
