@@ -1,42 +1,18 @@
 {
 	"ambientocclusion": false,
 	"textures": {
-		"lightsBright": "ae2:part/terminal_bright",
-		"lightsMedium": "ae2:part/terminal_medium",
-		"lightsDark": "ae2:part/terminal_dark",
+		"background": "ae2:part/monitor_light",
 		"staticCube": "chatae:part/ai_terminal_static"
 	},
 	"elements": [
 		{
-			"comment": "Terminal bright layer (same as AE2 terminal)",
+			"comment": "Background - solid panel (same as Dark Illuminated Panel)",
 			"from": [2, 2, 0],
 			"to": [14, 14, 2],
 			"faces": {
 				"north": {
-					"texture": "#lightsBright",
+					"texture": "#background",
 					"tintindex": 2
-				}
-			}
-		},
-		{
-			"comment": "Terminal medium layer (same as AE2 terminal)",
-			"from": [2, 2, 0],
-			"to": [14, 14, 2],
-			"faces": {
-				"north": {
-					"texture": "#lightsMedium",
-					"tintindex": 2
-				}
-			}
-		},
-		{
-			"comment": "Terminal dark layer (same as AE2 terminal)",
-			"from": [2, 2, 0],
-			"to": [14, 14, 2],
-			"faces": {
-				"north": {
-					"texture": "#lightsDark",
-					"tintindex": 1
 				}
 			}
 		},
