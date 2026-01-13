@@ -1,4 +1,4 @@
-package space.controlnet.chatae.net.c2s;
+package space.controlnet.chatae.core.net.c2s;
 
 import java.util.UUID;
 

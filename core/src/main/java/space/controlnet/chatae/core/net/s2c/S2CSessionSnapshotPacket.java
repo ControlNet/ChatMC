@@ -1,4 +1,4 @@
-package space.controlnet.chatae.net.s2c;
+package space.controlnet.chatae.core.net.s2c;
 
 import space.controlnet.chatae.core.session.SessionSnapshot;
 
