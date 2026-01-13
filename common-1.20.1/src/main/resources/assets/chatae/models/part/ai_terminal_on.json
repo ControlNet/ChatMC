@@ -2,7 +2,7 @@
 	"ambientocclusion": false,
 	"textures": {
 		"background": "ae2:part/monitor_light",
-		"cube": "chatae:part/ai_terminal_bright"
+		"cube": "chatae:part/ai_terminal_on"
 	},
 	"elements": [
 		{

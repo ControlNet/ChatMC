@@ -2,7 +2,7 @@
   "parent": "ae2:item/display_base",
   "textures": {
     "front": "ae2:part/monitor_light",
-    "front_bright": "chatae:part/ai_terminal_static",
+    "front_bright": "chatae:part/ai_terminal_off",
     "front_medium": "ae2:part/monitor_light",
     "front_dark": "ae2:part/monitor_light"
   }

@@ -9,9 +9,9 @@ Usage:
 
 Output:
     common-1.20.1/src/main/resources/assets/chatae/textures/part/
-        ai_terminal_bright.png        - Animated rotating cube (16 frames)
-        ai_terminal_bright.png.mcmeta - Animation config
-        ai_terminal_static.png        - Static cube for off state
+        ai_terminal_on.png        - Animated rotating cube (16 frames)
+        ai_terminal_on.png.mcmeta - Animation config
+        ai_terminal_off.png       - Static cube for off state (first frame)
 
 Note: The background texture reuses AE2's monitor_light texture (ae2:part/monitor_light)
 """
@@ -22,14 +22,14 @@ import math
 import os
 
 # Configuration
-CUBE_SIZE = 1.3          # Size of the cube (smaller = smaller cube)
+CUBE_SIZE = 1.5          # Size of the cube (smaller = smaller cube)
 TILT_ANGLE = 25          # Degrees to tilt the cube for 3D effect
 NUM_FRAMES = 16          # Number of animation frames
 FRAME_TIME = 5           # Ticks per frame (20 ticks = 1 second)
 SCALE = 2.5              # Projection scale
 OFFSET_X = 8             # Center X offset
 OFFSET_Y = 8             # Center Y offset
-STATIC_ANGLE = 35        # Y rotation angle for static cube (degrees) - shows 3 faces nicely
+STATIC_ANGLE = 0         # Y rotation angle for static cube (degrees) - matches first frame of animation
 
 
 def rotate_y(points, angle):
@@ -193,19 +193,19 @@ def main():
     bright_strip = Image.new('RGBA', (16, total_height), (0, 0, 0, 0))
     for i, frame in enumerate(frames):
         bright_strip.paste(frame, (0, i * 16))
-    bright_strip.save(os.path.join(output_dir, 'ai_terminal_bright.png'))
-    print(f"  Created ai_terminal_bright.png (16x{total_height}, {NUM_FRAMES} frames)")
+    bright_strip.save(os.path.join(output_dir, 'ai_terminal_on.png'))
+    print(f"  Created ai_terminal_on.png (16x{total_height}, {NUM_FRAMES} frames)")
 
     # Generate mcmeta for animation
     mcmeta = f'''{{"animation": {{"frametime": {FRAME_TIME}, "interpolate": false}}}}'''
-    with open(os.path.join(output_dir, 'ai_terminal_bright.png.mcmeta'), 'w') as f:
+    with open(os.path.join(output_dir, 'ai_terminal_on.png.mcmeta'), 'w') as f:
         f.write(mcmeta)
-    print(f"  Created ai_terminal_bright.png.mcmeta (frametime={FRAME_TIME})")
+    print(f"  Created ai_terminal_on.png.mcmeta (frametime={FRAME_TIME})")
 
     # Generate static cube for off state
     static_cube = generate_static_cube()
-    static_cube.save(os.path.join(output_dir, 'ai_terminal_static.png'))
-    print(f"  Created ai_terminal_static.png (16x16, angle={STATIC_ANGLE}°)")
+    static_cube.save(os.path.join(output_dir, 'ai_terminal_off.png'))
+    print(f"  Created ai_terminal_off.png (16x16, angle={STATIC_ANGLE}°)")
 
     # Calculate animation timing
     rotation_time = (NUM_FRAMES * FRAME_TIME) / 20.0

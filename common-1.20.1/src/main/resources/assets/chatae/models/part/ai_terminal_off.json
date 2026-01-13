@@ -2,7 +2,7 @@
 	"ambientocclusion": false,
 	"textures": {
 		"background": "ae2:part/monitor_light",
-		"staticCube": "chatae:part/ai_terminal_static"
+		"staticCube": "chatae:part/ai_terminal_off"
 	},
 	"elements": [
 		{
@@ -17,14 +17,14 @@
 			}
 		},
 		{
-			"comment": "Static cube overlay",
+			"comment": "Static cube overlay (bright, consistent with power-on)",
 			"shade": false,
 			"from": [2, 2, 0],
 			"to": [14, 14, 2],
 			"faces": {
 				"north": {
 					"texture": "#staticCube",
-					"tintindex": 2
+					"tintindex": 3
 				}
 			}
 		}
