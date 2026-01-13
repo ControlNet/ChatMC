@@ -22,7 +22,7 @@ import math
 import os
 
 # Configuration
-CUBE_SIZE = 1.5          # Size of the cube (smaller = smaller cube)
+CUBE_SIZE = 1.3          # Size of the cube (smaller = smaller cube)
 TILT_ANGLE = 25          # Degrees to tilt the cube for 3D effect
 NUM_FRAMES = 16          # Number of animation frames
 FRAME_TIME = 5           # Ticks per frame (20 ticks = 1 second)
