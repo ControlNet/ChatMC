@@ -6,10 +6,13 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import space.controlnet.chatae.common.ChatAENetwork;
 import space.controlnet.chatae.common.menu.AiTerminalMenu;
@@ -53,9 +56,18 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int SESSION_BUTTON_HEIGHT = 18;
     private static final int SESSION_BUTTON_GAP = 4;
     private static final int SESSION_NEW_BUTTON_HEIGHT = 18;
+    private static final int TOKEN_ICON_SIZE = 12;
+    private static final int TOKEN_TEXT_GAP = 4;
+    private static final int TOKEN_PADDING_X = 4;
+    private static final int TOKEN_PANEL_PADDING = 6;
+    private static final int TOKEN_PANEL_WIDTH = 176;
+    private static final int TOKEN_PANEL_MAX_ROWS = 6;
+    private static final int TOKEN_PANEL_ROW_HEIGHT = 18;
 
     private final List<Component> messages = new ArrayList<>();
     private final List<FormattedCharSequence> wrappedLines = new ArrayList<>();
+    private final List<ItemToken> inputTokens = new ArrayList<>();
+    private final List<ItemSuggestion> itemSuggestions = new ArrayList<>();
 
     private EditBox inputBox;
     private Button sendButton;
@@ -66,6 +78,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private Button aiLocaleButton;
 
     private String statusText = "Idle";
+    private int lastCursorPosition = -1;
+    private int suggestionAnchorIndex = -1;
+    private String suggestionQuery = "";
+    private boolean suggestionsVisible;
+    private int hoveredSuggestionIndex = -1;
 
     private int chatX;
     private int chatY;
@@ -125,6 +142,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.inputBox.setMaxLength(256);
         this.inputBox.setBordered(true);
         this.inputBox.setCanLoseFocus(true);
+        this.inputBox.setResponder(this::onInputChanged);
         this.addRenderableWidget(this.inputBox);
 
         this.sendButton = Button.builder(Component.literal("Send"), b -> submitInput()).bounds(
@@ -233,6 +251,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         renderChatLog(guiGraphics);
         renderProposalCard(guiGraphics);
         renderSessionsPanel(guiGraphics);
+        renderInputTokens(guiGraphics);
+        renderItemSuggestions(guiGraphics, mouseX, mouseY);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }
 
@@ -257,6 +277,120 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         guiGraphics.disableScissor();
+    }
+
+    private void renderInputTokens(GuiGraphics guiGraphics) {
+        if (this.inputBox == null || this.inputTokens.isEmpty()) {
+            return;
+        }
+
+        String value = this.inputBox.getValue();
+        if (value.isBlank()) {
+            return;
+        }
+
+        int inputX = this.inputBox.getX();
+        int inputY = this.inputBox.getY();
+        int inputW = this.inputBox.getWidth();
+        int inputH = this.inputBox.getHeight();
+        int rowHeight = Math.max(12, inputH - 4);
+        int baseX = inputX + 4;
+        int baseY = inputY + (inputH - rowHeight) / 2;
+        int maxX = inputX + inputW - 4;
+
+        guiGraphics.enableScissor(inputX + 1, inputY + 1, inputX + inputW - 1, inputY + inputH - 1);
+
+        int searchStart = 0;
+        for (ItemToken token : this.inputTokens) {
+            String label = "@" + token.displayName();
+            int idx = value.indexOf(label, searchStart);
+            if (idx < 0) {
+                continue;
+            }
+            int textWidth = this.font.width(value.substring(0, idx));
+            int x = baseX + textWidth;
+            TokenMetrics metrics = measureToken(token);
+            int tokenW = metrics.width();
+            if (x < maxX && x + tokenW > baseX) {
+                renderTokenPill(guiGraphics, token, x, baseY, tokenW, rowHeight);
+            }
+            searchStart = idx + label.length();
+        }
+
+        guiGraphics.disableScissor();
+    }
+
+    private void renderTokenPill(GuiGraphics guiGraphics, ItemToken token, int x, int y, int width, int height) {
+        int bg = 0xCC1E1A12;
+        int outline = 0xFF6A5D4B;
+        guiGraphics.fill(x, y, x + width, y + height, bg);
+        guiGraphics.renderOutline(x, y, width, height, outline);
+
+        ItemStack stack = new ItemStack(token.item());
+        int iconX = x + TOKEN_PADDING_X;
+        int iconY = y + (height - TOKEN_ICON_SIZE) / 2;
+        guiGraphics.renderItem(stack, iconX, iconY);
+
+        int textX = iconX + TOKEN_ICON_SIZE + TOKEN_TEXT_GAP;
+        int nameMaxWidth = Math.max(1, width - TOKEN_PADDING_X - TOKEN_ICON_SIZE - TOKEN_TEXT_GAP - TOKEN_PADDING_X);
+        String label = this.font.plainSubstrByWidth(token.displayName(), nameMaxWidth);
+        int textY = y + (height - this.font.lineHeight) / 2 + 1;
+        guiGraphics.drawString(this.font, label, textX, textY, token.color(), false);
+    }
+
+    private void renderItemSuggestions(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        if (!this.suggestionsVisible || this.inputBox == null || this.itemSuggestions.isEmpty()) {
+            this.hoveredSuggestionIndex = -1;
+            return;
+        }
+
+        int panelW = Math.min(TOKEN_PANEL_WIDTH, this.inputBox.getWidth());
+        int visibleRows = Math.min(TOKEN_PANEL_MAX_ROWS, this.itemSuggestions.size());
+        int panelH = visibleRows * TOKEN_PANEL_ROW_HEIGHT + TOKEN_PANEL_PADDING * 2;
+        int panelX = getSuggestionsPanelX();
+        int panelY = getSuggestionsPanelY(panelH);
+
+        int bg = 0xE61A1712;
+        int outline = 0xFF6A5D4B;
+        guiGraphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, bg);
+        guiGraphics.renderOutline(panelX, panelY, panelW, panelH, outline);
+
+        this.hoveredSuggestionIndex = -1;
+        for (int i = 0; i < visibleRows; i++) {
+            int rowY = panelY + TOKEN_PANEL_PADDING + i * TOKEN_PANEL_ROW_HEIGHT;
+            if (mouseX >= panelX && mouseX < panelX + panelW && mouseY >= rowY && mouseY < rowY + TOKEN_PANEL_ROW_HEIGHT) {
+                this.hoveredSuggestionIndex = i;
+                guiGraphics.fill(panelX + 2, rowY + 1, panelX + panelW - 2, rowY + TOKEN_PANEL_ROW_HEIGHT - 1, 0x553A3328);
+            }
+            renderSuggestionRow(guiGraphics, this.itemSuggestions.get(i), panelX + TOKEN_PANEL_PADDING, rowY, panelW - TOKEN_PANEL_PADDING * 2);
+        }
+    }
+
+    private int getSuggestionsPanelX() {
+        return this.inputBox == null ? 0 : this.inputBox.getX();
+    }
+
+    private int getSuggestionsPanelY(int panelHeight) {
+        if (this.inputBox == null) {
+            return 0;
+        }
+        int inputY = this.inputBox.getY();
+        int panelY = inputY - panelHeight - 4;
+        if (panelY < this.topPos + 4) {
+            panelY = inputY + this.inputBox.getHeight() + 4;
+        }
+        return panelY;
+    }
+
+    private void renderSuggestionRow(GuiGraphics guiGraphics, ItemSuggestion suggestion, int x, int y, int width) {
+        ItemStack stack = new ItemStack(suggestion.item());
+        int iconY = y + (TOKEN_PANEL_ROW_HEIGHT - TOKEN_ICON_SIZE) / 2;
+        guiGraphics.renderItem(stack, x, iconY);
+
+        int textX = x + TOKEN_ICON_SIZE + TOKEN_TEXT_GAP;
+        int nameMaxWidth = Math.max(1, width - TOKEN_ICON_SIZE - TOKEN_TEXT_GAP);
+        String name = this.font.plainSubstrByWidth(suggestion.displayName(), nameMaxWidth);
+        guiGraphics.drawString(this.font, name, textX, y + 4, suggestion.color(), false);
     }
 
     private void renderProposalCard(GuiGraphics guiGraphics) {
@@ -518,7 +652,19 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.inputBox != null && this.inputBox.isFocused()) {
             if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
+                if (this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
+                    int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex : 0;
+                    if (index >= 0 && index < this.itemSuggestions.size()) {
+                        applySuggestion(this.itemSuggestions.get(index));
+                        return true;
+                    }
+                }
                 submitInput();
+                return true;
+            }
+            if (keyCode == InputConstants.KEY_TAB && this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
+                int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex : 0;
+                applySuggestion(this.itemSuggestions.get(index));
                 return true;
             }
             if (keyCode != InputConstants.KEY_ESCAPE) {
@@ -535,9 +681,34 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (this.inputBox != null && this.inputBox.isFocused() && this.inputBox.charTyped(codePoint, modifiers)) {
+            int cursor = this.inputBox.getCursorPosition();
+            if (cursor != this.lastCursorPosition) {
+                updateSuggestionQuery();
+            }
             return true;
         }
         return super.charTyped(codePoint, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (this.suggestionsVisible && this.inputBox != null) {
+            int panelW = Math.min(TOKEN_PANEL_WIDTH, this.inputBox.getWidth());
+            int visibleRows = Math.min(TOKEN_PANEL_MAX_ROWS, this.itemSuggestions.size());
+            int panelH = visibleRows * TOKEN_PANEL_ROW_HEIGHT + TOKEN_PANEL_PADDING * 2;
+            int panelX = getSuggestionsPanelX();
+            int panelY = getSuggestionsPanelY(panelH);
+
+            if (mouseX >= panelX && mouseX < panelX + panelW && mouseY >= panelY && mouseY < panelY + panelH) {
+                int rowY = (int) mouseY - panelY - TOKEN_PANEL_PADDING;
+                int rowIndex = rowY / TOKEN_PANEL_ROW_HEIGHT;
+                if (rowIndex >= 0 && rowIndex < visibleRows) {
+                    applySuggestion(this.itemSuggestions.get(rowIndex));
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void submitInput() {
@@ -557,12 +728,15 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         ChatAENetwork.sendChatToServer(
-                message,
+                serializeInputForSend(message),
                 ChatAENetwork.getClientLocale(),
                 space.controlnet.chatae.core.client.ClientAiSettings.getAiLocaleOverride()
         );
 
         this.inputBox.setValue("");
+        this.inputTokens.clear();
+        this.itemSuggestions.clear();
+        this.suggestionsVisible = false;
         this.scrollOffsetLines = 0;
     }
 
@@ -633,7 +807,269 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             case SYSTEM -> Component.literal("System: ").withStyle(ChatFormatting.DARK_GRAY);
         };
 
-        return prefix.append(Component.literal(message.text()).withStyle(ChatFormatting.WHITE));
+        return prefix.append(renderItemTags(message.text()).withStyle(ChatFormatting.WHITE));
+    }
+
+    private void onInputChanged(String value) {
+        String safe = escapeItemTags(value == null ? "" : value);
+        if (!safe.equals(value)) {
+            this.inputBox.setValue(safe);
+            return;
+        }
+
+        updateTokensFromInput();
+        updateSuggestionQuery();
+    }
+
+    private static MutableComponent renderItemTags(String text) {
+        if (text == null || text.isBlank() || !text.contains("<item")) {
+            return Component.literal(text == null ? "" : text);
+        }
+
+        MutableComponent result = Component.empty();
+        int index = 0;
+        while (index < text.length()) {
+            int start = text.indexOf("<item", index);
+            if (start < 0) {
+                result.append(Component.literal(text.substring(index)));
+                break;
+            }
+            if (start > index) {
+                result.append(Component.literal(text.substring(index, start)));
+            }
+            int end = text.indexOf('>', start);
+            if (end < 0) {
+                result.append(Component.literal(text.substring(start)));
+                break;
+            }
+
+            String tag = text.substring(start, end + 1);
+            String itemId = extractAttribute(tag, "id");
+            String displayName = extractAttribute(tag, "display_name");
+            if (itemId != null) {
+                net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+                if (id != null) {
+                    net.minecraft.world.item.Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id);
+                    if (item != null && item != net.minecraft.world.item.Items.AIR) {
+                        String name = displayName == null || displayName.isBlank()
+                                ? new net.minecraft.world.item.ItemStack(item).getHoverName().getString()
+                                : displayName;
+                        net.minecraft.network.chat.MutableComponent itemComponent = Component.literal(name).withStyle(ChatFormatting.GOLD);
+                        result.append(itemComponent);
+                        index = end + 1;
+                        continue;
+                    }
+                }
+            }
+            result.append(Component.literal(tag));
+            index = end + 1;
+        }
+
+        return result;
+    }
+
+    private static String extractAttribute(String tag, String attr) {
+        String needle = attr + "=\"";
+        int idx = tag.indexOf(needle);
+        if (idx < 0) {
+            return null;
+        }
+        int start = idx + needle.length();
+        int end = tag.indexOf('"', start);
+        if (end < 0) {
+            return null;
+        }
+        return tag.substring(start, end);
+    }
+
+    private void updateTokensFromInput() {
+        String value = this.inputBox == null ? "" : this.inputBox.getValue();
+        if (value.isBlank()) {
+            this.inputTokens.clear();
+            return;
+        }
+
+        this.inputTokens.removeIf(token -> !value.contains("@" + token.displayName()));
+    }
+
+    private void updateSuggestionQuery() {
+        if (this.inputBox == null) {
+            return;
+        }
+
+        String value = this.inputBox.getValue();
+        int cursor = this.inputBox.getCursorPosition();
+        this.lastCursorPosition = cursor;
+        String slice = value.substring(0, Math.min(cursor, value.length()));
+        int atIndex = slice.lastIndexOf('@');
+        if (atIndex < 0) {
+            clearSuggestions();
+            return;
+        }
+
+
+        int endIndex = atIndex + 1;
+        while (endIndex < value.length()) {
+            char ch = value.charAt(endIndex);
+            if (Character.isWhitespace(ch)) {
+                break;
+            }
+            endIndex++;
+        }
+
+        this.suggestionAnchorIndex = atIndex;
+        this.suggestionQuery = value.substring(atIndex + 1, endIndex).trim();
+        rebuildSuggestions();
+    }
+
+    private void rebuildSuggestions() {
+        this.itemSuggestions.clear();
+        this.suggestionsVisible = this.inputBox != null && this.inputBox.isFocused();
+        if (!this.suggestionsVisible) {
+            return;
+        }
+
+        String query = this.suggestionQuery.toLowerCase();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (item == null || item == net.minecraft.world.item.Items.AIR) {
+                continue;
+            }
+            ItemStack stack = new ItemStack(item);
+            String displayName = stack.getHoverName().getString();
+            String id = BuiltInRegistries.ITEM.getKey(item).toString();
+            if (!query.isBlank() && !matchesQuery(displayName, id, query)) {
+                continue;
+            }
+            int score = scoreCandidate(displayName, id, query);
+            this.itemSuggestions.add(new ItemSuggestion(item, displayName, id, score, 0xF0D27C));
+        }
+
+        this.itemSuggestions.sort((a, b) -> {
+            int scoreCompare = Integer.compare(b.score(), a.score());
+            if (scoreCompare != 0) {
+                return scoreCompare;
+            }
+            return a.displayName().compareToIgnoreCase(b.displayName());
+        });
+
+        int limit = Math.min(TOKEN_PANEL_MAX_ROWS, this.itemSuggestions.size());
+        if (limit < this.itemSuggestions.size()) {
+            this.itemSuggestions.subList(limit, this.itemSuggestions.size()).clear();
+        }
+    }
+
+    private void clearSuggestions() {
+        this.suggestionsVisible = false;
+        this.itemSuggestions.clear();
+        this.hoveredSuggestionIndex = -1;
+    }
+
+    private boolean matchesQuery(String displayName, String id, String query) {
+        if (query.isBlank()) {
+            return true;
+        }
+        String lowerName = displayName.toLowerCase();
+        String lowerId = id.toLowerCase();
+        return lowerName.contains(query) || lowerId.contains(query);
+    }
+
+    private int scoreCandidate(String displayName, String id, String query) {
+        if (query.isBlank()) {
+            return 0;
+        }
+        String lowerName = displayName.toLowerCase();
+        String lowerId = id.toLowerCase();
+        if (lowerName.startsWith(query)) {
+            return 3;
+        }
+        if (lowerId.startsWith(query)) {
+            return 2;
+        }
+        if (lowerName.contains(query) || lowerId.contains(query)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private void applySuggestion(ItemSuggestion suggestion) {
+        if (this.inputBox == null) {
+            return;
+        }
+
+        String value = this.inputBox.getValue();
+        int cursor = this.inputBox.getCursorPosition();
+        int start = Math.max(0, Math.min(this.suggestionAnchorIndex, value.length()));
+        int end = start;
+        while (end < value.length()) {
+            char ch = value.charAt(end);
+            if (Character.isWhitespace(ch)) {
+                break;
+            }
+            end++;
+        }
+
+        String before = value.substring(0, start);
+        String after = value.substring(end);
+        String insert = "@" + suggestion.displayName();
+        if (!after.isBlank()) {
+            insert = insert + " ";
+        }
+
+        this.inputBox.setValue(before + insert + after);
+        this.inputBox.setCursorPosition(before.length() + insert.length());
+
+        int tokenIndex = this.inputTokens.size();
+        this.inputTokens.add(new ItemToken(suggestion.item(), suggestion.displayName(), suggestion.itemId(), 0xF0D27C, tokenIndex));
+        clearSuggestions();
+    }
+
+
+    private String serializeInputForSend(String input) {
+        String sanitized = escapeItemTags(input);
+        String output = sanitized;
+        List<ItemToken> tokens = new ArrayList<>(this.inputTokens);
+        tokens.sort((a, b) -> Integer.compare(b.displayName().length(), a.displayName().length()));
+        for (ItemToken token : tokens) {
+            String tokenLabel = "@" + token.displayName();
+            if (output.contains(tokenLabel)) {
+                String tag = "<item id=\"" + token.itemId() + "\" display_name=\"" + escapeAttribute(token.displayName()) + "\">";
+                output = replaceFirstLiteral(output, tokenLabel, tag);
+            }
+        }
+        return output;
+    }
+
+    private String replaceFirstLiteral(String source, String target, String replacement) {
+        int index = source.indexOf(target);
+        if (index < 0) {
+            return source;
+        }
+        return source.substring(0, index) + replacement + source.substring(index + target.length());
+    }
+
+    private String escapeAttribute(String value) {
+        return value.replace("\"", "&quot;");
+    }
+
+
+    private String escapeItemTags(String input) {
+        if (input.contains("<item")) {
+            return input.replace("<", "&lt;").replace(">", "&gt;");
+        }
+        return input;
+    }
+
+    @Override
+    public void onClose() {
+        clearSuggestions();
+        this.inputTokens.clear();
+        super.onClose();
+    }
+
+    private TokenMetrics measureToken(ItemToken token) {
+        int textWidth = this.font.width(token.displayName());
+        int width = TOKEN_PADDING_X + TOKEN_ICON_SIZE + TOKEN_TEXT_GAP + textWidth + TOKEN_PADDING_X;
+        return new TokenMetrics(width);
     }
 
     private static String buildProposalDetailLine(Proposal proposal, space.controlnet.chatae.core.session.TerminalBinding binding) {
@@ -688,6 +1124,15 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private record TokenMetrics(int width) {
+    }
+
+    private record ItemSuggestion(Item item, String displayName, String itemId, int score, int color) {
+    }
+
+    private record ItemToken(Item item, String displayName, String itemId, int color, int index) {
     }
 
     private static final class SessionRow {

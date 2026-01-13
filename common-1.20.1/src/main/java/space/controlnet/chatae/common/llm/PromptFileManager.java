@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -31,8 +30,8 @@ public final class PromptFileManager {
         for (String locale : locales) {
             for (PromptId id : PromptId.values()) {
                 Path defaultPath = configDir.resolve(id.id() + "." + locale + ".default.prompt");
-                ensureDefaultPrompt(defaultPath, id, locale);
-                String content = readFirstExisting(configDir, id, locale, defaultPath);
+                ensureDefaultPrompt(defaultPath, id, locale, server);
+                String content = readFirstExisting(configDir, id, locale, defaultPath, server);
                 if (content != null) {
                     prompts.put(new PromptStore.PromptKey(id.id(), locale), content);
                 }
@@ -65,27 +64,20 @@ public final class PromptFileManager {
         return locales;
     }
 
-    private static void ensureDefaultPrompt(Path path, PromptId id, String locale) {
+    private static void ensureDefaultPrompt(Path path, PromptId id, String locale, MinecraftServer server) {
         if (Files.exists(path)) {
             return;
         }
         try {
             Files.createDirectories(path.getParent());
-            String resourcePath = "/assets/chatae/prompts/" + id.id() + "." + locale + ".default.prompt";
-            try (InputStream in = PromptFileManager.class.getResourceAsStream(resourcePath)) {
-                if (in != null) {
-                    Files.copy(in, path, StandardCopyOption.REPLACE_EXISTING);
-                    return;
-                }
-            }
-            String fallback = loadDefaultPrompt(id, "en_us");
+            String fallback = loadDefaultPrompt(server, id, locale);
             Files.writeString(path, fallback == null ? "" : fallback, StandardCharsets.UTF_8);
         } catch (IOException e) {
             ChatAE.LOGGER.warn("Failed to write prompt defaults", e);
         }
     }
 
-    private static String readFirstExisting(Path configDir, PromptId id, String locale, Path defaultPath) {
+    private static String readFirstExisting(Path configDir, PromptId id, String locale, Path defaultPath, MinecraftServer server) {
         Path override = configDir.resolve(id.id() + ".prompt");
         Path localeOverride = configDir.resolve(id.id() + "." + locale + ".prompt");
 
@@ -101,7 +93,7 @@ public final class PromptFileManager {
         if (content != null) {
             return content;
         }
-        return loadDefaultPrompt(id, "en_us");
+        return loadDefaultPrompt(server, id, "en_us");
     }
 
     private static String readFileIfExists(Path path) {
@@ -116,15 +108,32 @@ public final class PromptFileManager {
         }
     }
 
-    private static String loadDefaultPrompt(PromptId id, String locale) {
-        String resourcePath = "/assets/chatae/prompts/" + id.id() + "." + locale + ".default.prompt";
-        try (InputStream in = PromptFileManager.class.getResourceAsStream(resourcePath)) {
-            if (in == null) {
+    private static String loadDefaultPrompt(MinecraftServer server, PromptId id, String locale) {
+        String key = "prompt.chatae." + id.id();
+        String resource = resolveLangEntry(server, locale, key);
+        return resource == null ? resolveLangEntry(server, "en_us", key) : resource;
+    }
+
+    private static String resolveLangEntry(MinecraftServer server, String locale, String key) {
+        if (server == null) {
+            return null;
+        }
+        try {
+            net.minecraft.server.packs.resources.ResourceManager manager = server.getResourceManager();
+            net.minecraft.resources.ResourceLocation loc = new net.minecraft.resources.ResourceLocation("chatae", "lang/" + locale + ".json");
+            java.util.Optional<net.minecraft.server.packs.resources.Resource> resource = manager.getResource(loc);
+            if (resource.isEmpty()) {
                 return null;
             }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            ChatAE.LOGGER.warn("Failed to read prompt resource {}", resourcePath, e);
+            try (InputStream in = resource.get().open()) {
+                java.util.Map<String, String> map = new com.google.gson.Gson().fromJson(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8), java.util.Map.class);
+                if (map == null) {
+                    return null;
+                }
+                return map.get(key);
+            }
+        } catch (Exception e) {
+            ChatAE.LOGGER.warn("Failed to read lang entry {}:{}", locale, key, e);
             return null;
         }
     }

@@ -1,6 +1,0 @@
-Return ONLY JSON with fields "tool" and "args".
-Tool must be one of: {{tool_list}}.
-Args schema:
-{{args_schema}}
-The user may write in {{effectiveLocale}}.
-User: {{user_message}}

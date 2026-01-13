@@ -1,4 +1,6 @@
 {
   "itemGroup.chatae": "ChatAE",
-  "item.chatae.ai_terminal": "AI Terminal"
+  "item.chatae.ai_terminal": "AI Terminal",
+  "prompt.chatae.tool_call_parser.main": "Return ONLY JSON with fields \"tool\" and \"args\".\nTool must be one of: {{tool_list}}.\nArgs schema:\n{{args_schema}}\nThe user may write in {{effectiveLocale}}.\nUser messages may include <item id=\"...\" display_name=\"...\"> tokens. Treat item id as authoritative.\nUser: {{user_message}}\n",
+  "prompt.chatae.assistant_response.main": "You are the AI assistant for ChatAE.\nAnswer in {{effectiveLocale}}.\nUser: {{user_message}}\nTool result: {{tool_result}}\n"
 }

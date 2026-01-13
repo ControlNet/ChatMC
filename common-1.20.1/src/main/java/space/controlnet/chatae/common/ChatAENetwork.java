@@ -46,6 +46,10 @@ import space.controlnet.chatae.net.c2s.C2SUpdateSessionPacket;
 import space.controlnet.chatae.net.s2c.S2CSessionListPacket;
 import space.controlnet.chatae.net.s2c.S2CSessionSnapshotPacket;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,6 +58,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
@@ -62,6 +68,8 @@ public final class ChatAENetwork {
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
     private static final ReflectiveToolCallParser LLM_PARSER = new ReflectiveToolCallParser((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
+    private static final space.controlnet.chatae.core.agent.AssistantResponseService ASSISTANT_RESPONDER =
+            new space.controlnet.chatae.core.agent.AssistantResponseService((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
     private static final ExecutorService LLM_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "chatae-llm");
         t.setDaemon(true);
@@ -96,6 +104,8 @@ public final class ChatAENetwork {
 
     private static final java.util.concurrent.ConcurrentHashMap<UUID, java.util.Set<UUID>> VIEWERS_BY_SESSION = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.concurrent.ConcurrentHashMap<UUID, UUID> SESSION_BY_VIEWER = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final Pattern ITEM_TAG_PATTERN = Pattern.compile("<item\\s+id=\"([^\"]+)\"(?:\\s+display_name=\"([^\"]+)\")?\\s*>");
 
     private ChatAENetwork() {
     }
@@ -505,12 +515,13 @@ public final class ChatAENetwork {
             return;
         }
 
+        String effectiveLocale = resolveEffectiveLocale(clientLocale, aiLocaleOverride);
+
         Optional<TerminalBinding> binding = captureTerminalBinding(player);
         SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.USER, text, now));
         persistSessions();
         broadcastSessionSnapshot(sessionId);
 
-        String effectiveLocale = resolveEffectiveLocale(clientLocale, aiLocaleOverride);
         String renderedPrompt = buildToolParserPrompt(text, effectiveLocale);
         parseCommandAsync(playerId, renderedPrompt, effectiveLocale)
                 .whenComplete((outcome, error) -> player.getServer().execute(() -> {
@@ -518,7 +529,7 @@ public final class ChatAENetwork {
                         applyParseFailure(sessionId, "LLM error: " + error.getMessage());
                         return;
                     }
-                    handleParsedOutcome(player, outcome, sessionId, binding.orElse(null));
+                    handleParsedOutcome(player, outcome, sessionId, binding.orElse(null), effectiveLocale, text);
                 }));
     }
 
@@ -666,7 +677,7 @@ public final class ChatAENetwork {
         return new SessionSnapshot(metadata, messages, state, Optional.empty(), Optional.empty(), List.of(), error);
     }
 
-    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome, UUID sessionId, TerminalBinding binding) {
+    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome, UUID sessionId, TerminalBinding binding, String effectiveLocale, String userMessage) {
         SessionSnapshot current = SESSIONS.get(sessionId).orElse(null);
         if (current == null) {
             return;
@@ -702,7 +713,7 @@ public final class ChatAENetwork {
                 SESSIONS.setState(sessionId, SessionState.IDLE);
             }
         } else if (toolOutcome.result() != null) {
-            applyToolResult(player, outcome.call(), toolOutcome.result(), "AUTO_APPROVE", duration, sessionId);
+            applyToolResult(player, outcome.call(), toolOutcome.result(), "AUTO_APPROVE", duration, sessionId, effectiveLocale, userMessage);
         } else {
             SESSIONS.setState(sessionId, SessionState.IDLE);
         }
@@ -718,14 +729,21 @@ public final class ChatAENetwork {
         broadcastSessionSnapshot(sessionId);
     }
 
-    private static void applyToolResult(ServerPlayer player, ToolCall call, ToolResult result, String decision, long durationMillis, UUID sessionId) {
+    private static void applyToolResult(ServerPlayer player, ToolCall call, ToolResult result, String decision, long durationMillis, UUID sessionId, String effectiveLocale, String userMessage) {
         UUID playerId = player.getUUID();
         String payload = result.payloadJson();
         if (payload == null && result.error() != null) {
             payload = "Error: " + result.error().message();
         }
         if (payload != null && !payload.isBlank()) {
-            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, payload, System.currentTimeMillis()));
+            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
+        }
+
+        String locale = effectiveLocale == null || effectiveLocale.isBlank() ? "en_us" : effectiveLocale;
+        String assistantPrompt = buildAssistantPrompt(call, payload, locale, userMessage);
+        Optional<String> assistantText = ASSISTANT_RESPONDER.generate(assistantPrompt);
+        if (assistantText.isPresent()) {
+            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, assistantText.get(), System.currentTimeMillis()));
         }
 
         if (result.success()) {
@@ -773,6 +791,19 @@ public final class ChatAENetwork {
 
         return PromptRuntime.render(
                 space.controlnet.chatae.core.agent.PromptId.TOOL_CALL_PARSER_MAIN,
+                effectiveLocale,
+                variables
+        );
+    }
+
+    private static String buildAssistantPrompt(ToolCall call, String toolResult, String effectiveLocale, String userMessage) {
+        java.util.Map<String, String> variables = new java.util.HashMap<>();
+        variables.put("effectiveLocale", effectiveLocale);
+        variables.put("user_message", userMessage == null ? "" : userMessage);
+        variables.put("tool_result", toolResult == null ? "" : toolResult);
+
+        return PromptRuntime.render(
+                space.controlnet.chatae.core.agent.PromptId.ASSISTANT_RESPONSE_MAIN,
                 effectiveLocale,
                 variables
         );
@@ -1030,7 +1061,7 @@ public final class ChatAENetwork {
         SESSIONS.clearProposalPreserveState(sessionId);
 
         if (outcome.result() != null) {
-            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration, sessionId);
+            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration, sessionId, resolveEffectiveLocale(null, null), proposal.summary());
         } else {
             SESSIONS.setState(sessionId, SessionState.DONE);
             persistSessions();

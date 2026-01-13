@@ -1,4 +1,6 @@
 {
   "itemGroup.chatae": "ChatAE",
-  "item.chatae.ai_terminal": "AI 终端"
+  "item.chatae.ai_terminal": "AI 终端",
+  "prompt.chatae.tool_call_parser.main": "仅返回包含 \"tool\" 和 \"args\" 字段的 JSON。\nTool 必须是以下之一：{{tool_list}}。\n参数结构：\n{{args_schema}}\n用户可能使用 {{effectiveLocale}} 语言。\n用户消息可能包含 <item id=\"...\" display_name=\"...\"> 标记，item id 视为权威值。\nUser: {{user_message}}\n",
+  "prompt.chatae.assistant_response.main": "你是 ChatAE 的 AI 助手。\n请用 {{effectiveLocale}} 语言回答。\nUser: {{user_message}}\nTool result: {{tool_result}}\n"
 }
