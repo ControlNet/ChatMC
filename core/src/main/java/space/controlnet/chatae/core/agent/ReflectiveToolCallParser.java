@@ -19,12 +19,12 @@ public final class ReflectiveToolCallParser {
         return parser != null;
     }
 
-    public Optional<ToolCall> parse(String message) {
+    public Optional<ToolCall> parse(String prompt) {
         ToolCallParser instance = ensureParser();
         if (instance == null) {
             return Optional.empty();
         }
-        return instance.parse(message);
+        return instance.parse(prompt);
     }
 
     private ToolCallParser ensureParser() {

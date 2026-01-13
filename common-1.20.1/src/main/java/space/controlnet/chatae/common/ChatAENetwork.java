@@ -4,6 +4,7 @@ import dev.architectury.networking.NetworkChannel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import space.controlnet.chatae.common.llm.PromptRuntime;
 import space.controlnet.chatae.common.audit.AuditLogger;
 import space.controlnet.chatae.common.team.TeamAccess;
 import space.controlnet.chatae.common.terminal.TerminalContextFactory;
@@ -70,6 +71,26 @@ public final class ChatAENetwork {
     private static final long LLM_COOLDOWN_MS = 1500;
     private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS);
 
+    private static final String TOOL_LIST = String.join(", ",
+            "recipes.search",
+            "recipes.get",
+            "ae2.list_items",
+            "ae2.list_craftables",
+            "ae2.simulate_craft",
+            "ae2.request_craft",
+            "ae2.job_status",
+            "ae2.job_cancel"
+    );
+
+    private static final String ARGS_SCHEMA = "- recipes.search: {query, pageToken?, limit, modId?, recipeType?, outputItemId?, ingredientItemId?, tagId?}\n"
+            + "- recipes.get: {recipeId}\n"
+            + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
+            + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
+            + "- ae2.simulate_craft: {itemId, count}\n"
+            + "- ae2.request_craft: {itemId, count, cpuName?}\n"
+            + "- ae2.job_status: {jobId}\n"
+            + "- ae2.job_cancel: {jobId}.";
+
     private static final java.util.concurrent.atomic.AtomicReference<MinecraftServer> SERVER = new java.util.concurrent.atomic.AtomicReference<>();
     private static final java.util.concurrent.atomic.AtomicReference<ChatAESessionsSavedData> SAVED_SESSIONS = new java.util.concurrent.atomic.AtomicReference<>();
 
@@ -85,14 +106,16 @@ public final class ChatAENetwork {
                 (packet, buf) -> {
                     buf.writeVarInt(packet.protocolVersion());
                     buf.writeUtf(packet.text(), 256);
+                    buf.writeUtf(packet.clientLocale(), 32);
+                    buf.writeUtf(packet.aiLocaleOverride(), 32);
                 },
-                buf -> new C2SSendChatPacket(buf.readVarInt(), buf.readUtf(256)),
+                buf -> new C2SSendChatPacket(buf.readVarInt(), buf.readUtf(256), buf.readUtf(32), buf.readUtf(32)),
                 (packet, context) -> context.get().queue(() -> {
                     ServerPlayer player = (ServerPlayer) context.get().getPlayer();
                     if (packet.protocolVersion() != PROTOCOL_VERSION) {
                         return;
                     }
-                    handleChatPacket(player, packet.text());
+                    handleChatPacket(player, packet.text(), packet.clientLocale(), packet.aiLocaleOverride());
                 })
         );
 
@@ -362,6 +385,15 @@ public final class ChatAENetwork {
         return snapshot;
     }
 
+    private static String resolveEffectiveLocale(String clientLocale, String aiLocaleOverride) {
+        String override = aiLocaleOverride == null ? "" : aiLocaleOverride.trim();
+        if (!override.isBlank()) {
+            return override;
+        }
+        String locale = clientLocale == null ? "" : clientLocale.trim();
+        return locale.isBlank() ? "en_us" : locale;
+    }
+
     private static void persistSessions() {
         ChatAESessionsSavedData saved = SAVED_SESSIONS.get();
         if (saved == null) {
@@ -370,8 +402,23 @@ public final class ChatAENetwork {
         saved.setData(SESSIONS.exportForSave());
     }
 
-    public static void sendChatToServer(String text) {
-        CHANNEL.sendToServer(new C2SSendChatPacket(PROTOCOL_VERSION, text));
+    public static void sendChatToServer(String text, String clientLocale, String aiLocaleOverride) {
+        String locale = clientLocale == null || clientLocale.isBlank() ? "en_us" : clientLocale;
+        String override = aiLocaleOverride == null ? "" : aiLocaleOverride;
+        CHANNEL.sendToServer(new C2SSendChatPacket(PROTOCOL_VERSION, text, locale, override));
+    }
+
+    public static String getClientLocale() {
+        try {
+            net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+            String selected = minecraft.getLanguageManager().getSelected();
+            if (selected != null && !selected.isBlank()) {
+                return selected;
+            }
+            return minecraft.options.languageCode;
+        } catch (Exception e) {
+            return "en_us";
+        }
     }
 
     public static void sendApprovalDecision(String proposalId, ApprovalDecision decision) {
@@ -435,7 +482,7 @@ public final class ChatAENetwork {
         CHANNEL.sendToPlayer(player, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
     }
 
-    private static void handleChatPacket(ServerPlayer player, String text) {
+    private static void handleChatPacket(ServerPlayer player, String text, String clientLocale, String aiLocaleOverride) {
         long now = System.currentTimeMillis();
         UUID playerId = player.getUUID();
 
@@ -455,7 +502,9 @@ public final class ChatAENetwork {
         persistSessions();
         broadcastSessionSnapshot(sessionId);
 
-        parseCommandAsync(playerId, text)
+        String effectiveLocale = resolveEffectiveLocale(clientLocale, aiLocaleOverride);
+        String renderedPrompt = buildToolParserPrompt(text, effectiveLocale);
+        parseCommandAsync(playerId, renderedPrompt, effectiveLocale)
                 .whenComplete((outcome, error) -> player.getServer().execute(() -> {
                     if (error != null) {
                         applyParseFailure(sessionId, "LLM error: " + error.getMessage());
@@ -700,8 +749,25 @@ public final class ChatAENetwork {
         persistSessions();
     }
 
-    private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String raw) {
-        return ToolCallParsingService.parseAsync(playerId, raw, LLM_PARSER, LLM_EXECUTOR, LLM_TIMEOUT_MS, LLM_RATE_LIMITER);
+    private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String prompt, String effectiveLocale) {
+        PromptRuntime.promptHash(prompt)
+                .ifPresent(hash -> ChatAE.LOGGER.debug("LLM prompt tool_call_parser.main locale={} hash={}", effectiveLocale, hash));
+
+        return ToolCallParsingService.parseAsync(playerId, prompt, LLM_PARSER, LLM_EXECUTOR, LLM_TIMEOUT_MS, LLM_RATE_LIMITER);
+    }
+
+    private static String buildToolParserPrompt(String userMessage, String effectiveLocale) {
+        java.util.Map<String, String> variables = new java.util.HashMap<>();
+        variables.put("tool_list", TOOL_LIST);
+        variables.put("args_schema", ARGS_SCHEMA);
+        variables.put("effectiveLocale", effectiveLocale);
+        variables.put("user_message", userMessage == null ? "" : userMessage);
+
+        return PromptRuntime.render(
+                space.controlnet.chatae.core.agent.PromptId.TOOL_CALL_PARSER_MAIN,
+                effectiveLocale,
+                variables
+        );
     }
 
     private static boolean canView(ServerPlayer player, SessionSnapshot snapshot) {

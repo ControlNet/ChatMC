@@ -63,6 +63,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private Button denyButton;
     private Button sessionsToggleButton;
     private Button newSessionButton;
+    private Button aiLocaleButton;
 
     private String statusText = "Idle";
 
@@ -130,6 +131,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 inputX + inputW + 6, inputY, SEND_BUTTON_WIDTH, INPUT_HEIGHT).build();
         this.addRenderableWidget(this.sendButton);
 
+        this.aiLocaleButton = Button.builder(Component.literal(buildAiLocaleLabel()), b -> cycleAiLocale())
+                .bounds(this.leftPos + PADDING, this.topPos + PADDING - 1, 90, 18)
+                .build();
+        this.addRenderableWidget(this.aiLocaleButton);
+
         int proposalButtonY = this.proposalY + (this.proposalH - PROPOSAL_BUTTON_HEIGHT) / 2;
         int denyX = this.proposalX + this.proposalW - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
         int approveX = denyX - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
@@ -149,13 +155,44 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         setSessionsPanelVisible(this.sessionsOpen);
         ChatAENetwork.requestSessionList(SessionListScope.ALL);
 
+        updateAiLocaleButtonLabel();
         this.setInitialFocus(this.inputBox);
         rebuildWrappedLines();
     }
 
+    private String buildAiLocaleLabel() {
+        String override = space.controlnet.chatae.core.client.ClientAiSettings.getAiLocaleOverride();
+        if (override == null || override.isBlank()) {
+            return "AI Language: Auto";
+        }
+        return "AI Language: " + override;
+    }
+
+    private void updateAiLocaleButtonLabel() {
+        if (this.aiLocaleButton != null) {
+            this.aiLocaleButton.setMessage(Component.literal(buildAiLocaleLabel()));
+        }
+    }
+
+    private void cycleAiLocale() {
+        String current = space.controlnet.chatae.core.client.ClientAiSettings.getAiLocaleOverride();
+        String next;
+        if (current == null || current.isBlank()) {
+            next = "en_us";
+        } else if ("en_us".equalsIgnoreCase(current)) {
+            next = "zh_cn";
+        } else if ("zh_cn".equalsIgnoreCase(current)) {
+            next = "";
+        } else {
+            next = "";
+        }
+        space.controlnet.chatae.core.client.ClientAiSettings.setAiLocaleOverride(next);
+        updateAiLocaleButtonLabel();
+    }
+
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(this.font, this.title, PADDING, PADDING, 0x404040, false);
+        guiGraphics.drawString(this.font, this.title, PADDING + 96, PADDING, 0x404040, false);
 
         Component status = Component.literal("Status: ")
                 .withStyle(ChatFormatting.DARK_GRAY)
@@ -519,7 +556,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             return;
         }
 
-        ChatAENetwork.sendChatToServer(message);
+        ChatAENetwork.sendChatToServer(
+                message,
+                ChatAENetwork.getClientLocale(),
+                space.controlnet.chatae.core.client.ClientAiSettings.getAiLocaleOverride()
+        );
 
         this.inputBox.setValue("");
         this.scrollOffsetLines = 0;
@@ -554,6 +595,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (this.inputBox != null) {
             this.inputBox.setEditable(canSend);
         }
+        updateAiLocaleButtonLabel();
         updateProposalUi();
         if (this.sessionsOpen) {
             rebuildSessionRows();

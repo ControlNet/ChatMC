@@ -15,17 +15,24 @@ public final class ToolCallParsingService {
     }
 
     public static CompletableFuture<ParseOutcome> parseAsync(UUID playerId,
-                                                             String raw,
+                                                             String prompt,
                                                              ReflectiveToolCallParser llmParser,
                                                              Executor executor,
                                                              long timeoutMs,
                                                              LlmRateLimiter rateLimiter) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.isEmpty()) {
+        String rendered = prompt == null ? "" : prompt.trim();
+        if (rendered.isEmpty()) {
             return CompletableFuture.completedFuture(new ParseOutcome(null, "empty", "Empty command"));
         }
 
-        ToolCall local = LocalCommandParser.parse(text);
+        String input = rendered;
+        String marker = "\nUser: ";
+        int idx = rendered.lastIndexOf(marker);
+        if (idx >= 0) {
+            input = rendered.substring(idx + marker.length()).trim();
+        }
+
+        ToolCall local = LocalCommandParser.parse(input);
         if (local != null) {
             return CompletableFuture.completedFuture(new ParseOutcome(local, null, null));
         }
@@ -38,7 +45,7 @@ public final class ToolCallParsingService {
             return CompletableFuture.completedFuture(new ParseOutcome(null, "llm_rate_limited", "LLM rate limit exceeded"));
         }
 
-        return CompletableFuture.supplyAsync(() -> llmParser.parse(text).orElse(null), executor)
+        return CompletableFuture.supplyAsync(() -> llmParser.parse(rendered).orElse(null), executor)
                 .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 .handle((toolCall, error) -> {
                     if (error != null) {

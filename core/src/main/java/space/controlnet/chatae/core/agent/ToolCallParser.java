@@ -9,10 +9,5 @@ import java.util.Optional;
  * Implementations can use LLM APIs or simple pattern matching.
  */
 public interface ToolCallParser {
-    /**
-     * Parses a user message into a tool call.
-     * @param message The user's message
-     * @return Optional tool call if parsing succeeds
-     */
-    Optional<ToolCall> parse(String message);
+    Optional<ToolCall> parse(String prompt);
 }

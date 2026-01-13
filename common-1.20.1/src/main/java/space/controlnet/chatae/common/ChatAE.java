@@ -27,18 +27,22 @@ public final class ChatAE {
         ChatAERegistries.init();
         ChatAEPartRegistries.init();
         ChatAENetwork.init();
+        space.controlnet.chatae.common.commands.ChatAECommands.init();
 
         ReloadListenerRegistry.register(PackType.SERVER_DATA, new RecipeIndexReloadListener(RECIPE_INDEX, SERVER::get), ChatAERegistries.id("recipe_index"));
 
         LifecycleEvent.SERVER_STARTED.register(server -> {
             SERVER.set(server);
             ChatAENetwork.setServer(server);
+            space.controlnet.chatae.common.llm.PromptRuntime.reload(server);
+            space.controlnet.chatae.common.llm.LlmRuntimeManager.reload(server);
             RECIPE_INDEX.rebuildAsync(server);
         });
 
         LifecycleEvent.SERVER_STOPPED.register(server -> {
             ChatAENetwork.setServer(null);
             SERVER.set(null);
+            space.controlnet.chatae.common.llm.LlmRuntimeManager.clear();
             RECIPE_INDEX.shutdown();
             ChatAENetwork.shutdown();
         });

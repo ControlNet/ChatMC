@@ -1,4 +1,4 @@
 package space.controlnet.chatae.net.c2s;
 
-public record C2SSendChatPacket(int protocolVersion, String text) {
+public record C2SSendChatPacket(int protocolVersion, String text, String clientLocale, String aiLocaleOverride) {
 }
