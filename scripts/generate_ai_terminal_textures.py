@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
 Generate AI Terminal textures for ChatAE mod.
-Creates a rotating wireframe cube animation for the terminal's bright layer.
+Creates a rotating wireframe cube animation for the terminal's bright layer,
+and a static cube for the off state.
 
 Usage:
     python generate_ai_terminal_textures.py
 
 Output:
     common-1.20.1/src/main/resources/assets/chatae/textures/part/
-        ai_terminal_bright.png       - Animated rotating cube (16 frames)
+        ai_terminal_bright.png        - Animated rotating cube (16 frames)
         ai_terminal_bright.png.mcmeta - Animation config
-        ai_terminal_medium.png       - Background dot pattern
-        ai_terminal_dark.png         - Corner accents
+        ai_terminal_static.png        - Static cube for off state
+
+Note: The background texture reuses AE2's monitor_light texture (ae2:part/monitor_light)
 """
 
 import numpy as np
@@ -27,6 +29,7 @@ FRAME_TIME = 5           # Ticks per frame (20 ticks = 1 second)
 SCALE = 2.5              # Projection scale
 OFFSET_X = 8             # Center X offset
 OFFSET_Y = 8             # Center Y offset
+STATIC_ANGLE = 35        # Y rotation angle for static cube (degrees) - shows 3 faces nicely
 
 
 def rotate_y(points, angle):
@@ -131,21 +134,40 @@ def generate_cube_frames():
     return frames
 
 
-def generate_medium_texture():
-    """Generate medium layer (subtle dot pattern background)"""
-    img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
-    for x in range(3, 13):
-        for y in range(3, 13):
-            if (x + y) % 3 == 0:
-                img.putpixel((x, y), (255, 255, 255, 255))
-    return img
+def generate_static_cube():
+    """Generate a single static cube frame at the perfect viewing angle"""
+    # Define cube vertices
+    size = CUBE_SIZE
+    cube_vertices = np.array([
+        [-size, -size, -size],
+        [+size, -size, -size],
+        [+size, +size, -size],
+        [-size, +size, -size],
+        [-size, -size, +size],
+        [+size, -size, +size],
+        [+size, +size, +size],
+        [-size, +size, +size],
+    ])
 
+    # Define edges (pairs of vertex indices)
+    edges = [
+        (0, 1), (1, 2), (2, 3), (3, 0),  # Back face
+        (4, 5), (5, 6), (6, 7), (7, 4),  # Front face
+        (0, 4), (1, 5), (2, 6), (3, 7),  # Connecting edges
+    ]
 
-def generate_dark_texture():
-    """Generate dark layer (corner accents)"""
+    # Apply tilt and rotation for perfect viewing angle
+    tilted = rotate_x(cube_vertices, math.radians(TILT_ANGLE))
+    rotated = rotate_y(tilted, math.radians(STATIC_ANGLE))
+    projected = project_isometric(rotated)
+
     img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
-    for pos in [(3, 3), (3, 12), (12, 3), (12, 12)]:
-        img.putpixel(pos, (255, 255, 255, 255))
+
+    for e in edges:
+        p1 = projected[e[0]]
+        p2 = projected[e[1]]
+        draw_line(img, p1, p2, (255, 255, 255, 255))
+
     return img
 
 
@@ -180,15 +202,10 @@ def main():
         f.write(mcmeta)
     print(f"  Created ai_terminal_bright.png.mcmeta (frametime={FRAME_TIME})")
 
-    # Generate medium layer
-    medium = generate_medium_texture()
-    medium.save(os.path.join(output_dir, 'ai_terminal_medium.png'))
-    print(f"  Created ai_terminal_medium.png (16x16)")
-
-    # Generate dark layer
-    dark = generate_dark_texture()
-    dark.save(os.path.join(output_dir, 'ai_terminal_dark.png'))
-    print(f"  Created ai_terminal_dark.png (16x16)")
+    # Generate static cube for off state
+    static_cube = generate_static_cube()
+    static_cube.save(os.path.join(output_dir, 'ai_terminal_static.png'))
+    print(f"  Created ai_terminal_static.png (16x16, angle={STATIC_ANGLE}°)")
 
     # Calculate animation timing
     rotation_time = (NUM_FRAMES * FRAME_TIME) / 20.0

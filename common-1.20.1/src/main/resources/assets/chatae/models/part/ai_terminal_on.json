@@ -1,39 +1,31 @@
 {
+	"ambientocclusion": false,
 	"textures": {
-		"lightsBright": "chatae:part/ai_terminal_bright",
-		"lightsMedium": "chatae:part/ai_terminal_medium",
-		"lightsDark": "chatae:part/ai_terminal_dark"
+		"background": "ae2:part/monitor_light",
+		"lightsBright": "chatae:part/ai_terminal_bright"
 	},
 	"elements": [
 		{
+			"comment": "Background - solid screen area",
+			"shade": false,
+			"from": [2, 2, 0],
+			"to": [14, 14, 2],
+			"faces": {
+				"north": {
+					"texture": "#background",
+					"tintindex": 2
+				}
+			}
+		},
+		{
+			"comment": "Bright - rotating cube animation",
+			"shade": false,
 			"from": [2, 2, 0],
 			"to": [14, 14, 2],
 			"faces": {
 				"north": {
 					"texture": "#lightsBright",
 					"tintindex": 3,
-					"forge_data": {"block_light": 15, "sky_light": 15}
-				}
-			}
-		},
-		{
-			"from": [2, 2, 0],
-			"to": [14, 14, 2],
-			"faces": {
-				"north": {
-					"texture": "#lightsMedium",
-					"tintindex": 2,
-					"forge_data": {"block_light": 15, "sky_light": 15}
-				}
-			}
-		},
-		{
-			"from": [2, 2, 0],
-			"to": [14, 14, 2],
-			"faces": {
-				"north": {
-					"texture": "#lightsDark",
-					"tintindex": 1,
 					"forge_data": {"block_light": 15, "sky_light": 15}
 				}
 			}

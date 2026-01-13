@@ -37,14 +37,18 @@ import java.util.List;
 import java.util.Optional;
 
 public final class AiTerminalPart extends AbstractDisplayPart implements AiTerminalHost, ExtendedMenuProvider {
+    // Use monitor_base instead of display_base for a solid panel background
+    @PartModels
+    public static final ResourceLocation MODEL_BASE_MONITOR = new ResourceLocation("ae2", "part/monitor_base");
+
     @PartModels
     public static final ResourceLocation MODEL_OFF = AiTerminalPartModelIds.MODEL_OFF;
     @PartModels
     public static final ResourceLocation MODEL_ON = AiTerminalPartModelIds.MODEL_ON;
 
-    public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
-    public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
-    public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
+    public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE_MONITOR, MODEL_OFF, MODEL_STATUS_OFF);
+    public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE_MONITOR, MODEL_ON, MODEL_STATUS_ON);
+    public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE_MONITOR, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
 
     private final AiTerminalPartOperations ops = new AiTerminalPartOperations();
 
