@@ -11,8 +11,6 @@ import space.controlnet.chatae.common.terminal.TerminalContextFactory;
 import space.controlnet.chatae.common.session.ChatAESessionsSavedData;
 import space.controlnet.chatae.common.tools.ToolRouter;
 import space.controlnet.chatae.core.agent.LlmRateLimiter;
-import space.controlnet.chatae.core.agent.ReflectiveToolCallParser;
-import space.controlnet.chatae.core.agent.ToolCallParsingService;
 import space.controlnet.chatae.core.audit.AuditEvent;
 import space.controlnet.chatae.core.audit.AuditOutcome;
 import space.controlnet.chatae.core.client.ClientSessionIndex;
@@ -32,7 +30,6 @@ import space.controlnet.chatae.core.session.DecisionLogEntry;
 import space.controlnet.chatae.core.session.SessionState;
 import space.controlnet.chatae.core.session.SessionVisibility;
 import space.controlnet.chatae.core.session.TerminalBinding;
-import space.controlnet.chatae.core.tools.ParseOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolResult;
@@ -67,9 +64,6 @@ public final class ChatAENetwork {
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
-    private static final ReflectiveToolCallParser LLM_PARSER = new ReflectiveToolCallParser((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
-    private static final space.controlnet.chatae.core.agent.AssistantResponseService ASSISTANT_RESPONDER =
-            new space.controlnet.chatae.core.agent.AssistantResponseService((msg, ex) -> ChatAE.LOGGER.warn(msg, ex));
     private static final ExecutorService LLM_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "chatae-llm");
         t.setDaemon(true);
@@ -78,26 +72,6 @@ public final class ChatAENetwork {
     private static final long LLM_TIMEOUT_MS = 5000;
     private static final java.util.concurrent.atomic.AtomicLong LLM_COOLDOWN_MS = new java.util.concurrent.atomic.AtomicLong(1500);
     private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS.get());
-
-    private static final String TOOL_LIST = String.join(", ",
-            "recipes.search",
-            "recipes.get",
-            "ae2.list_items",
-            "ae2.list_craftables",
-            "ae2.simulate_craft",
-            "ae2.request_craft",
-            "ae2.job_status",
-            "ae2.job_cancel"
-    );
-
-    private static final String ARGS_SCHEMA = "- recipes.search: {query, pageToken?, limit, modId?, recipeType?, outputItemId?, ingredientItemId?, tagId?}\n"
-            + "- recipes.get: {recipeId}\n"
-            + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
-            + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
-            + "- ae2.simulate_craft: {itemId, count}\n"
-            + "- ae2.request_craft: {itemId, count, cpuName?}\n"
-            + "- ae2.job_status: {jobId}\n"
-            + "- ae2.job_cancel: {jobId}.";
 
     private static final java.util.concurrent.atomic.AtomicReference<MinecraftServer> SERVER = new java.util.concurrent.atomic.AtomicReference<>();
     private static final java.util.concurrent.atomic.AtomicReference<ChatAESessionsSavedData> SAVED_SESSIONS = new java.util.concurrent.atomic.AtomicReference<>();
@@ -412,6 +386,36 @@ public final class ChatAENetwork {
         return locale.isBlank() ? "en_us" : locale;
     }
 
+    private static Optional<String> findInvalidItemTag(String text) {
+        if (text == null || text.isBlank() || !text.contains("<item")) {
+            return Optional.empty();
+        }
+
+        Matcher matcher = ITEM_TAG_PATTERN.matcher(text);
+        while (matcher.find()) {
+            String itemId = matcher.group(1);
+            if (!isValidItemId(itemId)) {
+                return Optional.of(itemId);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isValidItemId(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return false;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        if (id == null) {
+            return false;
+        }
+        if (!BuiltInRegistries.ITEM.containsKey(id)) {
+            return false;
+        }
+        var item = BuiltInRegistries.ITEM.get(id);
+        return item != null && item != Items.AIR;
+    }
+
     private static void persistSessions() {
         ChatAESessionsSavedData saved = SAVED_SESSIONS.get();
         if (saved == null) {
@@ -510,6 +514,16 @@ public final class ChatAENetwork {
         }
 
         UUID sessionId = snapshot.metadata().sessionId();
+
+        Optional<String> invalidItemId = findInvalidItemTag(text);
+        if (invalidItemId.isPresent()) {
+            ChatAE.LOGGER.warn("Player {} sent message with invalid item ID: {}", player.getGameProfile().getName(), invalidItemId.get());
+            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.SYSTEM, "Error: Invalid item reference '" + invalidItemId.get() + "'", now));
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
+            return;
+        }
+
         if (!SESSIONS.tryStartThinking(sessionId)) {
             broadcastSessionSnapshot(sessionId);
             return;
@@ -522,14 +536,14 @@ public final class ChatAENetwork {
         persistSessions();
         broadcastSessionSnapshot(sessionId);
 
-        String renderedPrompt = buildToolParserPrompt(text, effectiveLocale);
-        parseCommandAsync(playerId, renderedPrompt, effectiveLocale)
-                .whenComplete((outcome, error) -> player.getServer().execute(() -> {
+        // Run the agent loop asynchronously
+        runAgentLoopAsync(player, sessionId, binding.orElse(null), effectiveLocale)
+                .whenComplete((result, error) -> player.getServer().execute(() -> {
                     if (error != null) {
-                        applyParseFailure(sessionId, "LLM error: " + error.getMessage());
+                        applyAgentError(sessionId, "Agent error: " + error.getMessage());
                         return;
                     }
-                    handleParsedOutcome(player, outcome, sessionId, binding.orElse(null), effectiveLocale, text);
+                    handleAgentLoopResult(player, result, sessionId, binding.orElse(null));
                 }));
     }
 
@@ -677,43 +691,31 @@ public final class ChatAENetwork {
         return new SessionSnapshot(metadata, messages, state, Optional.empty(), Optional.empty(), List.of(), error);
     }
 
-    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome, UUID sessionId, TerminalBinding binding, String effectiveLocale, String userMessage) {
-        SessionSnapshot current = SESSIONS.get(sessionId).orElse(null);
-        if (current == null) {
-            return;
-        }
-        if (current.state() != SessionState.THINKING) {
-            broadcastSessionSnapshot(sessionId);
+    private static CompletableFuture<space.controlnet.chatae.core.agent.AgentLoopResult> runAgentLoopAsync(
+            ServerPlayer player, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
+        return CompletableFuture.supplyAsync(() -> {
+            return AGENT.runLoop(player, sessionId, binding, effectiveLocale);
+        }, LLM_EXECUTOR);
+    }
+
+    private static void handleAgentLoopResult(ServerPlayer player,
+            space.controlnet.chatae.core.agent.AgentLoopResult result, UUID sessionId, TerminalBinding binding) {
+        if (result == null) {
+            applyAgentError(sessionId, "Agent returned null result");
             return;
         }
 
-        if (outcome == null || outcome.call() == null) {
-            if (outcome != null && outcome.errorMessage() != null) {
-                SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + outcome.errorMessage(), System.currentTimeMillis()));
-                if ("llm_timeout".equals(outcome.errorCode()) || "llm_failed".equals(outcome.errorCode())) {
-                    SESSIONS.setError(sessionId, outcome.errorMessage());
-                } else {
-                    SESSIONS.setState(sessionId, SessionState.IDLE);
-                }
-            } else {
+        if (result.hasProposal()) {
+            // Set proposal and move to WAIT_APPROVAL
+            if (!SESSIONS.trySetProposal(sessionId, result.proposal().get(), binding)) {
                 SESSIONS.setState(sessionId, SessionState.IDLE);
             }
-            persistSessions();
-            broadcastSessionSnapshot(sessionId);
+        } else if (result.hasResponse()) {
+            // Response already appended by agent, just set state to DONE
+            SESSIONS.setState(sessionId, SessionState.DONE);
+        } else if (result.hasError()) {
+            applyAgentError(sessionId, result.error().get());
             return;
-        }
-
-        SESSIONS.setState(sessionId, SessionState.EXECUTING);
-        long start = System.currentTimeMillis();
-        ToolOutcome toolOutcome = AGENT.run(player, outcome.call());
-        long duration = System.currentTimeMillis() - start;
-
-        if (toolOutcome.hasProposal()) {
-            if (!SESSIONS.trySetProposal(sessionId, toolOutcome.proposal(), binding)) {
-                SESSIONS.setState(sessionId, SessionState.IDLE);
-            }
-        } else if (toolOutcome.result() != null) {
-            applyToolResult(player, outcome.call(), toolOutcome.result(), "AUTO_APPROVE", duration, sessionId, effectiveLocale, userMessage);
         } else {
             SESSIONS.setState(sessionId, SessionState.IDLE);
         }
@@ -722,91 +724,11 @@ public final class ChatAENetwork {
         broadcastSessionSnapshot(sessionId);
     }
 
-    private static void applyParseFailure(UUID sessionId, String message) {
+    private static void applyAgentError(UUID sessionId, String message) {
         SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + message, System.currentTimeMillis()));
         SESSIONS.setError(sessionId, message);
         persistSessions();
         broadcastSessionSnapshot(sessionId);
-    }
-
-    private static void applyToolResult(ServerPlayer player, ToolCall call, ToolResult result, String decision, long durationMillis, UUID sessionId, String effectiveLocale, String userMessage) {
-        UUID playerId = player.getUUID();
-        String payload = result.payloadJson();
-        if (payload == null && result.error() != null) {
-            payload = "Error: " + result.error().message();
-        }
-        if (payload != null && !payload.isBlank()) {
-            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
-        }
-
-        String locale = effectiveLocale == null || effectiveLocale.isBlank() ? "en_us" : effectiveLocale;
-        String assistantPrompt = buildAssistantPrompt(call, payload, locale, userMessage);
-        Optional<String> assistantText = ASSISTANT_RESPONDER.generate(assistantPrompt);
-        if (assistantText.isPresent()) {
-            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, assistantText.get(), System.currentTimeMillis()));
-        }
-
-        if (result.success()) {
-            SESSIONS.setState(sessionId, SessionState.DONE);
-        } else if (result.error() != null && "index_not_ready".equals(result.error().code())) {
-            SESSIONS.setState(sessionId, SessionState.INDEXING);
-        } else if (result.error() != null) {
-            SESSIONS.setError(sessionId, result.error().message());
-        } else {
-            SESSIONS.setState(sessionId, SessionState.FAILED);
-        }
-
-        RiskLevel risk = space.controlnet.chatae.core.tools.ToolPolicy.classifyRisk(call.toolName());
-        AuditOutcome outcome = result.success()
-                ? AuditOutcome.SUCCESS
-                : (result.error() != null && "denied".equals(result.error().code()) ? AuditOutcome.DENIED : AuditOutcome.ERROR);
-
-        AuditLogger.instance().log(new AuditEvent(
-                playerId.toString(),
-                System.currentTimeMillis(),
-                call.toolName(),
-                call.argsJson(),
-                risk,
-                decision,
-                durationMillis,
-                outcome,
-                result.error() != null ? result.error().message() : null
-        ));
-        persistSessions();
-    }
-
-    private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String prompt, String effectiveLocale) {
-        PromptRuntime.promptHash(prompt)
-                .ifPresent(hash -> ChatAE.LOGGER.debug("LLM prompt tool_call_parser.main locale={} hash={}", effectiveLocale, hash));
-
-        return ToolCallParsingService.parseAsync(playerId, prompt, LLM_PARSER, LLM_EXECUTOR, LLM_TIMEOUT_MS, LLM_RATE_LIMITER);
-    }
-
-    private static String buildToolParserPrompt(String userMessage, String effectiveLocale) {
-        java.util.Map<String, String> variables = new java.util.HashMap<>();
-        variables.put("tool_list", TOOL_LIST);
-        variables.put("args_schema", ARGS_SCHEMA);
-        variables.put("effectiveLocale", effectiveLocale);
-        variables.put("user_message", userMessage == null ? "" : userMessage);
-
-        return PromptRuntime.render(
-                space.controlnet.chatae.core.agent.PromptId.TOOL_CALL_PARSER_MAIN,
-                effectiveLocale,
-                variables
-        );
-    }
-
-    private static String buildAssistantPrompt(ToolCall call, String toolResult, String effectiveLocale, String userMessage) {
-        java.util.Map<String, String> variables = new java.util.HashMap<>();
-        variables.put("effectiveLocale", effectiveLocale);
-        variables.put("user_message", userMessage == null ? "" : userMessage);
-        variables.put("tool_result", toolResult == null ? "" : toolResult);
-
-        return PromptRuntime.render(
-                space.controlnet.chatae.core.agent.PromptId.ASSISTANT_RESPONSE_MAIN,
-                effectiveLocale,
-                variables
-        );
     }
 
     private static boolean canView(ServerPlayer player, SessionSnapshot snapshot) {
@@ -944,19 +866,22 @@ public final class ChatAENetwork {
         private Object runner;
         private boolean initAttempted;
 
-        ToolOutcome run(ServerPlayer player, ToolCall call) {
+        space.controlnet.chatae.core.agent.AgentLoopResult runLoop(ServerPlayer player, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
             Object instance = ensureRunner();
             if (instance == null) {
-                return ToolOutcome.result(ToolResult.error("no_agent", "Agent runner not available"));
+                return space.controlnet.chatae.core.agent.AgentLoopResult.withError("Agent runner not available", 0);
             }
             try {
-                java.lang.reflect.Method runMethod = instance.getClass().getMethod("run", ServerPlayer.class, ToolCall.class);
-                Object result = runMethod.invoke(instance, player, call);
-                return result instanceof ToolOutcome outcome ? outcome : ToolOutcome.result(ToolResult.error("invalid_result", "Agent returned invalid result"));
+                java.lang.reflect.Method runLoopMethod = instance.getClass().getMethod("runLoop",
+                        ServerPlayer.class, UUID.class, TerminalBinding.class, String.class);
+                Object result = runLoopMethod.invoke(instance, player, sessionId, binding, effectiveLocale);
+                return result instanceof space.controlnet.chatae.core.agent.AgentLoopResult loopResult
+                        ? loopResult
+                        : space.controlnet.chatae.core.agent.AgentLoopResult.withError("Agent returned invalid result", 0);
             } catch (Throwable t) {
                 ChatAE.LOGGER.error("Agent invocation failed, disabling agent", t);
                 runner = null;
-                return ToolOutcome.result(ToolResult.error("agent_error", "Agent invocation failed: " + t.getMessage()));
+                return space.controlnet.chatae.core.agent.AgentLoopResult.withError("Agent invocation failed: " + t.getMessage(), 0);
             }
         }
 
@@ -1061,14 +986,32 @@ public final class ChatAENetwork {
         SESSIONS.clearProposalPreserveState(sessionId);
 
         if (outcome.result() != null) {
-            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration, sessionId, resolveEffectiveLocale(null, null), proposal.summary());
+            // Append tool result to session
+            String payload = outcome.result().payloadJson();
+            if (payload == null && outcome.result().error() != null) {
+                payload = "Error: " + outcome.result().error().message();
+            }
+            if (payload != null && !payload.isBlank()) {
+                SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
+            }
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
+
+            // Resume agent loop to generate response
+            String effectiveLocale = resolveEffectiveLocale(null, null);
+            runAgentLoopAsync(player, sessionId, binding.orElse(null), effectiveLocale)
+                    .whenComplete((result, error) -> player.getServer().execute(() -> {
+                        if (error != null) {
+                            applyAgentError(sessionId, "Agent error: " + error.getMessage());
+                            return;
+                        }
+                        handleAgentLoopResult(player, result, sessionId, binding.orElse(null));
+                    }));
         } else {
             SESSIONS.setState(sessionId, SessionState.DONE);
             persistSessions();
+            broadcastSessionSnapshot(sessionId);
         }
-
-        persistSessions();
-        broadcastSessionSnapshot(sessionId);
     }
 
 }
