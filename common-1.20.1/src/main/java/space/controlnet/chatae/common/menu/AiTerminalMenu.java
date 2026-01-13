@@ -59,6 +59,14 @@ public final class AiTerminalMenu extends AbstractContainerMenu {
     }
 
     @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            space.controlnet.chatae.common.ChatAENetwork.onTerminalClosed(serverPlayer);
+        }
+    }
+
+    @Override
     public ItemStack quickMoveStack(Player player, int index) {
         return ItemStack.EMPTY;
     }

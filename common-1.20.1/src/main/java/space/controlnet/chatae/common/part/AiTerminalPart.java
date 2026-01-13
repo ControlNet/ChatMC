@@ -68,8 +68,8 @@ public final class AiTerminalPart extends AbstractDisplayPart implements AiTermi
             return true;
         }
         if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-            MenuRegistry.openExtendedMenu(serverPlayer, this);
-            ChatAENetwork.sendSessionSnapshot(serverPlayer);
+             MenuRegistry.openExtendedMenu(serverPlayer, this);
+             ChatAENetwork.onTerminalOpened(serverPlayer);
         }
         return true;
     }

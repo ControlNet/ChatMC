@@ -84,6 +84,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private int sessionMaxRows;
 
     private Proposal pendingProposal;
+    private space.controlnet.chatae.core.session.TerminalBinding proposalBinding;
 
     private int scrollOffsetLines;
     private long lastSnapshotVersion = -1;
@@ -231,7 +232,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         String label = summary == null || summary.isBlank()
                 ? "Proposal [" + risk + "] pending"
                 : "Proposal [" + risk + "]: " + summary;
-        String detail = buildProposalDetailLine(this.pendingProposal);
+        String detail = buildProposalDetailLine(this.pendingProposal, this.proposalBinding);
 
         int textMaxWidth = this.proposalW - (PROPOSAL_BUTTON_WIDTH * 2) - (PROPOSAL_BUTTON_GAP * 3) - 8;
         int textX = this.proposalX + 6;
@@ -513,6 +514,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             return;
         }
 
+        SessionSnapshot snapshot = ClientSessionStore.get();
+        if (!isIdleLike(snapshot.state())) {
+            return;
+        }
+
         ChatAENetwork.sendChatToServer(message);
 
         this.inputBox.setValue("");
@@ -538,7 +544,16 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         SessionSnapshot snapshot = ClientSessionStore.get();
         this.statusText = snapshot.state().name();
         this.pendingProposal = snapshot.pendingProposal().orElse(null);
+        this.proposalBinding = snapshot.proposalBinding().orElse(null);
         this.activeSessionId = snapshot.metadata().sessionId();
+
+        boolean canSend = isIdleLike(snapshot.state());
+        if (this.sendButton != null) {
+            this.sendButton.active = canSend;
+        }
+        if (this.inputBox != null) {
+            this.inputBox.setEditable(canSend);
+        }
         updateProposalUi();
         if (this.sessionsOpen) {
             rebuildSessionRows();
@@ -579,18 +594,27 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         return prefix.append(Component.literal(message.text()).withStyle(ChatFormatting.WHITE));
     }
 
-    private static String buildProposalDetailLine(Proposal proposal) {
+    private static String buildProposalDetailLine(Proposal proposal, space.controlnet.chatae.core.session.TerminalBinding binding) {
+        String detail = "";
         ProposalDetails details = proposal.details();
-        if (details == null) {
-            return "";
+        if (details != null) {
+            if (!details.missingItems().isEmpty()) {
+                detail = "Missing: " + String.join(", ", details.missingItems());
+            } else if (!details.note().isBlank()) {
+                detail = details.note();
+            }
         }
-        if (!details.missingItems().isEmpty()) {
-            return "Missing: " + String.join(", ", details.missingItems());
+
+        if (binding != null) {
+            String side = binding.side().orElse("BLOCK");
+            String bound = "Bound: " + binding.dimensionId() + " " + binding.x() + "," + binding.y() + "," + binding.z() + " " + side;
+            if (detail.isBlank()) {
+                return bound;
+            }
+            return detail + " | " + bound;
         }
-        if (!details.note().isBlank()) {
-            return details.note();
-        }
-        return "";
+
+        return detail;
     }
 
     private void appendMessage(Component message) {
@@ -612,6 +636,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private boolean isWithinChat(double mouseX, double mouseY) {
         return mouseX >= this.chatX && mouseX < (this.chatX + this.chatW)
                 && mouseY >= this.chatY && mouseY < (this.chatY + this.chatH);
+    }
+
+    private static boolean isIdleLike(space.controlnet.chatae.core.session.SessionState state) {
+        return state == space.controlnet.chatae.core.session.SessionState.IDLE
+                || state == space.controlnet.chatae.core.session.SessionState.DONE
+                || state == space.controlnet.chatae.core.session.SessionState.FAILED;
     }
 
     private static int clamp(int value, int min, int max) {

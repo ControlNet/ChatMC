@@ -11,11 +11,15 @@ public record SessionSnapshot(
         List<ChatMessage> messages,
         SessionState state,
         Optional<Proposal> pendingProposal,
+        Optional<TerminalBinding> proposalBinding,
+        List<DecisionLogEntry> decisions,
         Optional<String> lastError
 ) {
     public SessionSnapshot {
         messages = List.copyOf(messages);
         pendingProposal = pendingProposal == null ? Optional.empty() : pendingProposal;
+        proposalBinding = proposalBinding == null ? Optional.empty() : proposalBinding;
+        decisions = List.copyOf(decisions);
         lastError = lastError == null ? Optional.empty() : lastError;
     }
 
@@ -31,7 +35,7 @@ public record SessionSnapshot(
                 now,
                 now
         );
-        return new SessionSnapshot(metadata, List.of(), SessionState.IDLE, Optional.empty(), Optional.empty());
+        return new SessionSnapshot(metadata, List.of(), SessionState.IDLE, Optional.empty(), Optional.empty(), List.of(), Optional.empty());
     }
 
     public static SessionSnapshot emptyClient() {

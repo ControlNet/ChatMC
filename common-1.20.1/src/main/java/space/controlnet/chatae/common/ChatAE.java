@@ -32,10 +32,12 @@ public final class ChatAE {
 
         LifecycleEvent.SERVER_STARTED.register(server -> {
             SERVER.set(server);
+            ChatAENetwork.setServer(server);
             RECIPE_INDEX.rebuildAsync(server);
         });
 
         LifecycleEvent.SERVER_STOPPED.register(server -> {
+            ChatAENetwork.setServer(null);
             SERVER.set(null);
             RECIPE_INDEX.shutdown();
             ChatAENetwork.shutdown();

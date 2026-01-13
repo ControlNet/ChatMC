@@ -2,10 +2,12 @@ package space.controlnet.chatae.common;
 
 import dev.architectury.networking.NetworkChannel;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatae.common.audit.AuditLogger;
 import space.controlnet.chatae.common.team.TeamAccess;
 import space.controlnet.chatae.common.terminal.TerminalContextFactory;
+import space.controlnet.chatae.common.session.ChatAESessionsSavedData;
 import space.controlnet.chatae.common.tools.ToolRouter;
 import space.controlnet.chatae.core.agent.LlmRateLimiter;
 import space.controlnet.chatae.core.agent.ReflectiveToolCallParser;
@@ -25,8 +27,10 @@ import space.controlnet.chatae.core.session.SessionListScope;
 import space.controlnet.chatae.core.session.SessionMetadata;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionSummary;
+import space.controlnet.chatae.core.session.DecisionLogEntry;
 import space.controlnet.chatae.core.session.SessionState;
 import space.controlnet.chatae.core.session.SessionVisibility;
+import space.controlnet.chatae.core.session.TerminalBinding;
 import space.controlnet.chatae.core.tools.ParseOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
@@ -52,7 +56,7 @@ import java.util.concurrent.Executors;
 
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
-    private static final int PROTOCOL_VERSION = 2;
+    private static final int PROTOCOL_VERSION = 3;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
@@ -65,6 +69,12 @@ public final class ChatAENetwork {
     private static final long LLM_TIMEOUT_MS = 5000;
     private static final long LLM_COOLDOWN_MS = 1500;
     private static final LlmRateLimiter LLM_RATE_LIMITER = new LlmRateLimiter(LLM_COOLDOWN_MS);
+
+    private static final java.util.concurrent.atomic.AtomicReference<MinecraftServer> SERVER = new java.util.concurrent.atomic.AtomicReference<>();
+    private static final java.util.concurrent.atomic.AtomicReference<ChatAESessionsSavedData> SAVED_SESSIONS = new java.util.concurrent.atomic.AtomicReference<>();
+
+    private static final java.util.concurrent.ConcurrentHashMap<UUID, java.util.Set<UUID>> VIEWERS_BY_SESSION = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<UUID, UUID> SESSION_BY_VIEWER = new java.util.concurrent.ConcurrentHashMap<>();
 
     private ChatAENetwork() {
     }
@@ -238,6 +248,128 @@ public final class ChatAENetwork {
         LLM_EXECUTOR.shutdownNow();
     }
 
+    public static void setServer(MinecraftServer server) {
+        if (server == null) {
+            ChatAESessionsSavedData saved = SAVED_SESSIONS.getAndSet(null);
+            if (saved != null) {
+                saved.setData(SESSIONS.exportForSave());
+            }
+            SERVER.set(null);
+            VIEWERS_BY_SESSION.clear();
+            SESSION_BY_VIEWER.clear();
+            return;
+        }
+
+        SERVER.set(server);
+
+        ChatAESessionsSavedData saved = ChatAESessionsSavedData.get(server);
+        SAVED_SESSIONS.set(saved);
+        SESSIONS.loadFromSave(saved.data());
+
+        VIEWERS_BY_SESSION.clear();
+        SESSION_BY_VIEWER.clear();
+    }
+
+    public static void onTerminalOpened(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        SessionSnapshot snapshot = SESSIONS.getActive(player.getUUID(), player.getGameProfile().getName());
+        if (!canView(player, snapshot)) {
+            snapshot = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
+            SESSIONS.setActive(player.getUUID(), snapshot.metadata().sessionId());
+        }
+        subscribeViewer(player.getUUID(), snapshot.metadata().sessionId());
+        persistSessions();
+        broadcastSessionSnapshot(snapshot.metadata().sessionId());
+    }
+
+    public static void onTerminalClosed(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        unsubscribeViewer(player.getUUID());
+    }
+
+    private static void subscribeViewer(UUID playerId, UUID sessionId) {
+        UUID previous = SESSION_BY_VIEWER.put(playerId, sessionId);
+        if (previous != null && !previous.equals(sessionId)) {
+            java.util.Set<UUID> prevSet = VIEWERS_BY_SESSION.get(previous);
+            if (prevSet != null) {
+                prevSet.remove(playerId);
+                if (prevSet.isEmpty()) {
+                    VIEWERS_BY_SESSION.remove(previous, prevSet);
+                }
+            }
+        }
+        VIEWERS_BY_SESSION.computeIfAbsent(sessionId, ignored -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(playerId);
+    }
+
+    private static void unsubscribeViewer(UUID playerId) {
+        UUID sessionId = SESSION_BY_VIEWER.remove(playerId);
+        if (sessionId == null) {
+            return;
+        }
+        java.util.Set<UUID> set = VIEWERS_BY_SESSION.get(sessionId);
+        if (set != null) {
+            set.remove(playerId);
+            if (set.isEmpty()) {
+                VIEWERS_BY_SESSION.remove(sessionId, set);
+            }
+        }
+    }
+
+    private static void broadcastSessionSnapshot(UUID sessionId) {
+        MinecraftServer server = SERVER.get();
+        if (server == null) {
+            return;
+        }
+        java.util.Set<UUID> viewers = VIEWERS_BY_SESSION.get(sessionId);
+        if (viewers == null || viewers.isEmpty()) {
+            return;
+        }
+
+        SessionSnapshot base = SESSIONS.get(sessionId).orElse(null);
+        if (base == null) {
+            for (UUID viewerId : List.copyOf(viewers)) {
+                unsubscribeViewer(viewerId);
+            }
+            return;
+        }
+
+        for (UUID viewerId : List.copyOf(viewers)) {
+            ServerPlayer viewer = server.getPlayerList().getPlayer(viewerId);
+            if (viewer == null) {
+                unsubscribeViewer(viewerId);
+                continue;
+            }
+            if (!canView(viewer, base)) {
+                unsubscribeViewer(viewerId);
+                continue;
+            }
+            SessionSnapshot snapshot = ensureIndexingStateIfNeeded(base);
+            CHANNEL.sendToPlayer(viewer, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
+        }
+    }
+
+    private static SessionSnapshot ensureIndexingStateIfNeeded(SessionSnapshot snapshot) {
+        if (!ChatAE.RECIPE_INDEX.isReady()
+                && (snapshot.state() == SessionState.IDLE || snapshot.state() == SessionState.DONE)) {
+            SessionSnapshot updated = SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.INDEXING);
+            persistSessions();
+            return updated;
+        }
+        return snapshot;
+    }
+
+    private static void persistSessions() {
+        ChatAESessionsSavedData saved = SAVED_SESSIONS.get();
+        if (saved == null) {
+            return;
+        }
+        saved.setData(SESSIONS.exportForSave());
+    }
+
     public static void sendChatToServer(String text) {
         CHANNEL.sendToServer(new C2SSendChatPacket(PROTOCOL_VERSION, text));
     }
@@ -311,18 +443,45 @@ public final class ChatAENetwork {
         if (!canView(player, snapshot)) {
             return;
         }
-        SESSIONS.appendMessage(snapshot.metadata().sessionId(), new ChatMessage(ChatRole.USER, text, now));
-        SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.THINKING);
-        sendSessionSnapshot(player);
+
+        UUID sessionId = snapshot.metadata().sessionId();
+        if (!SESSIONS.tryStartThinking(sessionId)) {
+            broadcastSessionSnapshot(sessionId);
+            return;
+        }
+
+        Optional<TerminalBinding> binding = captureTerminalBinding(player);
+        SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.USER, text, now));
+        persistSessions();
+        broadcastSessionSnapshot(sessionId);
 
         parseCommandAsync(playerId, text)
                 .whenComplete((outcome, error) -> player.getServer().execute(() -> {
                     if (error != null) {
-                        applyParseFailure(player, "LLM error: " + error.getMessage());
+                        applyParseFailure(sessionId, "LLM error: " + error.getMessage());
                         return;
                     }
-                    handleParsedOutcome(player, outcome, snapshot.metadata().sessionId());
+                    handleParsedOutcome(player, outcome, sessionId, binding.orElse(null));
                 }));
+    }
+
+    private static Optional<TerminalBinding> captureTerminalBinding(ServerPlayer player) {
+        if (!(player.containerMenu instanceof space.controlnet.chatae.common.menu.AiTerminalMenu menu)) {
+            return Optional.empty();
+        }
+        Optional<space.controlnet.chatae.common.terminal.AiTerminalHost> host = menu.getHost();
+        if (host.isEmpty()) {
+            return Optional.empty();
+        }
+        net.minecraft.world.level.Level level = host.get().getHostLevel();
+        if (level == null) {
+            return Optional.empty();
+        }
+
+        net.minecraft.core.BlockPos pos = menu.getPos();
+        String dimensionId = level.dimension().location().toString();
+        Optional<String> side = menu.getSide().map(net.minecraft.core.Direction::name);
+        return Optional.of(new TerminalBinding(dimensionId, pos.getX(), pos.getY(), pos.getZ(), side));
     }
 
     private static void writeSnapshot(FriendlyByteBuf buf, SessionSnapshot snapshot) {
@@ -372,6 +531,18 @@ public final class ChatAENetwork {
                 buf.writeUtf(missing, 256);
             }
             buf.writeUtf(details.note(), 512);
+
+            boolean hasBinding = snapshot.proposalBinding().isPresent();
+            buf.writeBoolean(hasBinding);
+            if (hasBinding) {
+                TerminalBinding binding = snapshot.proposalBinding().orElseThrow();
+                buf.writeUtf(binding.dimensionId(), 128);
+                buf.writeInt(binding.x());
+                buf.writeInt(binding.y());
+                buf.writeInt(binding.z());
+                buf.writeBoolean(binding.side().isPresent());
+                binding.side().ifPresent(side -> buf.writeUtf(side, 16));
+            }
         }
     }
 
@@ -419,14 +590,35 @@ public final class ChatAENetwork {
                 missingItems.add(buf.readUtf(256));
             }
             String note = buf.readUtf(512);
+
+            TerminalBinding binding = null;
+            if (buf.readBoolean()) {
+                String dimensionId = buf.readUtf(128);
+                int x = buf.readInt();
+                int y = buf.readInt();
+                int z = buf.readInt();
+                Optional<String> side = buf.readBoolean() ? Optional.of(buf.readUtf(16)) : Optional.empty();
+                binding = new TerminalBinding(dimensionId, x, y, z, side);
+            }
+
             ProposalDetails details = new ProposalDetails(action, itemId, count, missingItems, note);
             proposal = new Proposal(id, risk, summary, new ToolCall(toolName, argsJson), proposalCreatedAt, details);
+            return new SessionSnapshot(metadata, messages, state, Optional.of(proposal), Optional.ofNullable(binding), List.of(), error);
         }
 
-        return new SessionSnapshot(metadata, messages, state, Optional.ofNullable(proposal), error);
+        return new SessionSnapshot(metadata, messages, state, Optional.empty(), Optional.empty(), List.of(), error);
     }
 
-    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome, UUID sessionId) {
+    private static void handleParsedOutcome(ServerPlayer player, ParseOutcome outcome, UUID sessionId, TerminalBinding binding) {
+        SessionSnapshot current = SESSIONS.get(sessionId).orElse(null);
+        if (current == null) {
+            return;
+        }
+        if (current.state() != SessionState.THINKING) {
+            broadcastSessionSnapshot(sessionId);
+            return;
+        }
+
         if (outcome == null || outcome.call() == null) {
             if (outcome != null && outcome.errorMessage() != null) {
                 SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + outcome.errorMessage(), System.currentTimeMillis()));
@@ -438,7 +630,8 @@ public final class ChatAENetwork {
             } else {
                 SESSIONS.setState(sessionId, SessionState.IDLE);
             }
-            sendSessionSnapshot(player);
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
             return;
         }
 
@@ -448,24 +641,24 @@ public final class ChatAENetwork {
         long duration = System.currentTimeMillis() - start;
 
         if (toolOutcome.hasProposal()) {
-            SESSIONS.setProposal(sessionId, toolOutcome.proposal());
+            if (!SESSIONS.trySetProposal(sessionId, toolOutcome.proposal(), binding)) {
+                SESSIONS.setState(sessionId, SessionState.IDLE);
+            }
         } else if (toolOutcome.result() != null) {
             applyToolResult(player, outcome.call(), toolOutcome.result(), "AUTO_APPROVE", duration, sessionId);
         } else {
             SESSIONS.setState(sessionId, SessionState.IDLE);
         }
 
-        sendSessionSnapshot(player);
+        persistSessions();
+        broadcastSessionSnapshot(sessionId);
     }
 
-    private static void applyParseFailure(ServerPlayer player, String message) {
-        SessionSnapshot snapshot = SESSIONS.getActive(player.getUUID(), player.getGameProfile().getName());
-        if (!canView(player, snapshot)) {
-            return;
-        }
-        SESSIONS.appendMessage(snapshot.metadata().sessionId(), new ChatMessage(ChatRole.ASSISTANT, "Error: " + message, System.currentTimeMillis()));
-        SESSIONS.setError(snapshot.metadata().sessionId(), message);
-        sendSessionSnapshot(player);
+    private static void applyParseFailure(UUID sessionId, String message) {
+        SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + message, System.currentTimeMillis()));
+        SESSIONS.setError(sessionId, message);
+        persistSessions();
+        broadcastSessionSnapshot(sessionId);
     }
 
     private static void applyToolResult(ServerPlayer player, ToolCall call, ToolResult result, String decision, long durationMillis, UUID sessionId) {
@@ -504,6 +697,7 @@ public final class ChatAENetwork {
                 outcome,
                 result.error() != null ? result.error().message() : null
         ));
+        persistSessions();
     }
 
     private static CompletableFuture<ParseOutcome> parseCommandAsync(UUID playerId, String raw) {
@@ -569,13 +763,17 @@ public final class ChatAENetwork {
             return;
         }
         SESSIONS.setActive(player.getUUID(), sessionId);
-        sendSessionSnapshot(player);
+        subscribeViewer(player.getUUID(), sessionId);
+        persistSessions();
+        broadcastSessionSnapshot(sessionId);
     }
 
     private static void handleCreateSession(ServerPlayer player) {
         SessionSnapshot created = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
         SESSIONS.setActive(player.getUUID(), created.metadata().sessionId());
-        sendSessionSnapshot(player);
+        subscribeViewer(player.getUUID(), created.metadata().sessionId());
+        persistSessions();
+        broadcastSessionSnapshot(created.metadata().sessionId());
         sendSessionList(player, SessionListScope.MY);
     }
 
@@ -588,10 +786,25 @@ public final class ChatAENetwork {
             return;
         }
         SESSIONS.delete(sessionId);
+        persistSessions();
+
+        java.util.Set<UUID> viewers = VIEWERS_BY_SESSION.remove(sessionId);
+        if (viewers != null) {
+            for (UUID viewerId : List.copyOf(viewers)) {
+                SESSION_BY_VIEWER.remove(viewerId, sessionId);
+                ServerPlayer viewer = player.getServer().getPlayerList().getPlayer(viewerId);
+                if (viewer != null) {
+                    onTerminalOpened(viewer);
+                }
+            }
+        }
+
         if (SESSIONS.getActiveSessionId(player.getUUID()).isEmpty()) {
             SessionSnapshot created = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
             SESSIONS.setActive(player.getUUID(), created.metadata().sessionId());
-            sendSessionSnapshot(player);
+            subscribeViewer(player.getUUID(), created.metadata().sessionId());
+            persistSessions();
+            broadcastSessionSnapshot(created.metadata().sessionId());
         }
         sendSessionList(player, SessionListScope.MY);
     }
@@ -617,8 +830,9 @@ public final class ChatAENetwork {
                 SESSIONS.setVisibility(packet.sessionId(), visibility, teamId);
             }
         }
+        persistSessions();
         sendSessionList(player, SessionListScope.MY);
-        sendSessionSnapshot(player);
+        broadcastSessionSnapshot(packet.sessionId());
     }
 
     private static final class AgentInvoker {
@@ -663,6 +877,8 @@ public final class ChatAENetwork {
         if (!canView(player, snapshot)) {
             return;
         }
+
+        UUID sessionId = snapshot.metadata().sessionId();
         Optional<Proposal> pending = snapshot.pendingProposal();
         if (pending.isEmpty()) {
             return;
@@ -673,10 +889,21 @@ public final class ChatAENetwork {
             return;
         }
 
+        long now = System.currentTimeMillis();
+        SESSIONS.appendDecision(sessionId, new DecisionLogEntry(
+                now,
+                Optional.of(player.getUUID()),
+                Optional.of(player.getGameProfile().getName()),
+                proposal.id(),
+                Optional.of(proposal.toolCall().toolName()),
+                packet.decision()
+        ));
+        persistSessions();
+
         if (packet.decision() == ApprovalDecision.DENY) {
             AuditLogger.instance().log(new AuditEvent(
                     player.getUUID().toString(),
-                    System.currentTimeMillis(),
+                    now,
                     proposal.toolCall().toolName(),
                     proposal.toolCall().argsJson(),
                     proposal.riskLevel(),
@@ -686,15 +913,32 @@ public final class ChatAENetwork {
                     "User denied proposal"
             ));
 
-            SESSIONS.clearProposal(snapshot.metadata().sessionId());
-            SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.IDLE);
-            sendSessionSnapshot(player);
+            SESSIONS.clearProposal(sessionId);
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
             return;
         }
 
-        SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.EXECUTING);
+        if (!SESSIONS.tryStartExecuting(sessionId, proposal.id())) {
+            broadcastSessionSnapshot(sessionId);
+            return;
+        }
+
+        Optional<TerminalBinding> binding = snapshot.proposalBinding();
+        Optional<space.controlnet.chatae.core.terminal.TerminalContext> context = binding.isPresent()
+                ? TerminalContextFactory.fromPlayerAtBinding(player, binding.get())
+                : Optional.empty();
+
+        if (context.isEmpty()) {
+            SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: bound terminal unavailable", System.currentTimeMillis()));
+            SESSIONS.tryFailProposal(sessionId, proposal.id(), "bound terminal unavailable");
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
+            return;
+        }
+
         long start = System.currentTimeMillis();
-        ToolOutcome outcome = ToolRouter.execute(TerminalContextFactory.fromPlayer(player), proposal.toolCall(), true);
+        ToolOutcome outcome = ToolRouter.execute(context, proposal.toolCall(), true);
         long duration = System.currentTimeMillis() - start;
 
         AuditLogger.instance().log(new AuditEvent(
@@ -709,15 +953,17 @@ public final class ChatAENetwork {
                 outcome.result() != null && outcome.result().error() != null ? outcome.result().error().message() : null
         ));
 
-        SESSIONS.clearProposal(snapshot.metadata().sessionId());
+        SESSIONS.clearProposalPreserveState(sessionId);
 
         if (outcome.result() != null) {
-            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration, snapshot.metadata().sessionId());
+            applyToolResult(player, proposal.toolCall(), outcome.result(), packet.decision().name(), duration, sessionId);
         } else {
-            SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.DONE);
+            SESSIONS.setState(sessionId, SessionState.DONE);
+            persistSessions();
         }
 
-        sendSessionSnapshot(player);
+        persistSessions();
+        broadcastSessionSnapshot(sessionId);
     }
 
 }
