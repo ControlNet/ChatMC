@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAE Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="terminal-container">
+        <!-- Sidebar: Sessions -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>SESSIONS</h2>
+                <button class="icon-btn" id="new-session-btn" title="New Session">+</button>
+            </div>
+            <div class="session-list" id="session-list">
+                <!-- Session items will be injected here by JS -->
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar"></div>
+                    <span class="username">Player01</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="terminal-header">
+                <div class="header-left">
+                    <button class="icon-btn toggle-sidebar" id="toggle-sidebar">☰</button>
+                    <h1 class="brand">AI TERMINAL <span class="version">v1.0</span></h1>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator online">
+                        <span class="dot"></span>
+                        <span class="text">ONLINE</span>
+                    </div>
+                    <div class="locale-selector">
+                        <span>EN_US</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area" id="chat-area">
+                <!-- Chat messages will be injected here by JS -->
+                <div class="message system-message">
+                    <div class="message-content">
+                        <p>Welcome to ChatAE Terminal. System initialized.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proposal Area (Conditional) -->
+            <div class="proposal-area hidden" id="proposal-area">
+                <div class="proposal-card">
+                    <div class="proposal-header">
+                        <span class="proposal-type warning">⚠ CRAFTING REQUEST</span>
+                        <span class="proposal-id">#REQ-8821</span>
+                    </div>
+                    <div class="proposal-body">
+                        <p>Requesting to craft <strong>64x Fluix Crystal</strong>.</p>
+                        <div class="proposal-details">
+                            <div class="detail-item">
+                                <span class="label">Input:</span>
+                                <span class="value">64x Charged Certus, 64x Redstone, 64x Nether Quartz</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Est. Time:</span>
+                                <span class="value">12s</span>
+                            </div>
+                            <!-- New Bound Terminal Field -->
+                            <div class="detail-item bound-terminal">
+                                <span class="label">Context:</span>
+                                <span class="value">Overworld [104, 64, -200]</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="proposal-actions">
+                        <button class="btn btn-deny" id="btn-deny">DENY</button>
+                        <button class="btn btn-approve" id="btn-approve">APPROVE</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-wrapper" style="position: relative;">
+                    <!-- Auto-complete suggestion dropdown -->
+                    <div class="suggestion-dropdown" id="suggestion-dropdown">
+                        <!-- Items injected by JS -->
+                    </div>
+
+                    <span class="prompt-char">></span>
+                    <input type="text" id="chat-input" placeholder="Type a command or request (@ for items)..."
+                        autocomplete="off">
+                    <button class="send-btn" id="send-btn">SEND</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
