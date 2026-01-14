@@ -3,6 +3,8 @@ package space.controlnet.chatae.common.llm;
 import net.minecraft.server.MinecraftServer;
 import space.controlnet.chatae.core.agent.PromptContext;
 import space.controlnet.chatae.core.agent.PromptId;
+import space.controlnet.chatae.core.agent.PromptResolver;
+import space.controlnet.chatae.core.agent.PromptStore;
 import space.controlnet.chatae.core.agent.PromptTemplate;
 
 import java.util.Optional;
@@ -25,19 +27,6 @@ public final class PromptRuntime {
     }
 
     public static Optional<String> promptHash(String prompt) {
-        if (prompt == null) {
-            return Optional.empty();
-        }
-        try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(prompt.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return Optional.of(sb.toString());
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+        return PromptResolver.computeHash(prompt);
     }
 }

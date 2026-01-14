@@ -10,101 +10,59 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
+import space.controlnet.chatae.core.recipes.RecipeIndexManager;
+import space.controlnet.chatae.core.recipes.RecipeIndexSnapshot;
+import space.controlnet.chatae.core.recipes.RecipeSearchAlgorithm;
 import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
 import space.controlnet.chatae.core.recipes.RecipeSearchResult;
-import space.controlnet.chatae.core.recipes.RecipeSearchAlgorithm;
 import space.controlnet.chatae.core.recipes.RecipeSummary;
-import space.controlnet.chatae.core.recipes.RecipeIndexSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * MC-specific recipe index service.
+ * Delegates index management to core RecipeIndexManager and handles MC recipe extraction.
+ */
 public final class RecipeIndexService {
-    private final AtomicReference<ExecutorService> indexExecutorRef = new AtomicReference<>();
-
-    private final AtomicReference<RecipeIndexSnapshot> snapshotRef = new AtomicReference<>();
-    private final AtomicReference<CompletableFuture<Void>> indexingRef = new AtomicReference<>();
+    private final RecipeIndexManager indexManager = new RecipeIndexManager();
 
     public boolean isReady() {
-        return snapshotRef.get() != null;
+        return indexManager.isReady();
     }
 
     public Optional<CompletableFuture<Void>> indexingFuture() {
-        return Optional.ofNullable(indexingRef.get());
+        return indexManager.indexingFuture();
     }
 
     public void shutdown() {
-        ExecutorService executor = indexExecutorRef.getAndSet(null);
-        if (executor != null) {
-            executor.shutdownNow();
-        }
-        indexingRef.set(null);
+        indexManager.shutdown();
     }
 
     public CompletableFuture<Void> rebuildAsync(MinecraftServer server) {
         RecipeManager recipeManager = server.getRecipeManager();
         List<ResourceLocation> recipeIds = recipeManager.getRecipeIds().toList();
 
-        snapshotRef.set(null);
-
-        ExecutorService executor = getOrCreateExecutor();
-        CompletableFuture<Void> future = CompletableFuture
-                .supplyAsync(() -> buildSnapshot(server, recipeManager, recipeIds), executor)
-                .thenAccept(snapshotRef::set);
-
-        indexingRef.set(future);
-        return future;
-    }
-
-    private ExecutorService getOrCreateExecutor() {
-        ExecutorService existing = indexExecutorRef.get();
-        if (existing != null && !existing.isShutdown() && !existing.isTerminated()) {
-            return existing;
-        }
-
-        ExecutorService created = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "chatae-recipe-index");
-            t.setDaemon(true);
-            return t;
-        });
-
-        if (indexExecutorRef.compareAndSet(existing, created)) {
-            if (existing != null) {
-                existing.shutdownNow();
-            }
-            return created;
-        }
-
-        created.shutdownNow();
-        return getOrCreateExecutor();
+        return indexManager.rebuildAsync(() -> buildSnapshot(server, recipeManager, recipeIds));
     }
 
     public RecipeSearchResult search(String query, RecipeSearchFilters filters, Optional<String> pageToken, int limit) {
-        RecipeIndexSnapshot snapshot = snapshotRef.get();
-        return RecipeSearchAlgorithm.search(snapshot, query, filters, pageToken, limit);
+        return indexManager.search(query, filters, pageToken, limit);
     }
 
     public Optional<RecipeSummary> get(String recipeId) {
-        RecipeIndexSnapshot snapshot = snapshotRef.get();
-        if (snapshot == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(snapshot.byId().get(recipeId));
+        return indexManager.get(recipeId);
     }
 
-
+    /**
+     * Builds a recipe index snapshot from MC recipe data.
+     * This method runs on a background thread.
+     */
     private static RecipeIndexSnapshot buildSnapshot(MinecraftServer server, RecipeManager recipeManager, List<ResourceLocation> recipeIds) {
         Map<String, RecipeSummary> byId = new HashMap<>();
         Map<String, List<String>> byOutput = new HashMap<>();

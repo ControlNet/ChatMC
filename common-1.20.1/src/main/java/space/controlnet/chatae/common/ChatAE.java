@@ -35,14 +35,14 @@ public final class ChatAE {
             SERVER.set(server);
             ChatAENetwork.setServer(server);
             space.controlnet.chatae.common.llm.PromptRuntime.reload(server);
-            space.controlnet.chatae.common.llm.LlmRuntimeManager.reload(server);
+            space.controlnet.chatae.common.llm.McRuntimeManager.reload(server);
             RECIPE_INDEX.rebuildAsync(server);
         });
 
         LifecycleEvent.SERVER_STOPPED.register(server -> {
             ChatAENetwork.setServer(null);
             SERVER.set(null);
-            space.controlnet.chatae.common.llm.LlmRuntimeManager.clear();
+            space.controlnet.chatae.common.llm.McRuntimeManager.clear();
             RECIPE_INDEX.shutdown();
             ChatAENetwork.shutdown();
         });

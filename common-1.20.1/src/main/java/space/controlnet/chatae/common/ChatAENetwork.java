@@ -32,6 +32,8 @@ import space.controlnet.chatae.core.session.TerminalBinding;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolResult;
+import space.controlnet.chatae.core.util.ItemTagParser;
+import space.controlnet.chatae.core.util.LocaleResolver;
 import space.controlnet.chatae.core.net.c2s.C2SApprovalDecisionPacket;
 import space.controlnet.chatae.core.net.c2s.C2SCreateSessionPacket;
 import space.controlnet.chatae.core.net.c2s.C2SDeleteSessionPacket;
@@ -54,8 +56,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
@@ -75,8 +75,6 @@ public final class ChatAENetwork {
     private static final java.util.concurrent.ConcurrentHashMap<UUID, java.util.Set<UUID>> VIEWERS_BY_SESSION = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.concurrent.ConcurrentHashMap<UUID, UUID> SESSION_BY_VIEWER = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.concurrent.ConcurrentHashMap<UUID, String> SESSION_LOCALE = new java.util.concurrent.ConcurrentHashMap<>();
-
-    private static final Pattern ITEM_TAG_PATTERN = Pattern.compile("<item\\s+id=\"([^\"]+)\"(?:\\s+display_name=\"([^\"]+)\")?\\s*>");
 
     private ChatAENetwork() {
     }
@@ -381,27 +379,11 @@ public final class ChatAENetwork {
     }
 
     private static String resolveEffectiveLocale(String clientLocale, String aiLocaleOverride) {
-        String override = aiLocaleOverride == null ? "" : aiLocaleOverride.trim();
-        if (!override.isBlank()) {
-            return override;
-        }
-        String locale = clientLocale == null ? "" : clientLocale.trim();
-        return locale.isBlank() ? "en_us" : locale;
+        return LocaleResolver.resolveEffectiveLocale(clientLocale, aiLocaleOverride);
     }
 
     private static Optional<String> findInvalidItemTag(String text) {
-        if (text == null || text.isBlank() || !text.contains("<item")) {
-            return Optional.empty();
-        }
-
-        Matcher matcher = ITEM_TAG_PATTERN.matcher(text);
-        while (matcher.find()) {
-            String itemId = matcher.group(1);
-            if (!isValidItemId(itemId)) {
-                return Optional.of(itemId);
-            }
-        }
-        return Optional.empty();
+        return ItemTagParser.findInvalidItemTag(text, ChatAENetwork::isValidItemId);
     }
 
     private static boolean isValidItemId(String itemId) {

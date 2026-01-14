@@ -1,11 +1,11 @@
-package space.controlnet.chatae.common.llm;
-
-import space.controlnet.chatae.core.agent.PromptContext;
-import space.controlnet.chatae.core.agent.PromptId;
+package space.controlnet.chatae.core.agent;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Thread-safe store for prompt templates, keyed by prompt ID and locale.
+ */
 public final class PromptStore {
     private final ConcurrentHashMap<PromptKey, String> prompts = new ConcurrentHashMap<>();
 
@@ -17,6 +17,13 @@ public final class PromptStore {
         prompts.put(new PromptKey(id.id(), locale), content);
     }
 
+    /**
+     * Resolves a prompt template for the given context.
+     * Falls back to en_us if the requested locale is not found.
+     *
+     * @param context the prompt context containing ID, locale, and variables
+     * @return the prompt template, or empty string if not found
+     */
     public String resolve(PromptContext context) {
         String locale = context.effectiveLocale();
         String exact = prompts.get(new PromptKey(context.promptId().id(), locale));
@@ -32,6 +39,9 @@ public final class PromptStore {
         prompts.putAll(values);
     }
 
+    /**
+     * Key for prompt lookup combining prompt ID and locale.
+     */
     public record PromptKey(String promptId, String locale) {
     }
 }

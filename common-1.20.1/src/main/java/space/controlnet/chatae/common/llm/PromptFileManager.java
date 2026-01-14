@@ -4,6 +4,7 @@ import dev.architectury.platform.Platform;
 import net.minecraft.server.MinecraftServer;
 import space.controlnet.chatae.common.ChatAE;
 import space.controlnet.chatae.core.agent.PromptId;
+import space.controlnet.chatae.core.agent.PromptStore;
 
 import java.io.IOException;
 import java.io.InputStream;

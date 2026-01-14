@@ -20,6 +20,7 @@ out/
 dist/
 /appeng/
 /META-INF/
+bin/
 
 # Logs
 *.log

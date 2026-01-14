@@ -8,7 +8,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.MinecraftServer;
 import space.controlnet.chatae.common.ChatAE;
-import space.controlnet.chatae.common.llm.LlmRuntimeManager;
+import space.controlnet.chatae.common.llm.McRuntimeManager;
 import space.controlnet.chatae.common.llm.PromptRuntime;
 
 public final class ChatAECommands {
@@ -26,7 +26,7 @@ public final class ChatAECommands {
                         .executes(ctx -> {
                             MinecraftServer server = ctx.getSource().getServer();
                             PromptRuntime.reload(server);
-                            LlmRuntimeManager.reload(server);
+                            McRuntimeManager.reload(server);
                             ChatAE.RECIPE_INDEX.rebuildAsync(server);
                             ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("ChatAE reloaded"), true);
                             return 1;
