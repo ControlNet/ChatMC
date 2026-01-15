@@ -8,7 +8,10 @@ loom {
 }
 
 architectury {
-    common(rootProject.enabled_platforms.split(","))
+    common(rootProject.enabled_platforms.split(",")) {
+        it.platformPackage "fabric", "${rootProject.maven_group}.fabric"
+        it.platformPackage "forge", "${rootProject.maven_group}.forge"
+    }
 }
 
 dependencies {

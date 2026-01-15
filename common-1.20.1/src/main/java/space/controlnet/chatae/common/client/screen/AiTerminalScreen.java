@@ -25,9 +25,13 @@ import space.controlnet.chatae.core.proposal.ProposalDetails;
 import space.controlnet.chatae.core.session.ChatMessage;
 import space.controlnet.chatae.core.session.SessionListScope;
 import space.controlnet.chatae.core.session.SessionSnapshot;
+import space.controlnet.chatae.core.session.SessionState;
 import space.controlnet.chatae.core.session.SessionSummary;
 import space.controlnet.chatae.core.session.SessionVisibility;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +53,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int SESSION_PANEL_PADDING = 6;
     private static final int SESSION_HEADER_HEIGHT = 14;
     private static final int SESSION_ROW_HEIGHT = 32;
+    private static final int STATUS_DOT_SIZE = 6;
     private static final int SESSION_ROW_GAP = 4;
     private static final int SESSION_OPEN_BUTTON_WIDTH = 36;
     private static final int SESSION_DELETE_BUTTON_WIDTH = 22;
@@ -63,6 +68,9 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int TOKEN_PANEL_WIDTH = 176;
     private static final int TOKEN_PANEL_MAX_ROWS = 6;
     private static final int TOKEN_PANEL_ROW_HEIGHT = 18;
+
+    private static final DateTimeFormatter MESSAGE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
+            .withZone(ZoneId.systemDefault());
 
     private final List<Component> messages = new ArrayList<>();
     private final List<FormattedCharSequence> wrappedLines = new ArrayList<>();
@@ -212,12 +220,16 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
         guiGraphics.drawString(this.font, this.title, PADDING + 96, PADDING, 0x404040, false);
 
-        Component status = Component.literal("Status: ")
-                .withStyle(ChatFormatting.DARK_GRAY)
-                .append(Component.literal(this.statusText).withStyle(ChatFormatting.GRAY));
-
+        SessionState state = sessionStateFromStatus();
         int statusY = this.imageHeight - PADDING - INPUT_HEIGHT - this.font.lineHeight - 4;
-        guiGraphics.drawString(this.font, status, PADDING, statusY, 0x404040, false);
+        int dotX = PADDING;
+        int dotY = statusY + (this.font.lineHeight - STATUS_DOT_SIZE) / 2;
+        int dotColor = statusDotColor(state);
+        guiGraphics.fill(dotX, dotY, dotX + STATUS_DOT_SIZE, dotY + STATUS_DOT_SIZE, 0xFF000000 | dotColor);
+
+        Component status = Component.literal(stateLabel(state))
+                .withStyle(ChatFormatting.GRAY);
+        guiGraphics.drawString(this.font, status, dotX + STATUS_DOT_SIZE + 6, statusY, 0x404040, false);
     }
 
     @Override
@@ -440,8 +452,14 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             boolean isActive = this.activeSessionId != null && this.activeSessionId.equals(summary.sessionId());
             String label = isActive ? "* " + title : title;
             int color = isActive ? 0xF0D27C : 0xE0E0E0;
-            String trimmed = this.font.plainSubstrByWidth(label, Math.max(1, this.sessionInnerW));
+            int titleMaxWidth = Math.max(1, this.sessionInnerW);
+            String trimmed = this.font.plainSubstrByWidth(label, titleMaxWidth);
             guiGraphics.drawString(this.font, trimmed, this.sessionInnerX, rowY + 2, color, false);
+
+            String lastActive = formatRelativeTime(summary.lastActiveMillis());
+            if (!lastActive.isBlank()) {
+                guiGraphics.drawString(this.font, lastActive, this.sessionInnerX, rowY + 2 + this.font.lineHeight, 0x909090, false);
+            }
         }
 
         if (this.sessionSummaries.isEmpty()) {
@@ -800,12 +818,14 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private static Component formatMessage(ChatMessage message) {
-        MutableComponent prefix = switch (message.role()) {
-            case USER -> Component.literal("You: ").withStyle(ChatFormatting.YELLOW);
-            case ASSISTANT -> Component.literal("AI: ").withStyle(ChatFormatting.AQUA);
-            case TOOL -> Component.literal("Tool: ").withStyle(ChatFormatting.GRAY);
-            case SYSTEM -> Component.literal("System: ").withStyle(ChatFormatting.DARK_GRAY);
-        };
+        String timestamp = formatMessageTimestamp(message.timestampMillis());
+        MutableComponent prefix = Component.literal("[" + timestamp + "] ").withStyle(ChatFormatting.DARK_GRAY)
+                .append(switch (message.role()) {
+                    case USER -> Component.literal("You: ").withStyle(ChatFormatting.YELLOW);
+                    case ASSISTANT -> Component.literal("AI: ").withStyle(ChatFormatting.AQUA);
+                    case TOOL -> Component.literal("Tool: ").withStyle(ChatFormatting.GRAY);
+                    case SYSTEM -> Component.literal("System: ").withStyle(ChatFormatting.DARK_GRAY);
+                });
 
         return prefix.append(renderItemTags(message.text()).withStyle(ChatFormatting.WHITE));
     }
@@ -1116,10 +1136,72 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 && mouseY >= this.chatY && mouseY < (this.chatY + this.chatH);
     }
 
-    private static boolean isIdleLike(space.controlnet.chatae.core.session.SessionState state) {
-        return state == space.controlnet.chatae.core.session.SessionState.IDLE
-                || state == space.controlnet.chatae.core.session.SessionState.DONE
-                || state == space.controlnet.chatae.core.session.SessionState.FAILED;
+    private static boolean isIdleLike(SessionState state) {
+        return state == SessionState.IDLE
+                || state == SessionState.DONE
+                || state == SessionState.FAILED;
+    }
+
+    private SessionState sessionStateFromStatus() {
+        try {
+            return SessionState.valueOf(this.statusText);
+        } catch (IllegalArgumentException ex) {
+            return SessionState.IDLE;
+        }
+    }
+
+    private static String stateLabel(SessionState state) {
+        return switch (state) {
+            case IDLE -> "Idle";
+            case INDEXING -> "Indexing";
+            case THINKING -> "Thinking";
+            case WAIT_APPROVAL -> "Awaiting Approval";
+            case EXECUTING -> "Executing";
+            case DONE -> "Done";
+            case FAILED -> "Failed";
+            case CANCELED -> "Canceled";
+        };
+    }
+
+    private static int statusDotColor(SessionState state) {
+        return switch (state) {
+            case IDLE -> 0x7A8B6C;
+            case INDEXING -> 0xC59A3C;
+            case THINKING -> 0x62A5E4;
+            case WAIT_APPROVAL -> 0xD77A3D;
+            case EXECUTING -> 0x5BBE9A;
+            case DONE -> 0x7AC2A5;
+            case FAILED -> 0xC45B5B;
+            case CANCELED -> 0x8B7A67;
+        };
+    }
+
+    private static String formatMessageTimestamp(long timestampMillis) {
+        if (timestampMillis <= 0) {
+            return "--:--";
+        }
+        return MESSAGE_TIME_FORMAT.format(Instant.ofEpochMilli(timestampMillis));
+    }
+
+    private static String formatRelativeTime(long timestampMillis) {
+        if (timestampMillis <= 0) {
+            return "";
+        }
+        long now = System.currentTimeMillis();
+        long deltaMillis = Math.max(0, now - timestampMillis);
+        long minutes = deltaMillis / 60000L;
+        if (minutes < 1) {
+            return "just now";
+        }
+        if (minutes < 60) {
+            return minutes + "m ago";
+        }
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return hours + "h ago";
+        }
+        long days = hours / 24;
+        return days + "d ago";
     }
 
     private static int clamp(int value, int min, int max) {

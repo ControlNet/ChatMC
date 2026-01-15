@@ -6,25 +6,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Parser for LLM configuration JSON.
- * This class handles pure JSON parsing without file I/O.
- */
 public final class LlmConfigParser {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private LlmConfigParser() {
     }
 
-    /**
-     * Parses LLM configuration from a JSON string.
-     *
-     * @param json     the JSON string to parse
-     * @param defaults default values to use for missing fields
-     * @return the parsed configuration, or defaults if parsing fails
-     */
     public static LlmConfig parse(String json, LlmConfig defaults) {
         if (json == null || json.isBlank()) {
             return defaults;
@@ -37,13 +27,7 @@ public final class LlmConfigParser {
         }
     }
 
-    /**
-     * Parses LLM configuration from a JsonObject.
-     *
-     * @param root     the JSON object to parse
-     * @param defaults default values to use for missing fields
-     * @return the parsed configuration
-     */
+
     public static LlmConfig parseFromJson(JsonObject root, LlmConfig defaults) {
         if (root == null) {
             return defaults;
@@ -63,28 +47,20 @@ public final class LlmConfigParser {
         boolean strictJsonSchema = readBoolean(root, "strictJsonSchema", defaults.strictJsonSchema());
         boolean logRequests = readBoolean(root, "logRequests", defaults.logRequests());
         boolean logResponses = readBoolean(root, "logResponses", defaults.logResponses());
+        Optional<String> azureEndpoint = readOptionalString(root, "azureEndpoint");
+        Optional<String> azureDeployment = readOptionalString(root, "azureDeployment");
+        Optional<String> azureApiVersion = readOptionalString(root, "azureApiVersion");
 
         return new LlmConfig(provider, model, baseUrl, apiKey, apiKeyEnv, temperature, topP, maxTokens,
-                timeout, maxRetries, cooldownMillis, strictJsonSchema, logRequests, logResponses);
+                timeout, maxRetries, cooldownMillis, strictJsonSchema, logRequests, logResponses,
+                azureEndpoint, azureDeployment, azureApiVersion);
     }
 
-    /**
-     * Serializes LLM configuration to a JSON string.
-     *
-     * @param config the configuration to serialize
-     * @return the JSON string representation
-     */
     public static String toJson(LlmConfig config) {
         JsonObject root = toJsonObject(config);
         return GSON.toJson(root);
     }
 
-    /**
-     * Converts LLM configuration to a JsonObject.
-     *
-     * @param config the configuration to convert
-     * @return the JSON object representation
-     */
     public static JsonObject toJsonObject(LlmConfig config) {
         JsonObject root = new JsonObject();
         root.addProperty("provider", config.provider().name());
@@ -101,13 +77,23 @@ public final class LlmConfigParser {
         root.addProperty("strictJsonSchema", config.strictJsonSchema());
         root.addProperty("logRequests", config.logRequests());
         root.addProperty("logResponses", config.logResponses());
+        config.azureEndpoint().ifPresent(value -> root.addProperty("azureEndpoint", value));
+        config.azureDeployment().ifPresent(value -> root.addProperty("azureDeployment", value));
+        config.azureApiVersion().ifPresent(value -> root.addProperty("azureApiVersion", value));
         return root;
     }
 
     private static LlmProvider parseProvider(JsonObject root, LlmProvider fallback) {
         String raw = readString(root, "provider", fallback.name());
+        return parseProvider(raw, fallback);
+    }
+
+    private static LlmProvider parseProvider(String raw, LlmProvider fallback) {
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
         try {
-            return LlmProvider.valueOf(raw.toUpperCase());
+            return LlmProvider.valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return fallback;
         }
@@ -190,4 +176,5 @@ public final class LlmConfigParser {
             return fallback;
         }
     }
+
 }

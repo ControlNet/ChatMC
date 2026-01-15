@@ -17,7 +17,10 @@ public record LlmConfig(
         long cooldownMillis,
         boolean strictJsonSchema,
         boolean logRequests,
-        boolean logResponses
+        boolean logResponses,
+        Optional<String> azureEndpoint,
+        Optional<String> azureDeployment,
+        Optional<String> azureApiVersion
 ) {
     public static LlmConfig defaults() {
         return new LlmConfig(
@@ -34,7 +37,10 @@ public record LlmConfig(
                 0L,
                 true,
                 false,
-                false
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
         );
     }
 }

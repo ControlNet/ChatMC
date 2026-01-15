@@ -11,9 +11,13 @@ public final class LlmRuntime {
     private LlmRuntime() {
     }
 
-    public static void reload(LlmConfig config) {
+    public static boolean reload(LlmConfig config) {
         Optional<ChatModel> model = LlmModelFactory.build(config);
-        MODEL.set(model.orElse(null));
+        if (model.isPresent()) {
+            MODEL.set(model.get());
+            return true;
+        }
+        return false;
     }
 
     public static Optional<ChatModel> model() {

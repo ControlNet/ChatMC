@@ -21,6 +21,8 @@ public final class LlmRuntimeManager {
          * Called when the LLM timeout should be updated.
          */
         void onTimeoutUpdated(long timeoutMillis);
+
+        void onReloadFailed(String message);
     }
 
     /**
@@ -29,12 +31,17 @@ public final class LlmRuntimeManager {
      * @param config  the LLM configuration
      * @param handler optional event handler for runtime updates
      */
-    public static void reload(LlmConfig config, RuntimeEventHandler handler) {
-        LlmRuntime.reload(config);
+    public static boolean reload(LlmConfig config, RuntimeEventHandler handler) {
+        boolean reloaded = LlmRuntime.reload(config);
         if (handler != null) {
-            handler.onCooldownUpdated(config.cooldownMillis());
-            handler.onTimeoutUpdated(config.timeout().toMillis());
+            if (reloaded) {
+                handler.onCooldownUpdated(config.cooldownMillis());
+                handler.onTimeoutUpdated(config.timeout().toMillis());
+            } else {
+                handler.onReloadFailed("Failed to initialize LLM model. Check provider configuration.");
+            }
         }
+        return reloaded;
     }
 
     /**

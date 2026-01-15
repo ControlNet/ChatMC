@@ -4,5 +4,6 @@ public enum LlmProvider {
     OPENAI,
     AZURE_OPENAI,
     OLLAMA,
-    ANTHROPIC
+    ANTHROPIC,
+    GEMINI
 }

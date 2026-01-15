@@ -13,7 +13,9 @@ loom {
 
 architectury {
     platformSetupLoomIde()
-    forge()
+    forge {
+        platformPackage = "${rootProject.maven_group}.forge"
+    }
 }
 
 configurations {
@@ -47,8 +49,8 @@ dependencies {
     modImplementation "org.appliedenergistics:guideme:${rootProject.guideme_version}"
 
     // Agent dependencies (runtime + shaded into jar)
-    addAgentDeps(dependencies, "implementation")
-    addAgentDeps(dependencies, "shadowCommon")
+    rootProject.ext.addAgentDeps(dependencies, "implementation")
+    rootProject.ext.addAgentDeps(dependencies, "shadowCommon")
 
     common(project(path: ":common-1.20.1", configuration: "namedElements")) { transitive false }
     shadowCommon(project(path: ":common-1.20.1", configuration: "transformProductionForge")) { transitive false }

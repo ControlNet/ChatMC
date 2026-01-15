@@ -7,6 +7,6 @@ dependencies {
     // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
     rootProject.ext.addAgentDeps(dependencies, "api")
     
-    // Gson for JSON parsing (used by LangChainToolCallParser)
-    api "com.google.code.gson:gson:2.10.1"
+    // Gson is provided by the Minecraft runtime; don't package it.
+    compileOnly "com.google.code.gson:gson:2.10.1"
 }
