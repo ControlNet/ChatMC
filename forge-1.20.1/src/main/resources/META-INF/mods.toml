@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="[47,)"
-license="TBD"
+license="AGPL-3.0"
 
 [[mods]]
 modId="chatae"

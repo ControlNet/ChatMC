@@ -23,6 +23,7 @@ import space.controlnet.chatae.core.proposal.ApprovalDecision;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalDetails;
 import space.controlnet.chatae.core.session.ChatMessage;
+import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.SessionListScope;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
@@ -39,26 +40,29 @@ import java.util.UUID;
 
 public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMenu> {
     private static final int PADDING = 8;
+    private static final int HEADER_HEIGHT = 24;
     private static final int INPUT_HEIGHT = 20;
-    private static final int SEND_BUTTON_WIDTH = 52;
+    private static final int INPUT_PAD_Y = 6;
+    private static final int SIDEBAR_WIDTH = 120;
+    private static final int SIDEBAR_HEADER_HEIGHT = 20;
+    private static final int SIDEBAR_FOOTER_HEIGHT = 22;
+    private static final int SEND_BUTTON_WIDTH = 50;
     private static final int MAX_MESSAGES = 200;
-    private static final int PROPOSAL_CARD_HEIGHT = 46;
+    private static final int PROPOSAL_CARD_HEIGHT = 44;
     private static final int PROPOSAL_CARD_GAP = 6;
-    private static final int PROPOSAL_BUTTON_WIDTH = 64;
+    private static final int PROPOSAL_BUTTON_WIDTH = 62;
     private static final int PROPOSAL_BUTTON_HEIGHT = 18;
     private static final int PROPOSAL_BUTTON_GAP = 4;
-    private static final int SESSION_TOGGLE_WIDTH = 72;
+    private static final int SESSION_TOGGLE_WIDTH = 30;
     private static final int SESSION_TOGGLE_HEIGHT = 18;
-    private static final int SESSION_PANEL_WIDTH = 124;
     private static final int SESSION_PANEL_PADDING = 6;
-    private static final int SESSION_HEADER_HEIGHT = 14;
     private static final int SESSION_ROW_HEIGHT = 32;
     private static final int STATUS_DOT_SIZE = 6;
     private static final int SESSION_ROW_GAP = 4;
-    private static final int SESSION_OPEN_BUTTON_WIDTH = 36;
-    private static final int SESSION_DELETE_BUTTON_WIDTH = 22;
-    private static final int SESSION_VIS_BUTTON_WIDTH = 28;
-    private static final int SESSION_BUTTON_HEIGHT = 18;
+    private static final int SESSION_OPEN_BUTTON_WIDTH = 34;
+    private static final int SESSION_DELETE_BUTTON_WIDTH = 20;
+    private static final int SESSION_VIS_BUTTON_WIDTH = 26;
+    private static final int SESSION_BUTTON_HEIGHT = 16;
     private static final int SESSION_BUTTON_GAP = 4;
     private static final int SESSION_NEW_BUTTON_HEIGHT = 18;
     private static final int TOKEN_ICON_SIZE = 12;
@@ -68,12 +72,34 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int TOKEN_PANEL_WIDTH = 176;
     private static final int TOKEN_PANEL_MAX_ROWS = 6;
     private static final int TOKEN_PANEL_ROW_HEIGHT = 18;
+    private static final int MESSAGE_PAD_X = 8;
+    private static final int MESSAGE_PAD_Y = 3;
+    private static final int MESSAGE_MAX_WIDTH_PAD = 28;
+
+    private static final int COLOR_BG_DARK = 0xFF0B0B0D;
+    private static final int COLOR_BG_PANEL = 0xFF151518;
+    private static final int COLOR_BG_PANEL_TRANSPARENT = 0xD9151518;
+    private static final int COLOR_BORDER = 0xFF3A3A40;
+    private static final int COLOR_PRIMARY_FLUIX = 0xFF6B2FB5;
+    private static final int COLOR_PRIMARY_FLUIX_DIM = 0x806B2FB5;
+    private static final int COLOR_ACCENT_CYAN = 0xFF00FFFF;
+    private static final int COLOR_ACCENT_CYAN_DIM = 0x3300FFFF;
+    private static final int COLOR_TEXT_MAIN = 0xFFE0E0E0;
+    private static final int COLOR_TEXT_DIM = 0xFF808080;
+    private static final int COLOR_TEXT_HIGHLIGHT = 0xFFFFFFFF;
+
+    private static final int COLOR_STATUS_ONLINE = 0xFF00FF9D;
+    private static final int COLOR_STATUS_INDEXING = 0xFF33CCFF;
+    private static final int COLOR_STATUS_THINKING = 0xFFD400FF;
+    private static final int COLOR_STATUS_EXECUTING = 0xFFFFCC00;
+    private static final int COLOR_STATUS_BUSY = 0xFFFFB700;
+    private static final int COLOR_STATUS_ERROR = 0xFFFF3333;
 
     private static final DateTimeFormatter MESSAGE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
             .withZone(ZoneId.systemDefault());
 
-    private final List<Component> messages = new ArrayList<>();
-    private final List<FormattedCharSequence> wrappedLines = new ArrayList<>();
+    private final List<ChatMessage> messages = new ArrayList<>();
+    private final List<ChatLine> wrappedLines = new ArrayList<>();
     private final List<ItemToken> inputTokens = new ArrayList<>();
     private final List<ItemSuggestion> itemSuggestions = new ArrayList<>();
 
@@ -92,6 +118,14 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private boolean suggestionsVisible;
     private int hoveredSuggestionIndex = -1;
 
+    private int sidebarX;
+    private int sidebarY;
+    private int sidebarW;
+    private int sidebarH;
+    private int headerX;
+    private int headerY;
+    private int headerW;
+    private int headerH;
     private int chatX;
     private int chatY;
     private int chatW;
@@ -100,6 +134,10 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private int proposalY;
     private int proposalW;
     private int proposalH;
+    private int inputX;
+    private int inputFieldX;
+    private int inputY;
+    private int inputW;
     private int sessionPanelX;
     private int sessionPanelY;
     private int sessionPanelW;
@@ -123,53 +161,68 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     public AiTerminalScreen(AiTerminalMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, Component.translatable("item.chatae.ai_terminal"));
-        this.imageWidth = 248;
-        this.imageHeight = 190;
+        this.imageWidth = 384;
+        this.imageHeight = 236;
     }
 
     @Override
     protected void init() {
         super.init();
+        computeLayout();
 
-        this.chatX = this.leftPos + PADDING;
-        this.chatY = this.topPos + PADDING + this.font.lineHeight + 6;
-        this.chatW = this.imageWidth - (PADDING * 2);
-        this.chatH = this.imageHeight - (PADDING * 3) - INPUT_HEIGHT - this.font.lineHeight - 6
-                - (PROPOSAL_CARD_HEIGHT + PROPOSAL_CARD_GAP);
-
-        this.proposalX = this.chatX;
-        this.proposalY = this.chatY + this.chatH + PROPOSAL_CARD_GAP;
-        this.proposalW = this.chatW;
-        this.proposalH = PROPOSAL_CARD_HEIGHT;
-
-        int inputY = this.topPos + this.imageHeight - PADDING - INPUT_HEIGHT;
-        int inputX = this.leftPos + PADDING;
-        int inputW = this.imageWidth - (PADDING * 2) - SEND_BUTTON_WIDTH - 6;
-
-        this.inputBox = new EditBox(this.font, inputX, inputY, inputW, INPUT_HEIGHT, Component.empty());
+        this.inputBox = new EditBox(this.font, this.inputFieldX, this.inputY, this.inputW, INPUT_HEIGHT, Component.empty());
         this.inputBox.setMaxLength(256);
-        this.inputBox.setBordered(true);
+        this.inputBox.setBordered(false);
         this.inputBox.setCanLoseFocus(true);
+        this.inputBox.setTextColor(COLOR_TEXT_MAIN);
+        this.inputBox.setTextColorUneditable(COLOR_TEXT_DIM);
         this.inputBox.setResponder(this::onInputChanged);
         this.addRenderableWidget(this.inputBox);
 
-        this.sendButton = Button.builder(Component.literal("Send"), b -> submitInput()).bounds(
-                inputX + inputW + 6, inputY, SEND_BUTTON_WIDTH, INPUT_HEIGHT).build();
+        this.sendButton = new FlatButton(
+                this.inputFieldX + this.inputW + 4,
+                this.inputY,
+                SEND_BUTTON_WIDTH,
+                INPUT_HEIGHT,
+                Component.literal("SEND"),
+                b -> submitInput(),
+                UiButtonStyle.ACCENT
+        );
         this.addRenderableWidget(this.sendButton);
 
-        this.aiLocaleButton = Button.builder(Component.literal(buildAiLocaleLabel()), b -> cycleAiLocale())
-                .bounds(this.leftPos + PADDING, this.topPos + PADDING - 1, 90, 18)
-                .build();
+        this.aiLocaleButton = new FlatButton(
+                0,
+                0,
+                46,
+                16,
+                Component.literal(buildAiLocaleLabel()),
+                b -> cycleAiLocale(),
+                UiButtonStyle.GHOST
+        );
         this.addRenderableWidget(this.aiLocaleButton);
 
         int proposalButtonY = this.proposalY + (this.proposalH - PROPOSAL_BUTTON_HEIGHT) / 2;
         int denyX = this.proposalX + this.proposalW - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
         int approveX = denyX - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
 
-        this.approveButton = Button.builder(Component.literal("Approve"), b -> sendApprovalDecision(ApprovalDecision.APPROVE))
-                .bounds(approveX, proposalButtonY, PROPOSAL_BUTTON_WIDTH, PROPOSAL_BUTTON_HEIGHT).build();
-        this.denyButton = Button.builder(Component.literal("Deny"), b -> sendApprovalDecision(ApprovalDecision.DENY))
-                .bounds(denyX, proposalButtonY, PROPOSAL_BUTTON_WIDTH, PROPOSAL_BUTTON_HEIGHT).build();
+        this.approveButton = new FlatButton(
+                approveX,
+                proposalButtonY,
+                PROPOSAL_BUTTON_WIDTH,
+                PROPOSAL_BUTTON_HEIGHT,
+                Component.literal("APPROVE"),
+                b -> sendApprovalDecision(ApprovalDecision.APPROVE),
+                UiButtonStyle.PRIMARY
+        );
+        this.denyButton = new FlatButton(
+                denyX,
+                proposalButtonY,
+                PROPOSAL_BUTTON_WIDTH,
+                PROPOSAL_BUTTON_HEIGHT,
+                Component.literal("DENY"),
+                b -> sendApprovalDecision(ApprovalDecision.DENY),
+                UiButtonStyle.DANGER
+        );
 
         this.addRenderableWidget(this.approveButton);
         this.addRenderableWidget(this.denyButton);
@@ -186,12 +239,52 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         rebuildWrappedLines();
     }
 
+    private void computeLayout() {
+        this.sidebarX = this.leftPos;
+        this.sidebarY = this.topPos;
+        this.sidebarW = this.sessionsOpen ? SIDEBAR_WIDTH : 0;
+        this.sidebarH = this.imageHeight;
+
+        this.headerX = this.leftPos + this.sidebarW;
+        this.headerY = this.topPos;
+        this.headerW = this.imageWidth - this.sidebarW;
+        this.headerH = HEADER_HEIGHT;
+
+        this.inputX = this.headerX + PADDING;
+        this.inputFieldX = this.inputX + 10;
+        this.inputY = this.topPos + this.imageHeight - PADDING - INPUT_HEIGHT;
+        this.inputW = this.headerW - (PADDING * 2) - SEND_BUTTON_WIDTH - 4 - 10;
+
+        this.chatX = this.headerX + PADDING;
+        this.chatY = this.headerY + this.headerH + PADDING;
+        this.chatW = this.headerW - (PADDING * 2);
+        this.chatH = this.inputY - this.chatY - PROPOSAL_CARD_HEIGHT - PROPOSAL_CARD_GAP - PADDING;
+
+        this.proposalX = this.chatX;
+        this.proposalY = this.chatY + this.chatH + PROPOSAL_CARD_GAP;
+        this.proposalW = this.chatW;
+        this.proposalH = PROPOSAL_CARD_HEIGHT;
+
+        this.sessionPanelX = this.sidebarX;
+        this.sessionPanelY = this.topPos;
+        this.sessionPanelW = this.sidebarW;
+        this.sessionPanelH = this.imageHeight;
+
+        this.sessionInnerX = this.sessionPanelX + SESSION_PANEL_PADDING;
+        this.sessionInnerW = Math.max(1, this.sessionPanelW - (SESSION_PANEL_PADDING * 2));
+        int headerBottom = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT + 4;
+        this.sessionListStartY = headerBottom;
+        int listEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SIDEBAR_FOOTER_HEIGHT;
+        int availableHeight = Math.max(0, listEndY - this.sessionListStartY);
+        this.sessionMaxRows = Math.max(1, availableHeight / (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+    }
+
     private String buildAiLocaleLabel() {
         String override = space.controlnet.chatae.core.client.ClientAiSettings.getAiLocaleOverride();
         if (override == null || override.isBlank()) {
-            return "AI Language: Auto";
+            return "AUTO";
         }
-        return "AI Language: " + override;
+        return override.toUpperCase();
     }
 
     private void updateAiLocaleButtonLabel() {
@@ -218,40 +311,71 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        guiGraphics.drawString(this.font, this.title, PADDING + 96, PADDING, 0x404040, false);
+        String brand = "AI TERMINAL";
+        String version = "v1.0";
+        int titleX = this.headerX + PADDING + SESSION_TOGGLE_WIDTH + 6;
+        int titleY = this.headerY + (this.headerH - this.font.lineHeight) / 2;
+        guiGraphics.drawString(this.font, brand, titleX, titleY, COLOR_TEXT_MAIN, false);
+
+        int brandWidth = this.font.width(brand);
+        guiGraphics.drawString(this.font, version, titleX + brandWidth + 6, titleY + 1, COLOR_TEXT_DIM, false);
 
         SessionState state = sessionStateFromStatus();
-        int statusY = this.imageHeight - PADDING - INPUT_HEIGHT - this.font.lineHeight - 4;
-        int dotX = PADDING;
+        String statusLabel = stateLabel(state).toUpperCase();
+        int statusTextWidth = this.font.width(statusLabel);
+        int localeWidth = this.aiLocaleButton == null ? 0 : this.aiLocaleButton.getWidth();
+        int statusRight = this.headerX + this.headerW - PADDING - localeWidth - 8;
+        int statusX = statusRight - statusTextWidth;
+        int statusY = this.headerY + (this.headerH - this.font.lineHeight) / 2;
+        int dotX = statusX - STATUS_DOT_SIZE - 4;
         int dotY = statusY + (this.font.lineHeight - STATUS_DOT_SIZE) / 2;
         int dotColor = statusDotColor(state);
         guiGraphics.fill(dotX, dotY, dotX + STATUS_DOT_SIZE, dotY + STATUS_DOT_SIZE, 0xFF000000 | dotColor);
-
-        Component status = Component.literal(stateLabel(state))
-                .withStyle(ChatFormatting.GRAY);
-        guiGraphics.drawString(this.font, status, dotX + STATUS_DOT_SIZE + 6, statusY, 0x404040, false);
+        guiGraphics.drawString(this.font, statusLabel, statusX, statusY, dotColor, false);
     }
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
-
-        guiGraphics.fill(left, top, left + this.imageWidth, top + this.imageHeight, 0xC0101010);
-        guiGraphics.renderOutline(left, top, this.imageWidth, this.imageHeight, 0xFF9A9A9A);
-
-        guiGraphics.fill(this.chatX, this.chatY, this.chatX + this.chatW, this.chatY + this.chatH, 0x80101010);
-        guiGraphics.renderOutline(this.chatX, this.chatY, this.chatW, this.chatH, 0xFF6A6A6A);
-
-        if (this.pendingProposal != null) {
-            guiGraphics.fill(this.proposalX, this.proposalY, this.proposalX + this.proposalW, this.proposalY + this.proposalH, 0x80202020);
-            guiGraphics.renderOutline(this.proposalX, this.proposalY, this.proposalW, this.proposalH, 0xFF6A6A6A);
-        }
+        guiGraphics.fill(left, top, left + this.imageWidth, top + this.imageHeight, COLOR_BG_DARK);
+        guiGraphics.renderOutline(left, top, this.imageWidth, this.imageHeight, COLOR_BORDER);
 
         if (this.sessionsOpen) {
-            guiGraphics.fill(this.sessionPanelX, this.sessionPanelY, this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, 0xCC111111);
-            guiGraphics.renderOutline(this.sessionPanelX, this.sessionPanelY, this.sessionPanelW, this.sessionPanelH, 0xFF5A5A5A);
+            guiGraphics.fill(this.sessionPanelX, this.sessionPanelY, this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, COLOR_BG_PANEL);
+            guiGraphics.fill(this.sessionPanelX + this.sessionPanelW - 1, this.sessionPanelY,
+                    this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, COLOR_BORDER);
+            int headerBottom = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT;
+            guiGraphics.fill(this.sessionPanelX, headerBottom, this.sessionPanelX + this.sessionPanelW, headerBottom + 1, COLOR_BORDER);
+            int footerTop = this.sessionPanelY + this.sessionPanelH - SIDEBAR_FOOTER_HEIGHT;
+            guiGraphics.fill(this.sessionPanelX, footerTop, this.sessionPanelX + this.sessionPanelW, footerTop + 1, COLOR_BORDER);
         }
+
+        guiGraphics.fill(this.headerX, this.headerY, this.headerX + this.headerW, this.headerY + this.headerH, COLOR_BG_PANEL_TRANSPARENT);
+        guiGraphics.fill(this.headerX, this.headerY + this.headerH - 1, this.headerX + this.headerW, this.headerY + this.headerH, COLOR_BORDER);
+
+        guiGraphics.fill(this.chatX, this.chatY, this.chatX + this.chatW, this.chatY + this.chatH, 0xCC0B0B0D);
+        guiGraphics.renderOutline(this.chatX, this.chatY, this.chatW, this.chatH, COLOR_BORDER);
+
+        if (this.pendingProposal != null) {
+            int cardTop = this.proposalY;
+            int cardBottom = this.proposalY + this.proposalH;
+            guiGraphics.fill(this.proposalX, cardTop, this.proposalX + this.proposalW, cardBottom, 0xCC151515);
+            guiGraphics.renderOutline(this.proposalX, cardTop, this.proposalW, this.proposalH, COLOR_STATUS_BUSY);
+            guiGraphics.fill(this.proposalX, cardTop, this.proposalX + 3, cardBottom, COLOR_STATUS_BUSY);
+        }
+
+        int inputAreaY = this.inputY - INPUT_PAD_Y;
+        int inputAreaH = INPUT_HEIGHT + INPUT_PAD_Y * 2;
+        guiGraphics.fill(this.headerX, inputAreaY, this.headerX + this.headerW, inputAreaY + inputAreaH, COLOR_BG_PANEL);
+        guiGraphics.fill(this.headerX, inputAreaY, this.headerX + this.headerW, inputAreaY + 1, COLOR_BORDER);
+
+        int inputBoxX = this.inputFieldX;
+        int inputBoxY = this.inputY;
+        guiGraphics.fill(inputBoxX, inputBoxY, inputBoxX + this.inputW, inputBoxY + INPUT_HEIGHT, 0x66000000);
+        int inputBorder = this.inputBox != null && this.inputBox.isFocused() ? COLOR_ACCENT_CYAN : COLOR_BORDER;
+        guiGraphics.renderOutline(inputBoxX, inputBoxY, this.inputW, INPUT_HEIGHT, inputBorder);
+        guiGraphics.drawString(this.font, ">", this.inputX + 4, inputBoxY + 4, COLOR_ACCENT_CYAN, false);
     }
 
     @Override
@@ -264,8 +388,22 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         renderProposalCard(guiGraphics);
         renderSessionsPanel(guiGraphics);
         renderInputTokens(guiGraphics);
+        renderInputHint(guiGraphics);
         renderItemSuggestions(guiGraphics, mouseX, mouseY);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
+    }
+
+    private void renderInputHint(GuiGraphics guiGraphics) {
+        if (this.inputBox == null) {
+            return;
+        }
+        if (!this.inputBox.getValue().isBlank()) {
+            return;
+        }
+        String hint = "Type a command or request (@ for items)...";
+        int hintX = this.inputFieldX + 4;
+        int hintY = this.inputY + 6;
+        guiGraphics.drawString(this.font, this.font.plainSubstrByWidth(hint, Math.max(1, this.inputW - 8)), hintX, hintY, COLOR_TEXT_DIM, false);
     }
 
     private void renderChatLog(GuiGraphics guiGraphics) {
@@ -284,7 +422,47 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
         int y = this.chatY + 2;
         for (int i = startIndex; i < endIndex; i++) {
-            guiGraphics.drawString(this.font, this.wrappedLines.get(i), this.chatX + 4, y, 0xE0E0E0, false);
+            ChatLine line = this.wrappedLines.get(i);
+            int textWidth = this.font.width(line.text());
+            int maxBubbleWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
+            int bubbleWidth = Math.min(maxBubbleWidth, textWidth + MESSAGE_PAD_X * 2);
+            int lineY = y;
+
+            int bubbleX;
+            int textX;
+            if (line.role() == ChatRole.USER) {
+                bubbleX = this.chatX + this.chatW - bubbleWidth - 6;
+            } else if (line.role() == ChatRole.SYSTEM) {
+                bubbleX = this.chatX + (this.chatW - bubbleWidth) / 2;
+            } else {
+                bubbleX = this.chatX + 6;
+            }
+            textX = bubbleX + MESSAGE_PAD_X;
+
+            if (!line.isMeta() && line.role() != ChatRole.SYSTEM) {
+                int bubbleY = lineY - MESSAGE_PAD_Y;
+                int bubbleH = lineHeight + (MESSAGE_PAD_Y * 2);
+                int bgColor = line.role() == ChatRole.USER ? 0x332E164A : 0x662A2A2A;
+                int borderColor = line.role() == ChatRole.USER ? COLOR_PRIMARY_FLUIX : COLOR_ACCENT_CYAN;
+                guiGraphics.fill(bubbleX, bubbleY, bubbleX + bubbleWidth, bubbleY + bubbleH, bgColor);
+                guiGraphics.renderOutline(bubbleX, bubbleY, bubbleWidth, bubbleH, borderColor);
+                if (line.role() == ChatRole.ASSISTANT) {
+                    guiGraphics.fill(bubbleX, bubbleY, bubbleX + 2, bubbleY + bubbleH, COLOR_ACCENT_CYAN);
+                }
+            }
+
+            int textColor = line.role() == ChatRole.SYSTEM || line.isMeta() ? COLOR_TEXT_DIM : COLOR_TEXT_MAIN;
+            int drawX = textX;
+            if (line.isMeta()) {
+                if (line.role() == ChatRole.USER) {
+                    drawX = this.chatX + this.chatW - textWidth - 10;
+                } else if (line.role() == ChatRole.SYSTEM) {
+                    drawX = this.chatX + (this.chatW - textWidth) / 2;
+                } else {
+                    drawX = this.chatX + 10;
+                }
+            }
+            guiGraphics.drawString(this.font, line.text(), drawX, lineY, textColor, false);
             y += lineHeight;
         }
 
@@ -333,8 +511,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private void renderTokenPill(GuiGraphics guiGraphics, ItemToken token, int x, int y, int width, int height) {
-        int bg = 0xCC1E1A12;
-        int outline = 0xFF6A5D4B;
+        int bg = 0xCC3C3C41;
+        int outline = 0xFF505055;
         guiGraphics.fill(x, y, x + width, y + height, bg);
         guiGraphics.renderOutline(x, y, width, height, outline);
 
@@ -362,8 +540,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         int panelX = getSuggestionsPanelX();
         int panelY = getSuggestionsPanelY(panelH);
 
-        int bg = 0xE61A1712;
-        int outline = 0xFF6A5D4B;
+        int bg = 0xE6151518;
+        int outline = COLOR_BORDER;
         guiGraphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, bg);
         guiGraphics.renderOutline(panelX, panelY, panelW, panelH, outline);
 
@@ -372,7 +550,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             int rowY = panelY + TOKEN_PANEL_PADDING + i * TOKEN_PANEL_ROW_HEIGHT;
             if (mouseX >= panelX && mouseX < panelX + panelW && mouseY >= rowY && mouseY < rowY + TOKEN_PANEL_ROW_HEIGHT) {
                 this.hoveredSuggestionIndex = i;
-                guiGraphics.fill(panelX + 2, rowY + 1, panelX + panelW - 2, rowY + TOKEN_PANEL_ROW_HEIGHT - 1, 0x553A3328);
+                guiGraphics.fill(panelX + 2, rowY + 1, panelX + panelW - 2, rowY + TOKEN_PANEL_ROW_HEIGHT - 1, 0x33404040);
             }
             renderSuggestionRow(guiGraphics, this.itemSuggestions.get(i), panelX + TOKEN_PANEL_PADDING, rowY, panelW - TOKEN_PANEL_PADDING * 2);
         }
@@ -413,8 +591,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         String summary = this.pendingProposal.summary();
         String risk = this.pendingProposal.riskLevel().name();
         String label = summary == null || summary.isBlank()
-                ? "Proposal [" + risk + "] pending"
-                : "Proposal [" + risk + "]: " + summary;
+                ? "REQUEST [" + risk + "]"
+                : "REQUEST [" + risk + "]: " + summary;
         String detail = buildProposalDetailLine(this.pendingProposal, this.proposalBinding);
 
         int textMaxWidth = this.proposalW - (PROPOSAL_BUTTON_WIDTH * 2) - (PROPOSAL_BUTTON_GAP * 3) - 8;
@@ -425,10 +603,10 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         int textY = this.proposalY + (this.proposalH - totalHeight) / 2;
 
         String trimmed = this.font.plainSubstrByWidth(label, Math.max(1, textMaxWidth));
-        guiGraphics.drawString(this.font, trimmed, textX, textY, 0xE0E0E0, false);
+        guiGraphics.drawString(this.font, trimmed, textX, textY, COLOR_STATUS_BUSY, false);
         if (!detail.isBlank()) {
             String detailTrimmed = this.font.plainSubstrByWidth(detail, Math.max(1, textMaxWidth));
-            guiGraphics.drawString(this.font, detailTrimmed, textX, textY + lineHeight, 0xB0B0B0, false);
+            guiGraphics.drawString(this.font, detailTrimmed, textX, textY + lineHeight, COLOR_TEXT_DIM, false);
         }
     }
 
@@ -438,32 +616,56 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         int headerX = this.sessionInnerX;
-        int headerY = this.sessionPanelY + SESSION_PANEL_PADDING;
-        guiGraphics.drawString(this.font, Component.literal("Sessions"), headerX, headerY, 0xE0E0E0, false);
+        int headerY = this.sessionPanelY + SESSION_PANEL_PADDING + 2;
+        guiGraphics.drawString(this.font, Component.literal("SESSIONS"), headerX, headerY, COLOR_ACCENT_CYAN, false);
 
         int visibleCount = Math.min(this.sessionSummaries.size(), this.sessionMaxRows);
         for (int i = 0; i < visibleCount; i++) {
             SessionSummary summary = this.sessionSummaries.get(i);
             int rowY = this.sessionListStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+            int rowX = this.sessionInnerX;
+            int rowW = this.sessionInnerW;
             String title = summary.title();
             if (title == null || title.isBlank()) {
                 title = "Untitled";
             }
             boolean isActive = this.activeSessionId != null && this.activeSessionId.equals(summary.sessionId());
-            String label = isActive ? "* " + title : title;
-            int color = isActive ? 0xF0D27C : 0xE0E0E0;
-            int titleMaxWidth = Math.max(1, this.sessionInnerW);
-            String trimmed = this.font.plainSubstrByWidth(label, titleMaxWidth);
-            guiGraphics.drawString(this.font, trimmed, this.sessionInnerX, rowY + 2, color, false);
+            if (isActive) {
+                guiGraphics.fill(rowX - 2, rowY - 1, rowX + rowW + 2, rowY + SESSION_ROW_HEIGHT + 1, 0x331D1A28);
+            }
+
+            String visibility = visibilityLabel(summary.visibility()).toUpperCase();
+            int visColor = switch (summary.visibility()) {
+                case PUBLIC -> COLOR_STATUS_ONLINE;
+                case TEAM -> COLOR_ACCENT_CYAN;
+                case PRIVATE -> COLOR_TEXT_DIM;
+            };
+            int visWidth = this.font.width(visibility) + 6;
+            int visX = rowX;
+            int visY = rowY + 2;
+            guiGraphics.fill(visX, visY, visX + visWidth, visY + this.font.lineHeight + 2, 0x1AFFFFFF);
+            guiGraphics.renderOutline(visX, visY, visWidth, this.font.lineHeight + 2, visColor);
+            guiGraphics.drawString(this.font, visibility, visX + 3, visY + 1, visColor, false);
+
+            int titleX = visX + visWidth + 4;
+            int titleMaxWidth = Math.max(1, rowW - visWidth - 4);
+            String trimmed = this.font.plainSubstrByWidth(title, titleMaxWidth);
+            guiGraphics.drawString(this.font, trimmed, titleX, rowY + 3, COLOR_TEXT_MAIN, false);
 
             String lastActive = formatRelativeTime(summary.lastActiveMillis());
             if (!lastActive.isBlank()) {
-                guiGraphics.drawString(this.font, lastActive, this.sessionInnerX, rowY + 2 + this.font.lineHeight, 0x909090, false);
+                guiGraphics.drawString(this.font, lastActive, rowX, rowY + 2 + this.font.lineHeight, COLOR_TEXT_DIM, false);
             }
         }
 
         if (this.sessionSummaries.isEmpty()) {
-            guiGraphics.drawString(this.font, Component.literal("No sessions"), this.sessionInnerX, this.sessionListStartY + 2, 0x909090, false);
+            guiGraphics.drawString(this.font, Component.literal("No sessions"), this.sessionInnerX, this.sessionListStartY + 2, COLOR_TEXT_DIM, false);
+        }
+
+        if (this.minecraft != null && this.minecraft.player != null) {
+            String name = this.minecraft.player.getName().getString();
+            int footerY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - this.font.lineHeight;
+            guiGraphics.drawString(this.font, name, this.sessionInnerX, footerY, COLOR_TEXT_DIM, false);
         }
     }
 
@@ -478,56 +680,86 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private void layoutSessionPanel() {
-        this.sessionPanelW = SESSION_PANEL_WIDTH;
-        this.sessionPanelH = this.chatH + PROPOSAL_CARD_HEIGHT + PROPOSAL_CARD_GAP;
-        this.sessionPanelX = this.leftPos + this.imageWidth - PADDING - this.sessionPanelW;
-        this.sessionPanelY = this.chatY;
+        this.sessionPanelX = this.sidebarX;
+        this.sessionPanelY = this.sidebarY;
+        this.sessionPanelW = this.sidebarW;
+        this.sessionPanelH = this.sidebarH;
 
         this.sessionInnerX = this.sessionPanelX + SESSION_PANEL_PADDING;
-        this.sessionInnerW = this.sessionPanelW - (SESSION_PANEL_PADDING * 2);
-        this.sessionListStartY = this.sessionPanelY + SESSION_PANEL_PADDING + SESSION_HEADER_HEIGHT + 4;
-        int sessionListEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT - 4;
+        this.sessionInnerW = Math.max(1, this.sessionPanelW - (SESSION_PANEL_PADDING * 2));
+        this.sessionListStartY = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT + 4;
+        int sessionListEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SIDEBAR_FOOTER_HEIGHT;
 
         int availableHeight = Math.max(0, sessionListEndY - this.sessionListStartY);
         this.sessionMaxRows = Math.max(1, availableHeight / (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
     }
 
     private void initSessionsToggle() {
-        int toggleX = this.leftPos + this.imageWidth - PADDING - SESSION_TOGGLE_WIDTH;
-        int toggleY = this.topPos + PADDING - 1;
-        this.sessionsToggleButton = Button.builder(Component.literal("Sessions"), b -> toggleSessionsPanel())
-                .bounds(toggleX, toggleY, SESSION_TOGGLE_WIDTH, SESSION_TOGGLE_HEIGHT)
-                .build();
+        int toggleX = this.headerX + PADDING;
+        int toggleY = this.headerY + (this.headerH - SESSION_TOGGLE_HEIGHT) / 2;
+        this.sessionsToggleButton = new FlatButton(
+                toggleX,
+                toggleY,
+                SESSION_TOGGLE_WIDTH,
+                SESSION_TOGGLE_HEIGHT,
+                Component.literal("|||"),
+                b -> toggleSessionsPanel(),
+                UiButtonStyle.GHOST
+        );
         this.addRenderableWidget(this.sessionsToggleButton);
-        updateSessionsToggleLabel();
     }
 
     private void initSessionPanelWidgets() {
         this.sessionRows.clear();
-        int newButtonY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
-        this.newSessionButton = Button.builder(Component.literal("New"), b -> ChatAENetwork.createSession())
-                .bounds(this.sessionInnerX, newButtonY, this.sessionInnerW, SESSION_NEW_BUTTON_HEIGHT)
-                .build();
+        int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
+        int newButtonY = this.sessionPanelY + SESSION_PANEL_PADDING;
+        this.newSessionButton = new FlatButton(
+                newButtonX,
+                newButtonY,
+                SESSION_NEW_BUTTON_HEIGHT,
+                SESSION_NEW_BUTTON_HEIGHT,
+                Component.literal("+"),
+                b -> ChatAENetwork.createSession(),
+                UiButtonStyle.GHOST
+        );
         this.addRenderableWidget(this.newSessionButton);
 
         int listStartY = this.sessionListStartY;
         for (int i = 0; i < this.sessionMaxRows; i++) {
             int rowY = listStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
             int buttonY = rowY + SESSION_ROW_HEIGHT - SESSION_BUTTON_HEIGHT - 2;
-            int openX = this.sessionInnerX;
-            int deleteX = openX + SESSION_OPEN_BUTTON_WIDTH + SESSION_BUTTON_GAP;
-            int visX = deleteX + SESSION_DELETE_BUTTON_WIDTH + SESSION_BUTTON_GAP;
+            int visX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_VIS_BUTTON_WIDTH;
+            int deleteX = visX - SESSION_BUTTON_GAP - SESSION_DELETE_BUTTON_WIDTH;
+            int openX = deleteX - SESSION_BUTTON_GAP - SESSION_OPEN_BUTTON_WIDTH;
 
             SessionRow row = new SessionRow();
-            row.openButton = Button.builder(Component.literal("Open"), b -> openSession(row))
-                    .bounds(openX, buttonY, SESSION_OPEN_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
-                    .build();
-            row.deleteButton = Button.builder(Component.literal("Del"), b -> deleteSession(row))
-                    .bounds(deleteX, buttonY, SESSION_DELETE_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
-                    .build();
-            row.visibilityButton = Button.builder(Component.literal("Priv"), b -> cycleSessionVisibility(row))
-                    .bounds(visX, buttonY, SESSION_VIS_BUTTON_WIDTH, SESSION_BUTTON_HEIGHT)
-                    .build();
+            row.openButton = new FlatButton(
+                    openX,
+                    buttonY,
+                    SESSION_OPEN_BUTTON_WIDTH,
+                    SESSION_BUTTON_HEIGHT,
+                    Component.literal("OPEN"),
+                    b -> openSession(row),
+                    UiButtonStyle.GHOST
+            );
+            row.deleteButton = new FlatButton(
+                    deleteX,
+                    buttonY,
+                    SESSION_DELETE_BUTTON_WIDTH,
+                    SESSION_BUTTON_HEIGHT,
+                    Component.literal("DEL"),
+                    b -> deleteSession(row),
+                    UiButtonStyle.DANGER
+            );
+            row.visibilityButton = new FlatButton(
+                    visX,
+                    buttonY,
+                    SESSION_VIS_BUTTON_WIDTH,
+                    SESSION_BUTTON_HEIGHT,
+                    Component.literal("PRIV"),
+                    b -> cycleSessionVisibility(row),
+                    UiButtonStyle.GHOST
+            );
 
             this.sessionRows.add(row);
             this.addRenderableWidget(row.openButton);
@@ -539,13 +771,15 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private void toggleSessionsPanel() {
         setSessionsPanelVisible(!this.sessionsOpen);
         if (this.sessionsOpen) {
-        ChatAENetwork.requestSessionList(SessionListScope.ALL);
-
+            ChatAENetwork.requestSessionList(SessionListScope.ALL);
         }
     }
 
     private void setSessionsPanelVisible(boolean visible) {
         this.sessionsOpen = visible;
+        computeLayout();
+        layoutSessionPanel();
+        applyLayoutToWidgets();
         updateSessionsToggleLabel();
         if (this.newSessionButton != null) {
             this.newSessionButton.visible = visible;
@@ -559,13 +793,59 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (visible) {
             rebuildSessionRows();
         }
+        rebuildWrappedLines();
+    }
+
+    private void applyLayoutToWidgets() {
+        if (this.inputBox != null) {
+            this.inputBox.setX(this.inputFieldX);
+            this.inputBox.setY(this.inputY);
+            this.inputBox.setWidth(this.inputW);
+        }
+        if (this.sendButton != null) {
+            this.sendButton.setPosition(this.inputFieldX + this.inputW + 4, this.inputY);
+        }
+        if (this.aiLocaleButton != null) {
+            int localeX = this.headerX + this.headerW - PADDING - this.aiLocaleButton.getWidth();
+            int localeY = this.headerY + (this.headerH - this.aiLocaleButton.getHeight()) / 2;
+            this.aiLocaleButton.setPosition(localeX, localeY);
+        }
+        if (this.sessionsToggleButton != null) {
+            int toggleX = this.headerX + PADDING;
+            int toggleY = this.headerY + (this.headerH - SESSION_TOGGLE_HEIGHT) / 2;
+            this.sessionsToggleButton.setPosition(toggleX, toggleY);
+        }
+        if (this.approveButton != null && this.denyButton != null) {
+            int proposalButtonY = this.proposalY + (this.proposalH - PROPOSAL_BUTTON_HEIGHT) / 2;
+            int denyX = this.proposalX + this.proposalW - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
+            int approveX = denyX - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
+            this.approveButton.setPosition(approveX, proposalButtonY);
+            this.denyButton.setPosition(denyX, proposalButtonY);
+        }
+        if (this.newSessionButton != null) {
+            int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
+            int newButtonY = this.sessionPanelY + SESSION_PANEL_PADDING;
+            this.newSessionButton.setPosition(newButtonX, newButtonY);
+        }
+        int listStartY = this.sessionListStartY;
+        for (int i = 0; i < this.sessionRows.size(); i++) {
+            SessionRow row = this.sessionRows.get(i);
+            int rowY = listStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
+            int buttonY = rowY + SESSION_ROW_HEIGHT - SESSION_BUTTON_HEIGHT - 2;
+            int visX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_VIS_BUTTON_WIDTH;
+            int deleteX = visX - SESSION_BUTTON_GAP - SESSION_DELETE_BUTTON_WIDTH;
+            int openX = deleteX - SESSION_BUTTON_GAP - SESSION_OPEN_BUTTON_WIDTH;
+            row.openButton.setPosition(openX, buttonY);
+            row.deleteButton.setPosition(deleteX, buttonY);
+            row.visibilityButton.setPosition(visX, buttonY);
+        }
     }
 
     private void updateSessionsToggleLabel() {
         if (this.sessionsToggleButton == null) {
             return;
         }
-        String label = this.sessionsOpen ? "Close" : "Sessions";
+        String label = this.sessionsOpen ? "X" : "|||";
         this.sessionsToggleButton.setMessage(Component.literal(label));
     }
 
@@ -594,7 +874,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 row.openButton.active = !isActiveSession(summary.sessionId());
                 row.deleteButton.active = isOwner(summary);
                 row.visibilityButton.active = isOwner(summary);
-                row.visibilityButton.setMessage(Component.literal(visibilityLabel(summary.visibility())));
+                row.visibilityButton.setMessage(Component.literal(visibilityLabel(summary.visibility()).toUpperCase()));
             } else {
                 row.summary = null;
                 row.openButton.visible = false;
@@ -795,7 +1075,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
         this.messages.clear();
         for (ChatMessage msg : snapshot.messages()) {
-            this.messages.add(formatMessage(msg));
+            this.messages.add(msg);
         }
 
         if (this.messages.size() > MAX_MESSAGES) {
@@ -818,16 +1098,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private static Component formatMessage(ChatMessage message) {
-        String timestamp = formatMessageTimestamp(message.timestampMillis());
-        MutableComponent prefix = Component.literal("[" + timestamp + "] ").withStyle(ChatFormatting.DARK_GRAY)
-                .append(switch (message.role()) {
-                    case USER -> Component.literal("You: ").withStyle(ChatFormatting.YELLOW);
-                    case ASSISTANT -> Component.literal("AI: ").withStyle(ChatFormatting.AQUA);
-                    case TOOL -> Component.literal("Tool: ").withStyle(ChatFormatting.GRAY);
-                    case SYSTEM -> Component.literal("System: ").withStyle(ChatFormatting.DARK_GRAY);
-                });
-
-        return prefix.append(renderItemTags(message.text()).withStyle(ChatFormatting.WHITE));
+        MutableComponent content = renderItemTags(message.text());
+        return content.withStyle(ChatFormatting.WHITE);
     }
 
     private void onInputChanged(String value) {
@@ -1115,7 +1387,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         return detail;
     }
 
-    private void appendMessage(Component message) {
+    private void appendMessage(ChatMessage message) {
         this.messages.add(message);
         if (this.messages.size() > MAX_MESSAGES) {
             this.messages.subList(0, this.messages.size() - MAX_MESSAGES).clear();
@@ -1125,9 +1397,17 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private void rebuildWrappedLines() {
         this.wrappedLines.clear();
-        int maxWidth = Math.max(1, this.chatW - 8);
-        for (Component message : this.messages) {
-            this.wrappedLines.addAll(this.font.split(message, maxWidth));
+        int maxWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
+        for (ChatMessage message : this.messages) {
+            Component formatted = formatMessage(message);
+            List<FormattedCharSequence> lines = this.font.split(formatted, maxWidth);
+            for (FormattedCharSequence line : lines) {
+                this.wrappedLines.add(new ChatLine(line, message.role(), false));
+            }
+            String timestamp = formatMessageTimestamp(message.timestampMillis());
+            if (!timestamp.isBlank()) {
+                this.wrappedLines.add(new ChatLine(FormattedCharSequence.forward(timestamp, net.minecraft.network.chat.Style.EMPTY), message.role(), true));
+            }
         }
     }
 
@@ -1165,14 +1445,14 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private static int statusDotColor(SessionState state) {
         return switch (state) {
-            case IDLE -> 0x7A8B6C;
-            case INDEXING -> 0xC59A3C;
-            case THINKING -> 0x62A5E4;
-            case WAIT_APPROVAL -> 0xD77A3D;
-            case EXECUTING -> 0x5BBE9A;
-            case DONE -> 0x7AC2A5;
-            case FAILED -> 0xC45B5B;
-            case CANCELED -> 0x8B7A67;
+            case IDLE -> COLOR_STATUS_ONLINE;
+            case INDEXING -> COLOR_STATUS_INDEXING;
+            case THINKING -> COLOR_STATUS_THINKING;
+            case WAIT_APPROVAL -> COLOR_STATUS_BUSY;
+            case EXECUTING -> COLOR_STATUS_EXECUTING;
+            case DONE -> COLOR_STATUS_ONLINE;
+            case FAILED -> COLOR_STATUS_ERROR;
+            case CANCELED -> COLOR_TEXT_DIM;
         };
     }
 
@@ -1206,6 +1486,82 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private enum UiButtonStyle {
+        PRIMARY,
+        ACCENT,
+        DANGER,
+        GHOST
+    }
+
+    private static final class FlatButton extends Button {
+        private final UiButtonStyle style;
+
+        private FlatButton(int x, int y, int width, int height, Component message, OnPress onPress, UiButtonStyle style) {
+            super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
+            this.style = style;
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+            int x = this.getX();
+            int y = this.getY();
+            int width = this.getWidth();
+            int height = this.getHeight();
+            boolean hovered = this.isHoveredOrFocused();
+            net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+
+            int bg;
+            int outline;
+            int text;
+            switch (this.style) {
+                case PRIMARY -> {
+                    bg = hovered ? 0xFFFFCC33 : COLOR_STATUS_BUSY;
+                    outline = COLOR_STATUS_BUSY;
+                    text = 0xFF000000;
+                }
+                case ACCENT -> {
+                    bg = hovered ? COLOR_ACCENT_CYAN : 0x00151518;
+                    outline = COLOR_ACCENT_CYAN;
+                    text = hovered ? 0xFF000000 : COLOR_ACCENT_CYAN;
+                }
+                case DANGER -> {
+                    bg = hovered ? 0x33FF3333 : 0x00151518;
+                    outline = COLOR_STATUS_ERROR;
+                    text = COLOR_STATUS_ERROR;
+                }
+                case GHOST -> {
+                    bg = hovered ? 0x22151518 : 0x00151518;
+                    outline = hovered ? COLOR_ACCENT_CYAN : COLOR_BORDER;
+                    text = hovered ? COLOR_ACCENT_CYAN : COLOR_TEXT_MAIN;
+                }
+                default -> {
+                    bg = COLOR_BG_PANEL;
+                    outline = COLOR_BORDER;
+                    text = COLOR_TEXT_MAIN;
+                }
+            }
+
+            if (!this.active) {
+                bg = 0x22101010;
+                outline = COLOR_BORDER;
+                text = COLOR_TEXT_DIM;
+            }
+
+            guiGraphics.fill(x, y, x + width, y + height, bg);
+            guiGraphics.renderOutline(x, y, width, height, outline);
+
+            int textWidth = minecraft == null ? 0 : minecraft.font.width(this.getMessage());
+            int textX = x + (width - textWidth) / 2;
+            int textY = y + (height - 8) / 2;
+            if (minecraft != null) {
+                guiGraphics.drawString(minecraft.font, this.getMessage(), textX, textY, text, false);
+            }
+        }
+    }
+
+    private record ChatLine(FormattedCharSequence text, ChatRole role, boolean isMeta) {
     }
 
     private record TokenMetrics(int width) {

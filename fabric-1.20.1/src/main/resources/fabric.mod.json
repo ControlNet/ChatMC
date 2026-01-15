@@ -5,7 +5,7 @@
   "name": "ChatAE",
   "description": "AE2 AI Terminal addon",
   "authors": ["controlnet"],
-  "license": "TBD",
+  "license": "AGPL-3.0",
   "environment": "*",
   "entrypoints": {
     "main": ["space.controlnet.chatae.fabric.ChatAEFabric"],
