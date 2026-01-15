@@ -7,17 +7,15 @@ import space.controlnet.chatae.core.agent.LlmConfig;
 import space.controlnet.chatae.core.agent.LlmConfigParser;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
  * Loads LLM configuration from the config directory.
- * Delegates JSON parsing to {@link LlmConfigParser}.
  */
 public final class LlmConfigLoader {
     private static final String CONFIG_DIR = "chatae";
-    private static final String CONFIG_FILE = "llm.json";
+    private static final String CONFIG_FILE = "llm.toml";
 
     private LlmConfigLoader() {
     }
@@ -31,9 +29,8 @@ public final class LlmConfigLoader {
             return defaults;
         }
 
-        try {
-            String json = Files.readString(path, StandardCharsets.UTF_8);
-            return LlmConfigParser.parse(json, defaults);
+        try (var reader = Files.newBufferedReader(path)) {
+            return LlmConfigParser.parse(reader, defaults);
         } catch (Exception e) {
             ChatAE.LOGGER.warn("Failed to read LLM config, using defaults", e);
             return defaults;
@@ -43,8 +40,9 @@ public final class LlmConfigLoader {
     private static void writeDefaults(Path path, LlmConfig defaults) {
         try {
             Files.createDirectories(path.getParent());
-            String json = LlmConfigParser.toJson(defaults);
-            Files.writeString(path, json, StandardCharsets.UTF_8);
+            try (var writer = Files.newBufferedWriter(path)) {
+                LlmConfigParser.writeToml(writer, defaults);
+            }
         } catch (IOException e) {
             ChatAE.LOGGER.warn("Failed to write default LLM config", e);
         }

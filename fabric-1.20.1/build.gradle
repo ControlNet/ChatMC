@@ -36,6 +36,10 @@ dependencies {
     modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
     modImplementation "teamreborn:energy:3.0.0"
 
+    // NightConfig TOML (shade for Fabric)
+    implementation "com.electronwill.night-config:toml:3.6.4"
+    shadowCommon "com.electronwill.night-config:toml:3.6.4"
+
     // Agent dependencies (runtime + shaded into jar)
     rootProject.ext.addAgentDeps(dependencies, "implementation")
     rootProject.ext.addAgentDeps(dependencies, "shadowCommon")
