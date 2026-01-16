@@ -805,9 +805,55 @@ public final class ChatAENetwork {
         if (!isOwner(player, snapshot.get())) {
             return;
         }
+        // Current last active time of the deleted session for the next session selection.
+        long deletedSessionLastActive = snapshot.get().metadata().lastActiveMillis();
+        boolean wasActive = SESSIONS.getActiveSessionId(player.getUUID())
+                .map(id -> id.equals(sessionId))
+                .orElse(false);
         SESSIONS.delete(sessionId);
         persistSessions();
 
+        // First select the next session (if the deleted session is active), to avoid onTerminalOpened automatically creating a new session.
+        if (wasActive) {
+            // Sort by last active time in descending order, find the next session after the current session.
+            List<SessionSnapshot> sortedSessions = SESSIONS.listAll().stream()
+                    .filter(s -> s.metadata().ownerId().equals(player.getUUID()))
+                    .sorted(Comparator.comparing(s -> -s.metadata().lastActiveMillis()))
+                    .toList();
+            
+            Optional<SessionSnapshot> nextSession = Optional.empty();
+            
+            // Try to find the next session after the current session.
+            for (SessionSnapshot s : sortedSessions) {
+                if (s.metadata().lastActiveMillis() < deletedSessionLastActive) {
+                    nextSession = Optional.of(s);
+                    break;
+                }
+            }
+            
+            // If there is no next session after the current session, select the first session before the current session (the oldest one).
+            if (nextSession.isEmpty() && !sortedSessions.isEmpty()) {
+                nextSession = Optional.of(sortedSessions.get(sortedSessions.size() - 1));
+            }
+            
+            if (nextSession.isPresent()) {
+                // Select the next session.
+                UUID nextSessionId = nextSession.get().metadata().sessionId();
+                SESSIONS.setActive(player.getUUID(), nextSessionId);
+                subscribeViewer(player.getUUID(), nextSessionId);
+                persistSessions();
+                broadcastSessionSnapshot(nextSessionId);
+            } else {
+                // If there is no other session, create a new session.
+                SessionSnapshot created = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
+                SESSIONS.setActive(player.getUUID(), created.metadata().sessionId());
+                subscribeViewer(player.getUUID(), created.metadata().sessionId());
+                persistSessions();
+                broadcastSessionSnapshot(created.metadata().sessionId());
+            }
+        }
+
+        // Then handle the viewers, the active session is already set.
         java.util.Set<UUID> viewers = VIEWERS_BY_SESSION.remove(sessionId);
         if (viewers != null) {
             for (UUID viewerId : List.copyOf(viewers)) {
@@ -817,14 +863,6 @@ public final class ChatAENetwork {
                     onTerminalOpened(viewer);
                 }
             }
-        }
-
-        if (SESSIONS.getActiveSessionId(player.getUUID()).isEmpty()) {
-            SessionSnapshot created = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
-            SESSIONS.setActive(player.getUUID(), created.metadata().sessionId());
-            subscribeViewer(player.getUUID(), created.metadata().sessionId());
-            persistSessions();
-            broadcastSessionSnapshot(created.metadata().sessionId());
         }
         sendSessionList(player, SessionListScope.MY);
     }

@@ -50,17 +50,19 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int PROPOSAL_BUTTON_WIDTH = 62;
     private static final int PROPOSAL_BUTTON_HEIGHT = 18;
     private static final int PROPOSAL_BUTTON_GAP = 4;
-    private static final int SESSION_TOGGLE_WIDTH = 22;
+    private static final int LOCALE_BUTTON_WIDTH = 24;
+    private static final int LOCALE_BUTTON_HEIGHT = 18;
+    private static final int SESSION_TOGGLE_WIDTH = 24;
     private static final int SESSION_TOGGLE_HEIGHT = 18;
     private static final int SESSION_PANEL_PADDING = 8;
     private static final int SESSION_ROW_HEIGHT = 28;
     private static final int STATUS_DOT_SIZE = 6;
     private static final int SESSION_ROW_GAP = 6;
-    private static final int SESSION_OPEN_BUTTON_WIDTH = 30;
     private static final int SESSION_DELETE_BUTTON_WIDTH = 20;
     private static final int SESSION_VIS_BUTTON_WIDTH = 32;
     private static final int SESSION_BUTTON_HEIGHT = 16;
     private static final int SESSION_BUTTON_GAP = 4;
+    private static final int SESSION_NEW_BUTTON_WIDTH = 24;
     private static final int SESSION_NEW_BUTTON_HEIGHT = 18;
     private static final int TOKEN_ICON_SIZE = 12;
     private static final int TOKEN_TEXT_GAP = 4;
@@ -72,8 +74,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int MESSAGE_PAD_X = 8;
     private static final int MESSAGE_PAD_Y = 4;
     private static final int MESSAGE_MAX_WIDTH_PAD = 36;
-    private static final float TITLE_FONT_SCALE = 0.8f;
-    private static final float FONT_SCALE = 0.6f;
+    private static final float TITLE_FONT_SCALE = 0.9f;
+    private static final float FONT_SCALE = 0.5f;
 
     private static final int COLOR_BG_DARK = 0xFF0B0B0D;
     private static final int COLOR_BG_PANEL = 0xFF151518;
@@ -192,8 +194,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.aiLocaleButton = new FlatButton(
                 0,
                 0,
-                42,
-                16,
+                LOCALE_BUTTON_WIDTH,
+                LOCALE_BUTTON_HEIGHT,
                 Component.literal(buildAiLocaleLabel()),
                 b -> cycleAiLocale(),
                 UiButtonStyle.GHOST
@@ -319,11 +321,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         String statusLabel = stateLabel(state).toUpperCase();
         int statusTextWidth = scaledWidth(statusLabel);
         int localeWidth = this.aiLocaleButton == null ? 0 : this.aiLocaleButton.getWidth();
-        int statusRight = this.headerX + this.headerW - PADDING - localeWidth - 16;
+        int statusRight = this.headerX + this.headerW - PADDING - localeWidth - 48;
         int statusX = statusRight - statusTextWidth;
-        int statusY = this.headerY + (this.headerH - this.font.lineHeight) / 2;
+        int statusY = this.headerY + (this.headerH - Math.round(this.font.lineHeight * FONT_SCALE)) / 2;
         int dotX = statusX - STATUS_DOT_SIZE - 4;
-        int dotY = statusY + (this.font.lineHeight - STATUS_DOT_SIZE) / 2;
+        int dotY = statusY + (Math.round(this.font.lineHeight * FONT_SCALE) - STATUS_DOT_SIZE - 2) / 2;
         int dotColor = statusDotColor(state);
         guiGraphics.fill(dotX, dotY, dotX + STATUS_DOT_SIZE, dotY + STATUS_DOT_SIZE, 0xFF000000 | dotColor);
         drawScaledString(guiGraphics, statusLabel, statusX, statusY, dotColor, false);
@@ -685,17 +687,20 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             drawScaledString(guiGraphics, visibility, visX + 3, visY + 1, visColor, false);
 
             int titleX = visX + visWidth + 4;
-            int reservedRight = showActions ? (SESSION_VIS_BUTTON_WIDTH + SESSION_DELETE_BUTTON_WIDTH + SESSION_BUTTON_GAP + 6) : 0;
+            int reservedRight = showActions ? (SESSION_DELETE_BUTTON_WIDTH + SESSION_BUTTON_GAP + 6) : 0;
             int timeWidth = 0;
-            String lastActive = formatRelativeTime(summary.lastActiveMillis());
-            if (!lastActive.isBlank()) {
-                timeWidth = scaledWidth(lastActive) + 6;
+            String lastActive = "";
+            if (!isActive) {
+                lastActive = formatRelativeTime(summary.lastActiveMillis());
+                if (!lastActive.isBlank()) {
+                    timeWidth = scaledWidth(lastActive) + 6;
+                }
             }
             int titleMaxWidth = Math.max(1, rowW - visWidth - 4 - timeWidth - reservedRight);
             String trimmed = this.font.plainSubstrByWidth(title, titleMaxWidth);
             drawScaledString(guiGraphics, trimmed, titleX, rowY + 3, COLOR_TEXT_MAIN, false);
 
-            if (!lastActive.isBlank()) {
+            if (!isActive && !lastActive.isBlank()) {
                 int timeX = rowX + rowW - scaledWidth(lastActive) - reservedRight;
                 drawScaledString(guiGraphics, lastActive, timeX, rowY + 3, COLOR_TEXT_DIM, false);
             }
@@ -759,7 +764,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.newSessionButton = new FlatButton(
                 newButtonX,
                 newButtonY,
-                SESSION_NEW_BUTTON_HEIGHT,
+                SESSION_NEW_BUTTON_WIDTH,
                 SESSION_NEW_BUTTON_HEIGHT,
                 Component.literal("+"),
                 b -> ChatAENetwork.createSession(),
@@ -771,20 +776,10 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         for (int i = 0; i < this.sessionMaxRows; i++) {
             int rowY = listStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
             int buttonY = rowY + (SESSION_ROW_HEIGHT - SESSION_BUTTON_HEIGHT) / 2;
-            int visX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_VIS_BUTTON_WIDTH;
-            int deleteX = visX - SESSION_BUTTON_GAP - SESSION_DELETE_BUTTON_WIDTH;
-            int openX = deleteX - SESSION_BUTTON_GAP - SESSION_OPEN_BUTTON_WIDTH;
+            int deleteX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_DELETE_BUTTON_WIDTH;
+            int visX = deleteX - SESSION_BUTTON_GAP - SESSION_VIS_BUTTON_WIDTH;
 
             SessionRow row = new SessionRow();
-            row.openButton = new FlatButton(
-                    openX,
-                    buttonY,
-                    SESSION_OPEN_BUTTON_WIDTH,
-                    SESSION_BUTTON_HEIGHT,
-                    Component.literal("OPEN"),
-                    b -> openSession(row),
-                    UiButtonStyle.GHOST
-            );
             row.deleteButton = new FlatButton(
                     deleteX,
                     buttonY,
@@ -805,7 +800,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             );
 
             this.sessionRows.add(row);
-            this.addRenderableWidget(row.openButton);
             this.addRenderableWidget(row.deleteButton);
             this.addRenderableWidget(row.visibilityButton);
         }
@@ -829,7 +823,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             this.newSessionButton.active = visible;
         }
         for (SessionRow row : this.sessionRows) {
-            row.openButton.visible = visible;
             row.deleteButton.visible = visible;
             row.visibilityButton.visible = false;
         }
@@ -875,10 +868,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             SessionRow row = this.sessionRows.get(i);
             int rowY = listStartY + (i * (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
             int buttonY = rowY + (SESSION_ROW_HEIGHT - SESSION_BUTTON_HEIGHT) / 2;
-            int visX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_VIS_BUTTON_WIDTH;
-            int deleteX = visX - SESSION_BUTTON_GAP - SESSION_DELETE_BUTTON_WIDTH;
-            int openX = deleteX - SESSION_BUTTON_GAP - SESSION_OPEN_BUTTON_WIDTH;
-            row.openButton.setPosition(openX, buttonY);
+            int deleteX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_DELETE_BUTTON_WIDTH;
+            int visX = deleteX - SESSION_BUTTON_GAP - SESSION_VIS_BUTTON_WIDTH;
             row.deleteButton.setPosition(deleteX, buttonY);
             row.visibilityButton.setPosition(visX, buttonY);
         }
@@ -911,16 +902,13 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             if (i < visibleCount) {
                 SessionSummary summary = this.sessionSummaries.get(i);
                 row.summary = summary;
-                row.openButton.visible = false;
                 row.deleteButton.visible = this.sessionsOpen && isActiveSession(summary.sessionId()) && isOwner(summary);
                 row.visibilityButton.visible = false;
-                row.openButton.active = false;
                 row.deleteButton.active = isOwner(summary);
                 row.visibilityButton.active = false;
                 row.visibilityButton.setMessage(Component.literal(visibilityLabel(summary.visibility()).toUpperCase()));
             } else {
                 row.summary = null;
-                row.openButton.visible = false;
                 row.deleteButton.visible = false;
                 row.visibilityButton.visible = false;
             }
@@ -929,13 +917,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             this.newSessionButton.visible = this.sessionsOpen;
             this.newSessionButton.active = this.sessionsOpen;
         }
-    }
-
-    private void openSession(SessionRow row) {
-        if (row.summary == null) {
-            return;
-        }
-        ChatAENetwork.openSession(row.summary.sessionId());
     }
 
     private void deleteSession(SessionRow row) {
@@ -1027,7 +1008,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 }
             }
             if (keyCode == InputConstants.KEY_TAB && this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
-                int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex : 0;
+                int index = Math.max(this.hoveredSuggestionIndex, 0);
                 applySuggestion(this.itemSuggestions.get(index));
                 return true;
             }
@@ -1914,7 +1895,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private static final class SessionRow {
         private SessionSummary summary;
-        private Button openButton;
         private Button deleteButton;
         private Button visibilityButton;
     }
