@@ -33,7 +33,17 @@ public final class AgentRunner {
     private final AgentLoop agentLoop;
 
     public AgentRunner() {
-        Logger logWarning = (msg, ex) -> ChatAE.LOGGER.warn(msg, ex);
+        Logger logWarning = new Logger() {
+            @Override
+            public void warn(String message, Throwable exception) {
+                ChatAE.LOGGER.warn(message, exception);
+            }
+
+            @Override
+            public void debug(String message) {
+                ChatAE.LOGGER.debug(message);
+            }
+        };
         this.agentLoop = new AgentLoop(AuditLogger.instance(), logWarning);
     }
 
@@ -49,6 +59,34 @@ public final class AgentRunner {
      */
     public void setTimeoutMs(long timeoutMs) {
         agentLoop.setTimeoutMs(timeoutMs);
+    }
+
+    /**
+     * Update the max tool calls per decision.
+     */
+    public void setMaxToolCalls(int maxToolCalls) {
+        agentLoop.setMaxToolCalls(maxToolCalls);
+    }
+
+    /**
+     * Update the max iterations per request.
+     */
+    public void setMaxIterations(int maxIterations) {
+        agentLoop.setMaxIterations(maxIterations);
+    }
+
+    /**
+     * Update the max history messages in prompts.
+     */
+    public void setMaxHistoryMessages(int maxHistoryMessages) {
+        agentLoop.setMaxHistoryMessages(maxHistoryMessages);
+    }
+
+    /**
+     * Update whether raw LLM responses are logged.
+     */
+    public void setLogResponses(boolean logResponses) {
+        agentLoop.setLogResponses(logResponses);
     }
 
     /**

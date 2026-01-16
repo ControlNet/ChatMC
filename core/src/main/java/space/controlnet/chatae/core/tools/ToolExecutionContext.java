@@ -1,8 +1,6 @@
 package space.controlnet.chatae.core.tools;
 
-import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
 import space.controlnet.chatae.core.recipes.RecipeSearchResult;
-import space.controlnet.chatae.core.recipes.RecipeSummary;
 import space.controlnet.chatae.core.terminal.TerminalContext;
 
 import java.util.Optional;
@@ -21,23 +19,24 @@ public interface ToolExecutionContext {
     Optional<TerminalContext> getTerminal();
 
     /**
-     * Searches recipes in the index.
+     * Finds recipes that craft the given item (JEI "R" behavior).
      *
-     * @param query     search query string
-     * @param filters   search filters
+     * @param itemId    item id to search by output
      * @param pageToken pagination token
      * @param limit     maximum results to return
      * @return search results
      */
-    RecipeSearchResult searchRecipes(String query, RecipeSearchFilters filters, Optional<String> pageToken, int limit);
+    RecipeSearchResult findRecipesForOutput(String itemId, Optional<String> pageToken, int limit);
 
     /**
-     * Gets a specific recipe by ID.
+     * Finds recipes that use the given item as an ingredient (JEI "U" behavior).
      *
-     * @param recipeId the recipe ID
-     * @return the recipe summary, or empty if not found
+     * @param itemId    item id to search by ingredient
+     * @param pageToken pagination token
+     * @param limit     maximum results to return
+     * @return search results
      */
-    Optional<RecipeSummary> getRecipe(String recipeId);
+    RecipeSearchResult findRecipesUsingIngredient(String itemId, Optional<String> pageToken, int limit);
 
     /**
      * Checks if the recipe index is ready for queries.

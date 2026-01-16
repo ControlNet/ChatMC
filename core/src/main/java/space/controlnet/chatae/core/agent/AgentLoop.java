@@ -34,8 +34,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * This class contains all the AI agent logic without MC dependencies.
  */
 public final class AgentLoop {
-    private static final int MAX_ITERATIONS = 20;
-    private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final int DEFAULT_MAX_ITERATIONS = 20;
+    private static final int DEFAULT_MAX_HISTORY_MESSAGES = 20;
+    private static final int DEFAULT_GRAPH_RECURSION_LIMIT = 256;
     private static final long DEFAULT_TIMEOUT_MS = 30000;
     private static final long DEFAULT_COOLDOWN_MS = 1500;
 
@@ -49,30 +50,34 @@ public final class AgentLoop {
     private static final String KEY_CONTEXT = "context";
 
     private static final String TOOL_LIST = String.join(", ",
-            "recipes.search",
-            "recipes.get",
+            "mc.find_recipes",
+            "mc.find_usage",
             "ae2.list_items",
             "ae2.list_craftables",
             "ae2.simulate_craft",
             "ae2.request_craft",
             "ae2.job_status",
-            "ae2.job_cancel"
+            "ae2.job_cancel",
+            "response"
     );
 
-    private static final String ARGS_SCHEMA = "- recipes.search: {query, pageToken?, limit, modId?, recipeType?, outputItemId?, ingredientItemId?, tagId?}\n"
-            + "- recipes.get: {recipeId}\n"
+    private static final String ARGS_SCHEMA = "- mc.find_recipes: {itemId, pageToken?, limit}\n"
+            + "- mc.find_usage: {itemId, pageToken?, limit}\n"
             + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
             + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
             + "- ae2.simulate_craft: {itemId, count}\n"
             + "- ae2.request_craft: {itemId, count, cpuName?}\n"
             + "- ae2.job_status: {jobId}\n"
-            + "- ae2.job_cancel: {jobId}.";
+            + "- ae2.job_cancel: {jobId}\n"
+            + "- response: {message}.";
 
     private final CompiledGraph<LoopState> graph;
     private final AgentReasoningService reasoningService;
     private final LlmRateLimiter rateLimiter;
     private final ExecutorService llmExecutor;
     private final AtomicLong timeoutMs;
+    private final java.util.concurrent.atomic.AtomicInteger maxIterations;
+    private final java.util.concurrent.atomic.AtomicInteger maxHistoryMessages;
 
     /**
      * Creates a new agent loop with the given audit logger.
@@ -88,6 +93,8 @@ public final class AgentLoop {
             return t;
         });
         this.timeoutMs = new AtomicLong(DEFAULT_TIMEOUT_MS);
+        this.maxIterations = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_ITERATIONS);
+        this.maxHistoryMessages = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_HISTORY_MESSAGES);
         this.reasoningService = new AgentReasoningService(
                 logWarning,
                 rateLimiter,
@@ -122,7 +129,7 @@ public final class AgentLoop {
             graphDef.addEdge("respond", GraphDefinition.END);
 
             this.graph = graphDef.compile(CompileConfig.builder()
-                    .recursionLimit(MAX_ITERATIONS + 5)
+                    .recursionLimit(DEFAULT_GRAPH_RECURSION_LIMIT)
                     .build());
         } catch (Exception e) {
             throw new IllegalStateException("Failed to build agent graph", e);
@@ -141,6 +148,26 @@ public final class AgentLoop {
      */
     public void setTimeoutMs(long timeoutMs) {
         this.timeoutMs.set(timeoutMs);
+    }
+
+    public void setMaxToolCalls(int maxToolCalls) {
+        reasoningService.setMaxToolCalls(maxToolCalls);
+    }
+
+    public void setMaxIterations(int maxIterations) {
+        if (maxIterations > 0) {
+            this.maxIterations.set(maxIterations);
+        }
+    }
+
+    public void setMaxHistoryMessages(int maxHistoryMessages) {
+        if (maxHistoryMessages > 0) {
+            this.maxHistoryMessages.set(maxHistoryMessages);
+        }
+    }
+
+    public void setLogResponses(boolean logResponses) {
+        reasoningService.setLogResponses(logResponses);
     }
 
     /**
@@ -202,7 +229,7 @@ public final class AgentLoop {
         }
 
         // Check iteration limit
-        if (iteration >= MAX_ITERATIONS) {
+        if (iteration >= maxIterations.get()) {
             return Map.of(KEY_RESULT, ResultState.error("Max iterations reached", iteration));
         }
 
@@ -210,7 +237,7 @@ public final class AgentLoop {
         List<ChatMessage> messages = ctx.getSession(sessionId)
                 .map(SessionSnapshot::messages)
                 .orElse(List.of());
-        String history = ConversationHistoryBuilder.build(messages, MAX_HISTORY_MESSAGES);
+        String history = ConversationHistoryBuilder.build(messages, maxHistoryMessages.get());
 
         // Render prompt
         Map<String, String> variables = new HashMap<>();

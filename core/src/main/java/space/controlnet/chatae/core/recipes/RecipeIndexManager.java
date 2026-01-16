@@ -78,6 +78,49 @@ public final class RecipeIndexManager {
         return Optional.ofNullable(snapshot.byId().get(recipeId));
     }
 
+    /**
+     * Finds recipes that craft the given item (by output).
+     */
+    public RecipeSearchResult findByOutput(String itemId, Optional<String> pageToken, int limit) {
+        RecipeIndexSnapshot snapshot = snapshotRef.get();
+        if (snapshot == null) {
+            return new RecipeSearchResult(java.util.List.of(), Optional.of("0"));
+        }
+        java.util.List<String> ids = snapshot.byOutputItemId().getOrDefault(itemId, java.util.List.of());
+        return pageByIds(snapshot, ids, pageToken, limit);
+    }
+
+    /**
+     * Finds recipes that use the given item as an ingredient.
+     */
+    public RecipeSearchResult findByIngredient(String itemId, Optional<String> pageToken, int limit) {
+        RecipeIndexSnapshot snapshot = snapshotRef.get();
+        if (snapshot == null) {
+            return new RecipeSearchResult(java.util.List.of(), Optional.of("0"));
+        }
+        java.util.List<String> ids = snapshot.byIngredientItemId().getOrDefault(itemId, java.util.List.of());
+        return pageByIds(snapshot, ids, pageToken, limit);
+    }
+
+    private static RecipeSearchResult pageByIds(RecipeIndexSnapshot snapshot, java.util.List<String> ids, Optional<String> pageToken, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        int offset = pageToken.flatMap(RecipeSearchAlgorithm::parseOffset).orElse(0);
+
+        java.util.List<RecipeSummary> results = new java.util.ArrayList<>(Math.min(ids.size(), safeLimit));
+        for (int i = offset; i < ids.size() && results.size() < safeLimit; i++) {
+            RecipeSummary summary = snapshot.byId().get(ids.get(i));
+            if (summary != null) {
+                results.add(summary);
+            }
+        }
+
+        Optional<String> next = (offset + results.size()) < ids.size()
+                ? Optional.of(Integer.toString(offset + results.size()))
+                : Optional.empty();
+
+        return new RecipeSearchResult(results, next);
+    }
+
     private ExecutorService getOrCreateExecutor() {
         ExecutorService existing = indexExecutorRef.get();
         if (existing != null && !existing.isShutdown() && !existing.isTerminated()) {

@@ -299,6 +299,31 @@ public final class ChatAENetwork {
         AGENT.setTimeoutMs(timeoutMillis);
     }
 
+    public static void updateAgentMaxToolCalls(int maxToolCalls) {
+        if (maxToolCalls <= 0) {
+            return;
+        }
+        AGENT.setMaxToolCalls(maxToolCalls);
+    }
+
+    public static void updateAgentMaxIterations(int maxIterations) {
+        if (maxIterations <= 0) {
+            return;
+        }
+        AGENT.setMaxIterations(maxIterations);
+    }
+
+    public static void updateAgentMaxHistoryMessages(int maxHistoryMessages) {
+        if (maxHistoryMessages <= 0) {
+            return;
+        }
+        AGENT.setMaxHistoryMessages(maxHistoryMessages);
+    }
+
+    public static void updateAgentLogResponses(boolean logResponses) {
+        AGENT.setLogResponses(logResponses);
+    }
+
     public static void onTerminalOpened(ServerPlayer player) {
         if (player == null) {
             return;
@@ -968,6 +993,58 @@ public final class ChatAENetwork {
                 method.invoke(instance, timeoutMs);
             } catch (Throwable t) {
                 ChatAE.LOGGER.warn("Failed to set timeout", t);
+            }
+        }
+
+        void setMaxToolCalls(int maxToolCalls) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setMaxToolCalls", int.class);
+                method.invoke(instance, maxToolCalls);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set max tool calls", t);
+            }
+        }
+
+        void setMaxIterations(int maxIterations) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setMaxIterations", int.class);
+                method.invoke(instance, maxIterations);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set max iterations", t);
+            }
+        }
+
+        void setMaxHistoryMessages(int maxHistoryMessages) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setMaxHistoryMessages", int.class);
+                method.invoke(instance, maxHistoryMessages);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set max history messages", t);
+            }
+        }
+
+        void setLogResponses(boolean logResponses) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setLogResponses", boolean.class);
+                method.invoke(instance, logResponses);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set log responses flag", t);
             }
         }
 

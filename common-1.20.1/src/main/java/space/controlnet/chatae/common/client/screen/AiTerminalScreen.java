@@ -82,7 +82,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
     private static final float TITLE_FONT_SCALE = 0.9f;
     private static final float FONT_SCALE = 0.5f;
-    private static final float TOOLTIP_FONT_SCALE = 0.7f;
+    private static final float TOOLTIP_FONT_SCALE = 0.4f;
 
     private static final int COLOR_BG_DARK = 0xFF0B0B0D;
     private static final int COLOR_BG_PANEL = 0xFF151518;
@@ -1355,12 +1355,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         JsonObject args = parseJsonObject(payload.argsJson());
         String fallback = Component.translatable("ui.chatae.tool.unknown", tool).getString();
         return switch (tool) {
-            case "recipes.search" -> Component.translatable(
-                    "ui.chatae.tool.recipes.search",
-                    formatSearchTarget(args, "outputItemId", "query")).getString();
-            case "recipes.get" -> Component.translatable(
-                    "ui.chatae.tool.recipes.get",
-                    formatSearchTarget(args, "outputItemId", "recipeId")).getString();
+            case "mc.find_recipes" -> Component.translatable(
+                    "ui.chatae.tool.mc.find_recipes",
+                    formatSearchTarget(args, "itemId", "itemId")).getString();
+            case "mc.find_usage" -> Component.translatable(
+                    "ui.chatae.tool.mc.find_usage",
+                    formatSearchTarget(args, "itemId", "itemId")).getString();
             case "ae2.list_items" -> Component.translatable(
                     "ui.chatae.tool.ae2.list_items",
                     formatQuery(args)).getString();

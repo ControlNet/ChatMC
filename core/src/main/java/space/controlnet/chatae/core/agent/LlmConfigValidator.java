@@ -42,6 +42,15 @@ public final class LlmConfigValidator {
         if (config.timeout() == null || config.timeout().isNegative() || config.timeout().isZero()) {
             errors.add("timeoutSeconds must be > 0.");
         }
+        if (config.maxToolCalls() <= 0) {
+            errors.add("maxToolCalls must be > 0.");
+        }
+        if (config.maxIterations() <= 0) {
+            errors.add("maxIterations must be > 0.");
+        }
+        if (config.maxHistoryMessages() <= 0) {
+            errors.add("maxHistoryMessages must be > 0.");
+        }
         return errors;
     }
 

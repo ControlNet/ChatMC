@@ -33,6 +33,26 @@ public final class McRuntimeManager {
             }
 
             @Override
+            public void onMaxToolCallsUpdated(int maxToolCalls) {
+                ChatAENetwork.updateAgentMaxToolCalls(maxToolCalls);
+            }
+
+            @Override
+            public void onMaxIterationsUpdated(int maxIterations) {
+                ChatAENetwork.updateAgentMaxIterations(maxIterations);
+            }
+
+            @Override
+            public void onMaxHistoryMessagesUpdated(int maxHistoryMessages) {
+                ChatAENetwork.updateAgentMaxHistoryMessages(maxHistoryMessages);
+            }
+
+            @Override
+            public void onLogResponsesUpdated(boolean logResponses) {
+                ChatAENetwork.updateAgentLogResponses(logResponses);
+            }
+
+            @Override
             public void onReloadFailed(String message) {
                 space.controlnet.chatae.common.ChatAE.LOGGER.warn(message);
             }

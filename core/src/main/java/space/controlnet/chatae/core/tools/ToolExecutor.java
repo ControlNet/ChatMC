@@ -4,7 +4,6 @@ import space.controlnet.chatae.core.policy.PolicyDecision;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalFactory;
-import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
 import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.util.JsonSupport;
 
@@ -43,8 +42,8 @@ public final class ToolExecutor {
 
         try {
             ToolResult result = switch (call.toolName()) {
-                case "recipes.search" -> handleRecipeSearch(ctx, call);
-                case "recipes.get" -> handleRecipeGet(ctx, call);
+                case "mc.find_recipes" -> handleMcFindRecipes(ctx, call);
+                case "mc.find_usage" -> handleMcFindUsage(ctx, call);
                 case "ae2.list_items" -> handleAe2ListItems(ctx, call);
                 case "ae2.list_craftables" -> handleAe2ListCraftables(ctx, call);
                 case "ae2.simulate_craft" -> handleAe2Simulate(ctx, call);
@@ -60,35 +59,28 @@ public final class ToolExecutor {
         }
     }
 
-    private static ToolResult handleRecipeSearch(ToolExecutionContext ctx, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), ToolArgs.RecipeSearchArgs.class);
-        if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+    private static ToolResult handleMcFindRecipes(ToolExecutionContext ctx, ToolCall call) {
+        var args = GSON.fromJson(call.argsJson(), ToolArgs.McFindRecipesArgs.class);
+        if (args == null || args.itemId() == null || args.itemId().isBlank()) {
+            return ToolResult.error("invalid_args", "Missing itemId");
         }
         if (!ctx.isRecipeIndexReady()) {
             return ToolResult.error("index_not_ready", "Recipe index not ready");
         }
-        RecipeSearchFilters filters = new RecipeSearchFilters(
-                ToolPolicy.normalize(args.modId()),
-                ToolPolicy.normalize(args.recipeType()),
-                ToolPolicy.normalize(args.outputItemId()),
-                ToolPolicy.normalize(args.ingredientItemId()),
-                ToolPolicy.normalize(args.tagId())
-        );
-        var result = ctx.searchRecipes(args.query(), filters, Optional.ofNullable(args.pageToken()), args.limit());
+        var result = ctx.findRecipesForOutput(args.itemId(), Optional.ofNullable(args.pageToken()), args.limit());
         return ToolResult.ok(GSON.toJson(result));
     }
 
-    private static ToolResult handleRecipeGet(ToolExecutionContext ctx, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), ToolArgs.RecipeGetArgs.class);
-        if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+    private static ToolResult handleMcFindUsage(ToolExecutionContext ctx, ToolCall call) {
+        var args = GSON.fromJson(call.argsJson(), ToolArgs.McFindUsageArgs.class);
+        if (args == null || args.itemId() == null || args.itemId().isBlank()) {
+            return ToolResult.error("invalid_args", "Missing itemId");
         }
         if (!ctx.isRecipeIndexReady()) {
             return ToolResult.error("index_not_ready", "Recipe index not ready");
         }
-        var result = ctx.getRecipe(args.recipeId());
-        return ToolResult.ok(GSON.toJson(result.orElse(null)));
+        var result = ctx.findRecipesUsingIngredient(args.itemId(), Optional.ofNullable(args.pageToken()), args.limit());
+        return ToolResult.ok(GSON.toJson(result));
     }
 
     private static ToolResult handleAe2ListItems(ToolExecutionContext ctx, ToolCall call) {

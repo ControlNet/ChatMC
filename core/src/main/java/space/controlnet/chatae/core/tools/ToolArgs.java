@@ -7,19 +7,21 @@ public final class ToolArgs {
     private ToolArgs() {
     }
 
-    public record RecipeSearchArgs(
-            String query,
+    public record McFindRecipesArgs(
+            String itemId,
             String pageToken,
-            int limit,
-            String modId,
-            String recipeType,
-            String outputItemId,
-            String ingredientItemId,
-            String tagId
+            int limit
     ) {
     }
 
-    public record RecipeGetArgs(String recipeId) {
+    public record McFindUsageArgs(
+            String itemId,
+            String pageToken,
+            int limit
+    ) {
+    }
+
+    public record ResponseArgs(String message) {
     }
 
     public record Ae2ListArgs(String query, boolean craftableOnly, int limit, String pageToken) {

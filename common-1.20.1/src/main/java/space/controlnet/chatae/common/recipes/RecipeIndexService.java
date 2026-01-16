@@ -59,6 +59,14 @@ public final class RecipeIndexService {
         return indexManager.get(recipeId);
     }
 
+    public RecipeSearchResult findByOutput(String itemId, Optional<String> pageToken, int limit) {
+        return indexManager.findByOutput(itemId, pageToken, limit);
+    }
+
+    public RecipeSearchResult findByIngredient(String itemId, Optional<String> pageToken, int limit) {
+        return indexManager.findByIngredient(itemId, pageToken, limit);
+    }
+
     /**
      * Builds a recipe index snapshot from MC recipe data.
      * This method runs on a background thread.

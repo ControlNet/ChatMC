@@ -22,6 +22,26 @@ public final class LlmRuntimeManager {
          */
         void onTimeoutUpdated(long timeoutMillis);
 
+        /**
+         * Called when the agent max tool calls should be updated.
+         */
+        void onMaxToolCallsUpdated(int maxToolCalls);
+
+        /**
+         * Called when the agent max iterations should be updated.
+         */
+        void onMaxIterationsUpdated(int maxIterations);
+
+        /**
+         * Called when the agent max history messages should be updated.
+         */
+        void onMaxHistoryMessagesUpdated(int maxHistoryMessages);
+
+        /**
+         * Called when raw LLM responses should be logged.
+         */
+        void onLogResponsesUpdated(boolean logResponses);
+
         void onReloadFailed(String message);
     }
 
@@ -37,6 +57,10 @@ public final class LlmRuntimeManager {
             if (reloaded) {
                 handler.onCooldownUpdated(config.cooldownMillis());
                 handler.onTimeoutUpdated(config.timeout().toMillis());
+                handler.onMaxToolCallsUpdated(config.maxToolCalls());
+                handler.onMaxIterationsUpdated(config.maxIterations());
+                handler.onMaxHistoryMessagesUpdated(config.maxHistoryMessages());
+                handler.onLogResponsesUpdated(config.logResponses());
             } else {
                 handler.onReloadFailed("Failed to initialize LLM model. Check provider configuration.");
             }

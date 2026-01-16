@@ -1,9 +1,7 @@
 package space.controlnet.chatae.common.tools;
 
 import space.controlnet.chatae.common.ChatAE;
-import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
 import space.controlnet.chatae.core.recipes.RecipeSearchResult;
-import space.controlnet.chatae.core.recipes.RecipeSummary;
 import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolExecutionContext;
@@ -42,13 +40,13 @@ public final class ToolRouter implements ToolExecutionContext {
     }
 
     @Override
-    public RecipeSearchResult searchRecipes(String query, RecipeSearchFilters filters, Optional<String> pageToken, int limit) {
-        return ChatAE.RECIPE_INDEX.search(query, filters, pageToken, limit);
+    public RecipeSearchResult findRecipesForOutput(String itemId, Optional<String> pageToken, int limit) {
+        return ChatAE.RECIPE_INDEX.findByOutput(itemId, pageToken, limit);
     }
 
     @Override
-    public Optional<RecipeSummary> getRecipe(String recipeId) {
-        return ChatAE.RECIPE_INDEX.get(recipeId);
+    public RecipeSearchResult findRecipesUsingIngredient(String itemId, Optional<String> pageToken, int limit) {
+        return ChatAE.RECIPE_INDEX.findByIngredient(itemId, pageToken, limit);
     }
 
     @Override

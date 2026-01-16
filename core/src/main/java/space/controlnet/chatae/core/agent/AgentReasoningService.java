@@ -31,13 +31,15 @@ import java.util.concurrent.TimeoutException;
  */
 public final class AgentReasoningService {
     private static final Gson GSON = new Gson();
-    private static final int MAX_TOOL_CALLS = 3;
+    private static final int DEFAULT_MAX_TOOL_CALLS = 3;
 
     private final Logger logger;
     private final LlmRateLimiter rateLimiter;
     private final ExecutorService executor;
     private final long timeoutMs;
     private final AuditLogger auditLogger;
+    private final java.util.concurrent.atomic.AtomicInteger maxToolCalls;
+    private final java.util.concurrent.atomic.AtomicBoolean logResponses;
 
     public AgentReasoningService(Logger logger, LlmRateLimiter rateLimiter, ExecutorService executor, long timeoutMs, AuditLogger auditLogger) {
         this.logger = logger;
@@ -45,6 +47,18 @@ public final class AgentReasoningService {
         this.executor = executor;
         this.timeoutMs = timeoutMs;
         this.auditLogger = auditLogger;
+        this.maxToolCalls = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_TOOL_CALLS);
+        this.logResponses = new java.util.concurrent.atomic.AtomicBoolean(false);
+    }
+
+    public void setMaxToolCalls(int maxToolCalls) {
+        if (maxToolCalls > 0) {
+            this.maxToolCalls.set(maxToolCalls);
+        }
+    }
+
+    public void setLogResponses(boolean logResponses) {
+        this.logResponses.set(logResponses);
     }
 
     /**
@@ -107,6 +121,10 @@ public final class AgentReasoningService {
                 content = llmCall.call();
             }
 
+            if (logResponses.get()) {
+                logger.debug("LLM raw output: " + content);
+            }
+
             long duration = System.currentTimeMillis() - startTime;
             Optional<AgentDecision> decision = parseDecision(content);
 
@@ -161,7 +179,7 @@ public final class AgentReasoningService {
             List<ToolCall> toolCalls = new ArrayList<>();
 
             for (JsonObject obj : objects) {
-                if (obj == null || !obj.has("action")) {
+                if (obj == null) {
                     continue;
                 }
 
@@ -169,31 +187,27 @@ public final class AgentReasoningService {
                     thinking = obj.get("thinking").getAsString();
                 }
 
-                String action = obj.get("action").getAsString();
-                if ("tool_call".equals(action)) {
-                    appendToolCalls(obj, toolCalls);
-                } else if ("respond".equals(action) && response == null) {
-                    if (!obj.has("response")) {
-                        logger.warn("Invalid respond decision: missing 'response'", null);
-                        continue;
-                    }
-                    response = obj.get("response").getAsString();
+                String responseMessage = appendToolCalls(obj, toolCalls);
+                if (responseMessage != null) {
+                    response = responseMessage;
+                    break;
                 }
-            }
-
-            if (!toolCalls.isEmpty()) {
-                if (toolCalls.size() > MAX_TOOL_CALLS) {
-                    logger.warn("LLM returned " + toolCalls.size() + " tool calls; truncating to " + MAX_TOOL_CALLS, null);
-                    toolCalls = new ArrayList<>(toolCalls.subList(0, MAX_TOOL_CALLS));
-                }
-                return Optional.of(AgentDecision.toolCalls(toolCalls, thinking));
             }
 
             if (response != null) {
                 return Optional.of(AgentDecision.respond(response, thinking));
             }
 
-            logger.warn("Invalid agent decision: missing tool calls and response", null);
+            if (!toolCalls.isEmpty()) {
+                int limit = maxToolCalls.get();
+                if (toolCalls.size() > limit) {
+                    logger.warn("LLM returned " + toolCalls.size() + " tool calls; truncating to " + limit, null);
+                    toolCalls = new ArrayList<>(toolCalls.subList(0, limit));
+                }
+                return Optional.of(AgentDecision.toolCalls(toolCalls, thinking));
+            }
+
+            logger.warn("Invalid agent decision: missing tool calls", null);
             return Optional.empty();
         } catch (Exception e) {
             String preview = content.length() > 200 ? content.substring(0, 200) + "..." : content;
@@ -301,7 +315,7 @@ public final class AgentReasoningService {
         }
     }
 
-    private void appendToolCalls(JsonObject obj, List<ToolCall> toolCalls) {
+    private String appendToolCalls(JsonObject obj, List<ToolCall> toolCalls) {
         JsonArray batch = null;
         if (obj.has("tool_calls") && obj.get("tool_calls").isJsonArray()) {
             batch = obj.getAsJsonArray("tool_calls");
@@ -319,18 +333,58 @@ public final class AgentReasoningService {
                     continue;
                 }
                 String tool = entry.get("tool").getAsString();
+                if ("response".equals(tool)) {
+                    String message = extractResponseMessage(entry.get("args"));
+                    if (message == null) {
+                        logger.warn("Invalid response tool: missing message", null);
+                        return null;
+                    }
+                    return message;
+                }
                 String argsJson = entry.get("args").toString();
                 toolCalls.add(new ToolCall(tool, argsJson));
             }
-            return;
+            return null;
         }
 
-        if (!obj.has("tool") || !obj.has("args")) {
-            logger.warn("Invalid tool_call decision: missing 'tool' or 'args'", null);
-            return;
+        if (!obj.has("tool")) {
+            return null;
         }
         String tool = obj.get("tool").getAsString();
+        if ("response".equals(tool)) {
+            String message = extractResponseMessage(obj.get("args"));
+            if (message == null) {
+                logger.warn("Invalid response tool: missing message", null);
+                return null;
+            }
+            return message;
+        }
+        if (!obj.has("args")) {
+            logger.warn("Invalid tool call: missing 'args'", null);
+            return null;
+        }
         String argsJson = obj.get("args").toString();
         toolCalls.add(new ToolCall(tool, argsJson));
+        return null;
+    }
+
+    private static String extractResponseMessage(JsonElement argsElement) {
+        if (argsElement == null || argsElement.isJsonNull()) {
+            return null;
+        }
+        if (argsElement.isJsonPrimitive()) {
+            try {
+                return argsElement.getAsString();
+            } catch (Exception ignored) {
+                return argsElement.toString();
+            }
+        }
+        if (argsElement.isJsonObject()) {
+            JsonObject obj = argsElement.getAsJsonObject();
+            if (obj.has("message") && !obj.get("message").isJsonNull()) {
+                return obj.get("message").getAsString();
+            }
+        }
+        return null;
     }
 }

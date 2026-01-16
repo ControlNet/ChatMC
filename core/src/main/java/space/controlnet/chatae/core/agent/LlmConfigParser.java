@@ -57,6 +57,12 @@ public final class LlmConfigParser {
                 "Maximum retry attempts for LLM calls.");
         appendLong(builder, "cooldownMillis", config.cooldownMillis(),
                 "Minimum cooldown between LLM calls per player (ms).");
+        appendInt(builder, "maxToolCalls", config.maxToolCalls(),
+                "Maximum tool calls accepted per agent decision.");
+        appendInt(builder, "maxIterations", config.maxIterations(),
+                "Maximum agent loop iterations per request.");
+        appendInt(builder, "maxHistoryMessages", config.maxHistoryMessages(),
+                "Maximum conversation messages included in the prompt.");
         appendBoolean(builder, "strictJsonSchema", config.strictJsonSchema(),
                 "Require strict JSON schema adherence in tool calls.");
         appendBoolean(builder, "logRequests", config.logRequests(),
@@ -99,7 +105,7 @@ public final class LlmConfigParser {
         if (value.isPresent()) {
             builder.append(key).append(" = \"").append(escapeString(value.get())).append("\"");
         } else {
-            builder.append("# ").append(key).append(" = \"\"");
+            builder.append("#").append(key).append(" = \"\"");
         }
         builder.append(System.lineSeparator()).append(System.lineSeparator());
     }
@@ -109,7 +115,7 @@ public final class LlmConfigParser {
         if (value.isPresent()) {
             builder.append(key).append(" = ").append(value.get());
         } else {
-            builder.append("# ").append(key).append(" = 0.0");
+            builder.append("#").append(key).append(" = 0.0");
         }
         builder.append(System.lineSeparator()).append(System.lineSeparator());
     }
@@ -119,7 +125,7 @@ public final class LlmConfigParser {
         if (value.isPresent()) {
             builder.append(key).append(" = ").append(value.get());
         } else {
-            builder.append("# ").append(key).append(" = 0");
+            builder.append("#").append(key).append(" = 0");
         }
         builder.append(System.lineSeparator()).append(System.lineSeparator());
     }
@@ -172,6 +178,9 @@ public final class LlmConfigParser {
         Duration timeout = Duration.ofSeconds(readInt(root, "timeoutSeconds", (int) defaults.timeout().toSeconds()));
         int maxRetries = readInt(root, "maxRetries", defaults.maxRetries());
         long cooldownMillis = readLong(root, "cooldownMillis", defaults.cooldownMillis());
+        int maxToolCalls = readInt(root, "maxToolCalls", defaults.maxToolCalls());
+        int maxIterations = readInt(root, "maxIterations", defaults.maxIterations());
+        int maxHistoryMessages = readInt(root, "maxHistoryMessages", defaults.maxHistoryMessages());
         boolean strictJsonSchema = readBoolean(root, "strictJsonSchema", defaults.strictJsonSchema());
         boolean logRequests = readBoolean(root, "logRequests", defaults.logRequests());
         boolean logResponses = readBoolean(root, "logResponses", defaults.logResponses());
@@ -180,8 +189,8 @@ public final class LlmConfigParser {
         Optional<String> azureApiVersion = readOptionalString(root, "azureApiVersion");
 
         return new LlmConfig(provider, model, baseUrl, apiKey, apiKeyEnv, temperature, topP, maxTokens,
-                timeout, maxRetries, cooldownMillis, strictJsonSchema, logRequests, logResponses,
-                azureEndpoint, azureDeployment, azureApiVersion);
+                timeout, maxRetries, cooldownMillis, maxToolCalls, maxIterations, maxHistoryMessages,
+                strictJsonSchema, logRequests, logResponses, azureEndpoint, azureDeployment, azureApiVersion);
     }
 
     private static LlmProvider parseProvider(String raw, LlmProvider fallback) {

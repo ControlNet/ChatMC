@@ -17,15 +17,14 @@ public final class LocalCommandParser {
         }
 
         String lower = text.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("recipes.search ")) {
-            String query = text.substring("recipes.search ".length()).trim();
-            return new ToolCall("recipes.search", GSON.toJson(new ToolArgs.RecipeSearchArgs(
-                    query, null, 10, null, null, null, null, null)));
+        if (lower.startsWith("mc.find_recipes ")) {
+            String itemId = text.substring("mc.find_recipes ".length()).trim();
+            return new ToolCall("mc.find_recipes", GSON.toJson(new ToolArgs.McFindRecipesArgs(itemId, null, 10)));
         }
 
-        if (lower.startsWith("recipes.get ")) {
-            String id = text.substring("recipes.get ".length()).trim();
-            return new ToolCall("recipes.get", GSON.toJson(new ToolArgs.RecipeGetArgs(id)));
+        if (lower.startsWith("mc.find_usage ")) {
+            String itemId = text.substring("mc.find_usage ".length()).trim();
+            return new ToolCall("mc.find_usage", GSON.toJson(new ToolArgs.McFindUsageArgs(itemId, null, 10)));
         }
 
         if (lower.startsWith("ae2.list_items")) {
