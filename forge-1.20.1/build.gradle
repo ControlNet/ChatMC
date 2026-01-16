@@ -50,6 +50,7 @@ dependencies {
 
     // Agent dependencies (runtime + shaded into jar)
     rootProject.ext.addAgentDeps(dependencies, "implementation")
+    rootProject.ext.addAgentDeps(dependencies, "forgeRuntimeLibrary")
     rootProject.ext.addAgentDeps(dependencies, "shadowCommon")
 
     common(project(path: ":common-1.20.1", configuration: "namedElements")) { transitive false }

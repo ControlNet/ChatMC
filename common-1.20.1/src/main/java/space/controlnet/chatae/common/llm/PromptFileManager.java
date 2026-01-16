@@ -1,20 +1,20 @@
 package space.controlnet.chatae.common.llm;
 
+import com.google.gson.Gson;
 import dev.architectury.platform.Platform;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.packs.resources.Resource;
 import space.controlnet.chatae.common.ChatAE;
 import space.controlnet.chatae.core.agent.PromptId;
 import space.controlnet.chatae.core.agent.PromptStore;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public final class PromptFileManager {
     private static final String PROMPT_DIR = "chatae/prompts";
@@ -115,6 +115,7 @@ public final class PromptFileManager {
         return resource == null ? resolveLangEntry(server, "en_us", key) : resource;
     }
 
+    @SuppressWarnings("unchecked")
     private static String resolveLangEntry(MinecraftServer server, String locale, String key) {
         if (server == null) {
             return null;
@@ -122,12 +123,12 @@ public final class PromptFileManager {
         try {
             net.minecraft.server.packs.resources.ResourceManager manager = server.getResourceManager();
             net.minecraft.resources.ResourceLocation loc = new net.minecraft.resources.ResourceLocation("chatae", "lang/" + locale + ".json");
-            java.util.Optional<net.minecraft.server.packs.resources.Resource> resource = manager.getResource(loc);
+            Optional<Resource> resource = manager.getResource(loc);
             if (resource.isEmpty()) {
                 return null;
             }
             try (InputStream in = resource.get().open()) {
-                java.util.Map<String, String> map = new com.google.gson.Gson().fromJson(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8), java.util.Map.class);
+                Map<String, String> map = new Gson().fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), Map.class);
                 if (map == null) {
                     return null;
                 }
