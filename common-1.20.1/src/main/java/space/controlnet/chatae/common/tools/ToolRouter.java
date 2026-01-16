@@ -55,6 +55,18 @@ public final class ToolRouter implements ToolExecutionContext {
     }
 
     @Override
+    public boolean isValidItemId(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return false;
+        }
+        net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(itemId);
+        if (id == null) {
+            return false;
+        }
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id);
+    }
+
+    @Override
     public void logError(String message, Throwable error) {
         ChatAE.LOGGER.error(message, error);
     }

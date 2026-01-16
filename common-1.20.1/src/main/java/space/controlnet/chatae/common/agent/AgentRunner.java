@@ -90,6 +90,13 @@ public final class AgentRunner {
     }
 
     /**
+     * Update the max retry count for transient LLM errors.
+     */
+    public void setMaxRetries(int maxRetries) {
+        agentLoop.setMaxRetries(maxRetries);
+    }
+
+    /**
      * Run the agent loop for a user message.
      */
     public AgentLoopResult runLoop(ServerPlayer player, UUID sessionId, TerminalBinding binding, String effectiveLocale) {

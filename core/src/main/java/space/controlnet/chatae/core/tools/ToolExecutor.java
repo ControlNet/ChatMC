@@ -64,6 +64,9 @@ public final class ToolExecutor {
         if (args == null || args.itemId() == null || args.itemId().isBlank()) {
             return ToolResult.error("invalid_args", "Missing itemId");
         }
+        if (!ctx.isValidItemId(args.itemId())) {
+            return ToolResult.error("invalid_item_id", "Item id not found: " + args.itemId());
+        }
         if (!ctx.isRecipeIndexReady()) {
             return ToolResult.error("index_not_ready", "Recipe index not ready");
         }
@@ -75,6 +78,9 @@ public final class ToolExecutor {
         var args = GSON.fromJson(call.argsJson(), ToolArgs.McFindUsageArgs.class);
         if (args == null || args.itemId() == null || args.itemId().isBlank()) {
             return ToolResult.error("invalid_args", "Missing itemId");
+        }
+        if (!ctx.isValidItemId(args.itemId())) {
+            return ToolResult.error("invalid_item_id", "Item id not found: " + args.itemId());
         }
         if (!ctx.isRecipeIndexReady()) {
             return ToolResult.error("index_not_ready", "Recipe index not ready");

@@ -21,30 +21,28 @@ public record LlmConfig(
         boolean strictJsonSchema,
         boolean logRequests,
         boolean logResponses,
-        Optional<String> azureEndpoint,
         Optional<String> azureDeployment,
         Optional<String> azureApiVersion
 ) {
     public static LlmConfig defaults() {
         return new LlmConfig(
                 LlmProvider.OPENAI,
-                "gpt-4o-mini",
+                "gpt-5-nano",
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of("CHATAE_OPENAI_API_KEY"),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Duration.ofSeconds(60),
-                2,
+                Duration.ofSeconds(180),
+                10,
                 0L,
                 100,
-                100,
+                200,
                 1000,
                 true,
                 false,
                 false,
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty()
         );

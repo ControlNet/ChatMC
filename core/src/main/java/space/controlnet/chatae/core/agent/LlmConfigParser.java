@@ -69,8 +69,6 @@ public final class LlmConfigParser {
                 "Log outbound LLM requests (avoid leaking secrets).");
         appendBoolean(builder, "logResponses", config.logResponses(),
                 "Log LLM responses for debugging.");
-        appendOptionalString(builder, "azureEndpoint", config.azureEndpoint(),
-                "Azure OpenAI endpoint URL.");
         appendOptionalString(builder, "azureDeployment", config.azureDeployment(),
                 "Azure OpenAI deployment name.");
         appendOptionalString(builder, "azureApiVersion", config.azureApiVersion(),
@@ -184,13 +182,12 @@ public final class LlmConfigParser {
         boolean strictJsonSchema = readBoolean(root, "strictJsonSchema", defaults.strictJsonSchema());
         boolean logRequests = readBoolean(root, "logRequests", defaults.logRequests());
         boolean logResponses = readBoolean(root, "logResponses", defaults.logResponses());
-        Optional<String> azureEndpoint = readOptionalString(root, "azureEndpoint");
         Optional<String> azureDeployment = readOptionalString(root, "azureDeployment");
         Optional<String> azureApiVersion = readOptionalString(root, "azureApiVersion");
 
         return new LlmConfig(provider, model, baseUrl, apiKey, apiKeyEnv, temperature, topP, maxTokens,
                 timeout, maxRetries, cooldownMillis, maxToolCalls, maxIterations, maxHistoryMessages,
-                strictJsonSchema, logRequests, logResponses, azureEndpoint, azureDeployment, azureApiVersion);
+                strictJsonSchema, logRequests, logResponses, azureDeployment, azureApiVersion);
     }
 
     private static LlmProvider parseProvider(String raw, LlmProvider fallback) {

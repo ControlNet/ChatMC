@@ -46,6 +46,14 @@ public interface ToolExecutionContext {
     boolean isRecipeIndexReady();
 
     /**
+     * Checks if the given item id exists.
+     *
+     * @param itemId the item id to validate
+     * @return true if the item id is valid
+     */
+    boolean isValidItemId(String itemId);
+
+    /**
      * Logs an error message.
      *
      * @param message the error message

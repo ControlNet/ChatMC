@@ -26,8 +26,8 @@ public final class LlmConfigValidator {
                 if (!hasApiKey(config)) {
                     errors.add("AZURE_OPENAI requires apiKey or apiKeyEnv.");
                 }
-                if (config.azureEndpoint().isEmpty() || config.azureEndpoint().get().isBlank()) {
-                    errors.add("AZURE_OPENAI requires azureEndpoint.");
+                if (config.baseUrl().isEmpty() || config.baseUrl().get().isBlank()) {
+                    errors.add("AZURE_OPENAI requires baseUrl.");
                 }
                 if (config.azureDeployment().isEmpty() || config.azureDeployment().get().isBlank()) {
                     errors.add("AZURE_OPENAI requires azureDeployment.");

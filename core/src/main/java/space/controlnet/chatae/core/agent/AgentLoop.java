@@ -148,6 +148,7 @@ public final class AgentLoop {
      */
     public void setTimeoutMs(long timeoutMs) {
         this.timeoutMs.set(timeoutMs);
+        reasoningService.setTimeoutMs(timeoutMs);
     }
 
     public void setMaxToolCalls(int maxToolCalls) {
@@ -168,6 +169,10 @@ public final class AgentLoop {
 
     public void setLogResponses(boolean logResponses) {
         reasoningService.setLogResponses(logResponses);
+    }
+
+    public void setMaxRetries(int maxRetries) {
+        reasoningService.setMaxRetries(maxRetries);
     }
 
     /**

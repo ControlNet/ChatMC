@@ -324,6 +324,13 @@ public final class ChatAENetwork {
         AGENT.setLogResponses(logResponses);
     }
 
+    public static void updateAgentMaxRetries(int maxRetries) {
+        if (maxRetries < 0) {
+            return;
+        }
+        AGENT.setMaxRetries(maxRetries);
+    }
+
     public static void onTerminalOpened(ServerPlayer player) {
         if (player == null) {
             return;
@@ -1045,6 +1052,19 @@ public final class ChatAENetwork {
                 method.invoke(instance, logResponses);
             } catch (Throwable t) {
                 ChatAE.LOGGER.warn("Failed to set log responses flag", t);
+            }
+        }
+
+        void setMaxRetries(int maxRetries) {
+            Object instance = ensureRunner();
+            if (instance == null) {
+                return;
+            }
+            try {
+                java.lang.reflect.Method method = instance.getClass().getMethod("setMaxRetries", int.class);
+                method.invoke(instance, maxRetries);
+            } catch (Throwable t) {
+                ChatAE.LOGGER.warn("Failed to set max retries", t);
             }
         }
 

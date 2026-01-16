@@ -1330,11 +1330,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             if (summary != null && !summary.isBlank()) {
                 lines.add(summary);
             }
-            if (payload.outputJson() != null && !payload.outputJson().isBlank()) {
-                lines.addAll(formatToolLines(payload.outputJson()));
-            }
             if (payload.error() != null && !payload.error().isBlank()) {
                 lines.add(Component.translatable("ui.chatae.tool.error", payload.error()).getString());
+            }
+            if (payload.outputJson() != null && !payload.outputJson().isBlank()) {
+                lines.addAll(formatToolLines(payload.outputJson()));
             }
             if (!lines.isEmpty()) {
                 return String.join("\n", lines);

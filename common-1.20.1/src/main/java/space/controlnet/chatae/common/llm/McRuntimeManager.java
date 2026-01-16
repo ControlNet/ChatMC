@@ -53,6 +53,11 @@ public final class McRuntimeManager {
             }
 
             @Override
+            public void onMaxRetriesUpdated(int maxRetries) {
+                ChatAENetwork.updateAgentMaxRetries(maxRetries);
+            }
+
+            @Override
             public void onReloadFailed(String message) {
                 space.controlnet.chatae.common.ChatAE.LOGGER.warn(message);
             }

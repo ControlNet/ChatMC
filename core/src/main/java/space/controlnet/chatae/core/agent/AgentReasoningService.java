@@ -16,6 +16,7 @@ import space.controlnet.chatae.core.tools.ToolCall;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -36,24 +37,38 @@ public final class AgentReasoningService {
     private final Logger logger;
     private final LlmRateLimiter rateLimiter;
     private final ExecutorService executor;
-    private final long timeoutMs;
+    private final java.util.concurrent.atomic.AtomicLong timeoutMs;
     private final AuditLogger auditLogger;
     private final java.util.concurrent.atomic.AtomicInteger maxToolCalls;
+    private final java.util.concurrent.atomic.AtomicInteger maxRetries;
     private final java.util.concurrent.atomic.AtomicBoolean logResponses;
 
     public AgentReasoningService(Logger logger, LlmRateLimiter rateLimiter, ExecutorService executor, long timeoutMs, AuditLogger auditLogger) {
         this.logger = logger;
         this.rateLimiter = rateLimiter;
         this.executor = executor;
-        this.timeoutMs = timeoutMs;
+        this.timeoutMs = new java.util.concurrent.atomic.AtomicLong(timeoutMs);
         this.auditLogger = auditLogger;
         this.maxToolCalls = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_TOOL_CALLS);
+        this.maxRetries = new java.util.concurrent.atomic.AtomicInteger(0);
         this.logResponses = new java.util.concurrent.atomic.AtomicBoolean(false);
     }
 
     public void setMaxToolCalls(int maxToolCalls) {
         if (maxToolCalls > 0) {
             this.maxToolCalls.set(maxToolCalls);
+        }
+    }
+
+    public void setMaxRetries(int maxRetries) {
+        if (maxRetries >= 0) {
+            this.maxRetries.set(maxRetries);
+        }
+    }
+
+    public void setTimeoutMs(long timeoutMs) {
+        if (timeoutMs > 0) {
+            this.timeoutMs.set(timeoutMs);
         }
     }
 
@@ -98,27 +113,50 @@ public final class AgentReasoningService {
                 return response.aiMessage().text();
             };
 
-            String content;
-            if (executor != null && timeoutMs > 0) {
-                // Execute with timeout
-                Future<String> future = executor.submit(llmCall);
+            String content = null;
+            int attempts = 0;
+            int maxRetryAttempts = Math.max(0, maxRetries.get());
+
+            while (true) {
+                long timeout = timeoutMs.get();
                 try {
-                    content = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+                    if (executor != null && timeout > 0) {
+                        Future<String> future = executor.submit(llmCall);
+                        try {
+                            content = future.get(timeout, TimeUnit.MILLISECONDS);
+                        } catch (TimeoutException e) {
+                            future.cancel(true);
+                            throw e;
+                        }
+                    } else {
+                        content = llmCall.call();
+                    }
+                    break;
                 } catch (TimeoutException e) {
-                    future.cancel(true);
+                    attempts++;
+                    if (attempts <= maxRetryAttempts) {
+                        logger.warn("LLM call timed out after " + timeout + "ms, retrying (" + attempts + "/" + maxRetryAttempts + ")", null);
+                        sleepBackoff(attempts);
+                        continue;
+                    }
                     long duration = System.currentTimeMillis() - startTime;
-                    logger.warn("LLM call timed out after " + timeoutMs + "ms", null);
-                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.TIMEOUT, "Timeout after " + timeoutMs + "ms");
+                    logger.warn("LLM call timed out after " + timeout + "ms", null);
+                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.TIMEOUT, "Timeout after " + timeout + "ms");
                     return Optional.empty();
                 } catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    attempts++;
+                    if (attempts <= maxRetryAttempts && isRetryable(cause)) {
+                        logger.warn("LLM call failed, retrying (" + attempts + "/" + maxRetryAttempts + ")", cause);
+                        sleepBackoff(attempts);
+                        continue;
+                    }
                     long duration = System.currentTimeMillis() - startTime;
-                    logger.warn("LLM call failed", e.getCause());
-                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.ERROR, e.getCause() != null ? e.getCause().getMessage() : "Unknown error");
+                    logger.warn("LLM call failed", cause);
+                    logLlmAudit(playerIdStr, locale, iteration, duration, LlmAuditOutcome.ERROR,
+                            cause != null ? cause.getMessage() : "Unknown error");
                     return Optional.empty();
                 }
-            } else {
-                // Execute directly without timeout
-                content = llmCall.call();
             }
 
             if (logResponses.get()) {
@@ -312,6 +350,57 @@ public final class AgentReasoningService {
             JsonReader jsonReader = new JsonReader(reader);
             jsonReader.setLenient(true);
             return GSON.fromJson(jsonReader, JsonElement.class);
+        }
+    }
+
+    private static boolean isRetryable(Throwable error) {
+        if (error == null) {
+            return false;
+        }
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof java.net.SocketTimeoutException
+                    || current instanceof java.net.ConnectException
+                    || current instanceof java.net.UnknownHostException
+                    || current instanceof java.net.SocketException
+                    || current instanceof java.io.IOException) {
+                return true;
+            }
+
+            String name = current.getClass().getName().toLowerCase(Locale.ROOT);
+            if (name.contains("ratelimit") || name.contains("too_many") || name.contains("toomany") || name.contains("throttle")) {
+                return true;
+            }
+
+            String message = current.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase(Locale.ROOT);
+                if (lower.contains("rate limit")
+                        || lower.contains("too many requests")
+                        || lower.contains("429")
+                        || lower.contains("timeout")
+                        || lower.contains("timed out")
+                        || lower.contains("connection")
+                        || lower.contains("connect")
+                        || lower.contains("refused")
+                        || lower.contains("unavailable")
+                        || lower.contains("503")) {
+                    return true;
+                }
+            }
+
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static void sleepBackoff(int attempt) {
+        long base = 200L;
+        long delay = Math.min(base * (1L << Math.min(attempt - 1, 4)), 2000L);
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -42,6 +42,11 @@ public final class LlmRuntimeManager {
          */
         void onLogResponsesUpdated(boolean logResponses);
 
+        /**
+         * Called when agent retries should be updated.
+         */
+        void onMaxRetriesUpdated(int maxRetries);
+
         void onReloadFailed(String message);
     }
 
@@ -61,6 +66,7 @@ public final class LlmRuntimeManager {
                 handler.onMaxIterationsUpdated(config.maxIterations());
                 handler.onMaxHistoryMessagesUpdated(config.maxHistoryMessages());
                 handler.onLogResponsesUpdated(config.logResponses());
+                handler.onMaxRetriesUpdated(config.maxRetries());
             } else {
                 handler.onReloadFailed("Failed to initialize LLM model. Check provider configuration.");
             }

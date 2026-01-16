@@ -60,7 +60,7 @@ public final class LlmModelFactory {
         if (apiKey == null || apiKey.isBlank()) {
             return Optional.empty();
         }
-        String endpoint = config.azureEndpoint().orElse("");
+        String endpoint = config.baseUrl().orElse("");
         String deployment = config.azureDeployment().orElse("");
         if (endpoint.isBlank() || deployment.isBlank()) {
             return Optional.empty();
