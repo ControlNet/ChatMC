@@ -1,7 +1,10 @@
 package space.controlnet.chatae.core.agent;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
@@ -10,6 +13,9 @@ import space.controlnet.chatae.core.audit.LlmAuditEvent;
 import space.controlnet.chatae.core.audit.LlmAuditOutcome;
 import space.controlnet.chatae.core.tools.ToolCall;
 
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -25,6 +31,7 @@ import java.util.concurrent.TimeoutException;
  */
 public final class AgentReasoningService {
     private static final Gson GSON = new Gson();
+    private static final int MAX_TOOL_CALLS = 3;
 
     private final Logger logger;
     private final LlmRateLimiter rateLimiter;
@@ -142,51 +149,188 @@ public final class AgentReasoningService {
         }
 
         try {
-            // Strip markdown code blocks if present
-            String json = content.trim();
-            if (json.startsWith("```json")) {
-                json = json.substring(7);
-            } else if (json.startsWith("```")) {
-                json = json.substring(3);
-            }
-            if (json.endsWith("```")) {
-                json = json.substring(0, json.length() - 3);
-            }
-            json = json.trim();
-
-            JsonObject obj = GSON.fromJson(json, JsonObject.class);
-            if (obj == null || !obj.has("action")) {
-                logger.warn("Invalid agent decision: missing 'action' field", null);
+            String json = stripCodeBlocks(content);
+            List<JsonObject> objects = extractDecisionObjects(json);
+            if (objects.isEmpty()) {
+                logger.warn("Invalid agent decision: no JSON object found", null);
                 return Optional.empty();
             }
 
-            String action = obj.get("action").getAsString();
-            String thinking = obj.has("thinking") && !obj.get("thinking").isJsonNull()
-                    ? obj.get("thinking").getAsString()
-                    : null;
+            String thinking = null;
+            String response = null;
+            List<ToolCall> toolCalls = new ArrayList<>();
 
-            if ("tool_call".equals(action)) {
-                if (!obj.has("tool") || !obj.has("args")) {
-                    logger.warn("Invalid tool_call decision: missing 'tool' or 'args'", null);
-                    return Optional.empty();
+            for (JsonObject obj : objects) {
+                if (obj == null || !obj.has("action")) {
+                    continue;
                 }
-                String tool = obj.get("tool").getAsString();
-                String argsJson = obj.get("args").toString();
-                return Optional.of(AgentDecision.toolCall(new ToolCall(tool, argsJson), thinking));
-            } else if ("respond".equals(action)) {
-                if (!obj.has("response")) {
-                    logger.warn("Invalid respond decision: missing 'response'", null);
-                    return Optional.empty();
+
+                if (thinking == null && obj.has("thinking") && !obj.get("thinking").isJsonNull()) {
+                    thinking = obj.get("thinking").getAsString();
                 }
-                String response = obj.get("response").getAsString();
+
+                String action = obj.get("action").getAsString();
+                if ("tool_call".equals(action)) {
+                    appendToolCalls(obj, toolCalls);
+                } else if ("respond".equals(action) && response == null) {
+                    if (!obj.has("response")) {
+                        logger.warn("Invalid respond decision: missing 'response'", null);
+                        continue;
+                    }
+                    response = obj.get("response").getAsString();
+                }
+            }
+
+            if (!toolCalls.isEmpty()) {
+                if (toolCalls.size() > MAX_TOOL_CALLS) {
+                    logger.warn("LLM returned " + toolCalls.size() + " tool calls; truncating to " + MAX_TOOL_CALLS, null);
+                    toolCalls = new ArrayList<>(toolCalls.subList(0, MAX_TOOL_CALLS));
+                }
+                return Optional.of(AgentDecision.toolCalls(toolCalls, thinking));
+            }
+
+            if (response != null) {
                 return Optional.of(AgentDecision.respond(response, thinking));
-            } else {
-                logger.warn("Unknown action type: " + action, null);
-                return Optional.empty();
             }
+
+            logger.warn("Invalid agent decision: missing tool calls and response", null);
+            return Optional.empty();
         } catch (Exception e) {
-            logger.warn("Failed to parse agent decision JSON: " + content, e);
+            String preview = content.length() > 200 ? content.substring(0, 200) + "..." : content;
+            logger.warn("Failed to parse agent decision JSON: " + preview, e);
             return Optional.empty();
         }
+    }
+
+    private static String stripCodeBlocks(String content) {
+        String json = content.trim();
+        if (json.startsWith("```json")) {
+            json = json.substring(7);
+        } else if (json.startsWith("```")) {
+            json = json.substring(3);
+        }
+        if (json.endsWith("```")) {
+            json = json.substring(0, json.length() - 3);
+        }
+        return json.trim();
+    }
+
+    private static List<JsonObject> extractDecisionObjects(String text) {
+        List<JsonObject> objects = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return objects;
+        }
+        String trimmed = text.trim();
+        if (trimmed.startsWith("[")) {
+            JsonElement element = parseLenientElement(trimmed);
+            if (element != null && element.isJsonArray()) {
+                for (JsonElement item : element.getAsJsonArray()) {
+                    if (item != null && item.isJsonObject()) {
+                        objects.add(item.getAsJsonObject());
+                    }
+                }
+            }
+            return objects;
+        }
+
+        for (String objText : extractJsonObjects(trimmed)) {
+            JsonObject obj = parseLenientObject(objText);
+            if (obj != null) {
+                objects.add(obj);
+            }
+        }
+        return objects;
+    }
+
+    private static List<String> extractJsonObjects(String text) {
+        List<String> objects = new ArrayList<>();
+        if (text == null) {
+            return objects;
+        }
+        boolean inString = false;
+        boolean escape = false;
+        int depth = 0;
+        int start = -1;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                } else if (ch == '\\') {
+                    escape = true;
+                } else if (ch == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (ch == '"') {
+                inString = true;
+                continue;
+            }
+            if (ch == '{') {
+                if (depth == 0) {
+                    start = i;
+                }
+                depth++;
+            } else if (ch == '}') {
+                if (depth > 0) {
+                    depth--;
+                    if (depth == 0 && start >= 0) {
+                        objects.add(text.substring(start, i + 1));
+                        start = -1;
+                    }
+                }
+            }
+        }
+        return objects;
+    }
+
+    private static JsonObject parseLenientObject(String json) {
+        try (StringReader reader = new StringReader(json)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            return GSON.fromJson(jsonReader, JsonObject.class);
+        }
+    }
+
+    private static JsonElement parseLenientElement(String json) {
+        try (StringReader reader = new StringReader(json)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            return GSON.fromJson(jsonReader, JsonElement.class);
+        }
+    }
+
+    private void appendToolCalls(JsonObject obj, List<ToolCall> toolCalls) {
+        JsonArray batch = null;
+        if (obj.has("tool_calls") && obj.get("tool_calls").isJsonArray()) {
+            batch = obj.getAsJsonArray("tool_calls");
+        } else if (obj.has("tools") && obj.get("tools").isJsonArray()) {
+            batch = obj.getAsJsonArray("tools");
+        }
+
+        if (batch != null) {
+            for (JsonElement element : batch) {
+                if (element == null || !element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject entry = element.getAsJsonObject();
+                if (!entry.has("tool") || !entry.has("args")) {
+                    continue;
+                }
+                String tool = entry.get("tool").getAsString();
+                String argsJson = entry.get("args").toString();
+                toolCalls.add(new ToolCall(tool, argsJson));
+            }
+            return;
+        }
+
+        if (!obj.has("tool") || !obj.has("args")) {
+            logger.warn("Invalid tool_call decision: missing 'tool' or 'args'", null);
+            return;
+        }
+        String tool = obj.get("tool").getAsString();
+        String argsJson = obj.get("args").toString();
+        toolCalls.add(new ToolCall(tool, argsJson));
     }
 }

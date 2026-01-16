@@ -1,5 +1,9 @@
 package space.controlnet.chatae.common.client.screen;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -74,6 +78,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int MESSAGE_PAD_X = 8;
     private static final int MESSAGE_PAD_Y = 4;
     private static final int MESSAGE_MAX_WIDTH_PAD = 36;
+    private static final int TOOL_RESULT_MAX = 8;
+    private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
     private static final float TITLE_FONT_SCALE = 0.9f;
     private static final float FONT_SCALE = 0.5f;
 
@@ -152,10 +158,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private space.controlnet.chatae.core.session.TerminalBinding proposalBinding;
 
     private int scrollOffsetLines;
+    private int maxScrollLines;
     private long lastSnapshotVersion = -1;
     private long lastSessionIndexVersion = -1;
     private boolean sessionsOpen;
     private UUID activeSessionId;
+    private ToolPayload hoveredToolPayload;
 
     private List<SessionSummary> sessionSummaries = List.of();
     private final List<SessionRow> sessionRows = new ArrayList<>();
@@ -172,7 +180,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         computeLayout();
 
         this.inputBox = new EditBox(this.font, this.inputFieldX, this.inputY, this.inputW, INPUT_HEIGHT, Component.empty());
-        this.inputBox.setMaxLength(256);
+        this.inputBox.setMaxLength(MAX_CHAT_MESSAGE_LENGTH);
         this.inputBox.setBordered(false);
         this.inputBox.setCanLoseFocus(true);
         this.inputBox.setTextColor(COLOR_TEXT_MAIN);
@@ -379,13 +387,14 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         syncFromSessionIndex();
         this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
-        renderChatLog(guiGraphics);
+        renderChatLog(guiGraphics, mouseX, mouseY);
         renderProposalCard(guiGraphics);
         renderSessionsPanel(guiGraphics);
         renderInputTokens(guiGraphics);
         renderInputHint(guiGraphics);
         renderItemSuggestions(guiGraphics, mouseX, mouseY);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
+        renderToolTooltip(guiGraphics, mouseX, mouseY);
     }
 
     private void renderInputHint(GuiGraphics guiGraphics) {
@@ -401,72 +410,94 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         drawScaledString(guiGraphics, this.font.plainSubstrByWidth(hint, Math.max(1, this.inputW - 8)), hintX, hintY, COLOR_TEXT_DIM, false);
     }
 
-        private void renderChatLog(GuiGraphics guiGraphics) {
-            int lineHeight = scaledLineHeight();
-            int spacing = 2;
+    private void renderChatLog(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        int lineHeight = scaledLineHeight();
+        int spacing = 2;
+        int lineStep = Math.max(1, lineHeight + spacing);
+        this.hoveredToolPayload = null;
 
-            guiGraphics.enableScissor(this.chatX + 1, this.chatY + 1, this.chatX + this.chatW - 1, this.chatY + this.chatH - 1);
+        // Compute total content height for scroll limits.
+        int totalHeight = 0;
+        int maxWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
+        for (ChatMessage message : this.messages) {
+            List<ChatLine> messageLines = buildMessageLines(message, maxWidth);
+            if (messageLines.isEmpty()) {
+                continue;
+            }
+            int totalTextHeight = messageLines.size() * lineHeight + (messageLines.size() - 1) * spacing;
+            int bubbleH = totalTextHeight + (MESSAGE_PAD_Y * 2);
+            totalHeight += bubbleH + 12;
+        }
+        int visibleHeight = this.chatH - 8;
+        int maxScrollPx = Math.max(0, totalHeight - visibleHeight);
+        this.maxScrollLines = maxScrollPx == 0 ? 0 : (int) Math.ceil(maxScrollPx / (double) lineStep);
+        this.scrollOffsetLines = clamp(this.scrollOffsetLines, 0, this.maxScrollLines);
+        int scrollOffsetPx = this.scrollOffsetLines * lineStep;
 
-            int currentY = this.chatY + 4;
+        guiGraphics.enableScissor(this.chatX + 1, this.chatY + 1, this.chatX + this.chatW - 1, this.chatY + this.chatH - 1);
 
-            for (ChatMessage message : this.messages) {
-                List<ChatSpan> spans = parseMessageSpans(message.text());
-                int maxWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
-                List<ChatLine> messageLines = wrapSpans(spans, maxWidth, message.role());
+        int currentY = this.chatY + 4 - scrollOffsetPx;
 
-                if (messageLines.isEmpty()) continue;
+        for (ChatMessage message : this.messages) {
+            List<ChatLine> messageLines = buildMessageLines(message, maxWidth);
 
-                int totalTextHeight = messageLines.size() * lineHeight + (messageLines.size() - 1) * spacing;
-                int bubbleH = totalTextHeight + (MESSAGE_PAD_Y * 2);
+            if (messageLines.isEmpty()) continue;
+            int totalTextHeight = messageLines.size() * lineHeight + (messageLines.size() - 1) * spacing;
+            int bubbleH = totalTextHeight + (MESSAGE_PAD_Y * 2);
 
-                int maxLineWidth = 0;
-                for (ChatLine line : messageLines) {
-                    maxLineWidth = Math.max(maxLineWidth, line.width());
-                }
-                int bubbleW = maxLineWidth + (MESSAGE_PAD_X * 2);
+            int maxLineWidth = 0;
+            for (ChatLine line : messageLines) {
+                maxLineWidth = Math.max(maxLineWidth, line.width());
+            }
+            int bubbleW = maxLineWidth + (MESSAGE_PAD_X * 2);
 
-                int bubbleX;
-                if (message.role() == ChatRole.USER) {
-                    bubbleX = this.chatX + this.chatW - bubbleW - 10;
-                } else if (message.role() == ChatRole.SYSTEM) {
-                    bubbleX = this.chatX + (this.chatW - bubbleW) / 2;
-                } else {
-                    bubbleX = this.chatX + 10;
-                }
-
-                if (message.role() != ChatRole.SYSTEM) {
-                    int bgColor = message.role() == ChatRole.USER ? 0x336B2FB5 : 0x662A2A2A;
-                    int borderColor = message.role() == ChatRole.USER ? COLOR_PRIMARY_FLUIX : COLOR_ACCENT_CYAN;
-                    guiGraphics.fill(bubbleX, currentY, bubbleX + bubbleW, currentY + bubbleH, bgColor);
-                    guiGraphics.renderOutline(bubbleX, currentY, bubbleW, bubbleH, borderColor);
-                    if (message.role() == ChatRole.ASSISTANT) {
-                        guiGraphics.fill(bubbleX, currentY, bubbleX + 2, currentY + bubbleH, COLOR_ACCENT_CYAN);
-                    }
-                }
-
-                int textY = currentY + MESSAGE_PAD_Y;
-                for (ChatLine line : messageLines) {
-                    int drawX = bubbleX + MESSAGE_PAD_X;
-                    for (ChatSpan span : line.spans()) {
-                        if (span.token() != null) {
-                            renderTokenPill(guiGraphics, span.token(), drawX, textY - 2, span.width(), lineHeight + 4);
-                        } else {
-                            drawScaledString(guiGraphics, span.text(), drawX, textY, COLOR_TEXT_MAIN, false);
-                        }
-                        drawX += span.width();
-                    }
-                    textY += lineHeight + spacing;
-                }
-
-                String timestamp = formatMessageTimestamp(message.timestampMillis());
-                int timeX = (message.role() == ChatRole.USER) ? bubbleX + bubbleW - scaledWidth(timestamp) : bubbleX;
-                drawScaledString(guiGraphics, timestamp, timeX, currentY + bubbleH + 2, COLOR_TEXT_DIM, false);
-
-                currentY += bubbleH + 12;
+            int bubbleX;
+            if (message.role() == ChatRole.USER) {
+                bubbleX = this.chatX + this.chatW - bubbleW - 10;
+            } else if (message.role() == ChatRole.SYSTEM) {
+                bubbleX = this.chatX + (this.chatW - bubbleW) / 2;
+            } else {
+                bubbleX = this.chatX + 10;
             }
 
-            guiGraphics.disableScissor();
+            if (message.role() != ChatRole.SYSTEM) {
+                int bgColor = message.role() == ChatRole.USER ? 0x336B2FB5 : 0x662A2A2A;
+                int borderColor = message.role() == ChatRole.USER ? COLOR_PRIMARY_FLUIX : COLOR_ACCENT_CYAN;
+                guiGraphics.fill(bubbleX, currentY, bubbleX + bubbleW, currentY + bubbleH, bgColor);
+                guiGraphics.renderOutline(bubbleX, currentY, bubbleW, bubbleH, borderColor);
+                if (message.role() == ChatRole.ASSISTANT) {
+                    guiGraphics.fill(bubbleX, currentY, bubbleX + 2, currentY + bubbleH, COLOR_ACCENT_CYAN);
+                }
+            }
+            if (message.role() == ChatRole.TOOL
+                    && mouseX >= bubbleX && mouseX < bubbleX + bubbleW
+                    && mouseY >= currentY && mouseY < currentY + bubbleH) {
+                this.hoveredToolPayload = parseToolPayload(message.text());
+            }
+
+            int textY = currentY + MESSAGE_PAD_Y;
+            for (ChatLine line : messageLines) {
+                int drawX = bubbleX + MESSAGE_PAD_X;
+                for (ChatSpan span : line.spans()) {
+                    if (span.token() != null) {
+                        renderTokenPill(guiGraphics, span.token(), drawX, textY - 2, span.width(), lineHeight + 4);
+                    } else {
+                        drawScaledString(guiGraphics, span.text(), drawX, textY, COLOR_TEXT_MAIN, false);
+                    }
+                    drawX += span.width();
+                }
+                textY += lineHeight + spacing;
+            }
+
+            String timestamp = formatMessageTimestamp(message.timestampMillis());
+            int timeX = (message.role() == ChatRole.USER) ? bubbleX + bubbleW - scaledWidth(timestamp) : bubbleX;
+            drawScaledString(guiGraphics, timestamp, timeX, currentY + bubbleH + 2, COLOR_TEXT_DIM, false);
+
+            currentY += bubbleH + 12;
         }
+
+        guiGraphics.disableScissor();
+    }
 
     private void renderInputTokens(GuiGraphics guiGraphics) {
         if (this.inputBox == null || this.inputTokens.isEmpty()) {
@@ -716,9 +747,9 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (isWithinChat(mouseX, mouseY) && !this.wrappedLines.isEmpty()) {
-            int direction = delta > 0 ? 1 : -1;
-            this.scrollOffsetLines = this.scrollOffsetLines + direction;
+        if (isWithinChat(mouseX, mouseY) && !this.messages.isEmpty()) {
+            int direction = delta > 0 ? -1 : 1;
+            this.scrollOffsetLines = clamp(this.scrollOffsetLines + direction, 0, this.maxScrollLines);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
@@ -1257,6 +1288,490 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         return spans;
     }
 
+    private List<ChatLine> buildMessageLines(ChatMessage message, int maxWidth) {
+        if (message == null) {
+            return List.of();
+        }
+        String text = message.text();
+        if (message.role() == ChatRole.TOOL) {
+            text = formatToolText(text);
+        }
+        return wrapMessageText(text, maxWidth, message.role());
+    }
+
+    private List<ChatLine> wrapMessageText(String text, int maxWidth, ChatRole role) {
+        List<ChatLine> lines = new ArrayList<>();
+        if (text == null) {
+            return lines;
+        }
+        String[] segments = text.split("\\R", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
+                lines.add(new ChatLine(List.of(), role, false, 0, ""));
+                continue;
+            }
+            List<ChatSpan> spans = parseMessageSpans(segment);
+            List<ChatLine> wrapped = wrapSpans(spans, maxWidth, role);
+            if (wrapped.isEmpty()) {
+                lines.add(new ChatLine(List.of(), role, false, 0, ""));
+            } else {
+                lines.addAll(wrapped);
+            }
+        }
+        return lines;
+    }
+
+    private String formatToolText(String raw) {
+        ToolPayload payload = parseToolPayload(raw);
+        if (payload != null && payload.tool() != null) {
+            List<String> lines = new ArrayList<>();
+            String summary = formatToolSummary(payload);
+            if (summary != null && !summary.isBlank()) {
+                lines.add(summary);
+            }
+            if (payload.outputJson() != null && !payload.outputJson().isBlank()) {
+                lines.addAll(formatToolLines(payload.outputJson()));
+            }
+            if (payload.error() != null && !payload.error().isBlank()) {
+                lines.add(Component.translatable("ui.chatae.tool.error", payload.error()).getString());
+            }
+            if (!lines.isEmpty()) {
+                return String.join("\n", lines);
+            }
+        }
+        List<String> lines = formatToolLines(raw);
+        if (lines.isEmpty()) {
+            return raw == null ? "" : raw;
+        }
+        return String.join("\n", lines);
+    }
+
+    private String formatToolSummary(ToolPayload payload) {
+        String tool = payload.tool();
+        if (tool == null || tool.isBlank()) {
+            return null;
+        }
+        JsonObject args = parseJsonObject(payload.argsJson());
+        String fallback = Component.translatable("ui.chatae.tool.unknown", tool).getString();
+        return switch (tool) {
+            case "recipes.search" -> Component.translatable(
+                    "ui.chatae.tool.recipes.search",
+                    formatSearchTarget(args, "outputItemId", "query")).getString();
+            case "recipes.get" -> Component.translatable(
+                    "ui.chatae.tool.recipes.get",
+                    formatSearchTarget(args, "outputItemId", "recipeId")).getString();
+            case "ae2.list_items" -> Component.translatable(
+                    "ui.chatae.tool.ae2.list_items",
+                    formatQuery(args)).getString();
+            case "ae2.list_craftables" -> Component.translatable(
+                    "ui.chatae.tool.ae2.list_craftables",
+                    formatQuerySuffix(args)).getString();
+            case "ae2.simulate_craft" -> Component.translatable(
+                    "ui.chatae.tool.ae2.simulate_craft",
+                    formatCraftTarget(args)).getString();
+            case "ae2.request_craft" -> Component.translatable(
+                    "ui.chatae.tool.ae2.request_craft",
+                    formatCraftTarget(args)).getString();
+            case "ae2.job_status" -> Component.translatable(
+                    "ui.chatae.tool.ae2.job_status",
+                    formatArg(args, "jobId")).getString();
+            case "ae2.job_cancel" -> Component.translatable(
+                    "ui.chatae.tool.ae2.job_cancel",
+                    formatArg(args, "jobId")).getString();
+            default -> fallback;
+        };
+    }
+
+    private String formatSearchTarget(JsonObject args, String itemKey, String fallbackKey) {
+        String itemId = getString(args, itemKey);
+        if (itemId != null && !itemId.isBlank()) {
+            return formatItemTag(itemId);
+        }
+        String fallback = getString(args, fallbackKey);
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return Component.translatable("ui.chatae.tool.query.empty").getString();
+    }
+
+    private String formatCraftTarget(JsonObject args) {
+        String itemId = getString(args, "itemId");
+        long count = getLong(args, "count", 1);
+        String prefix = count > 1 ? count + "x " : "";
+        if (itemId == null || itemId.isBlank()) {
+            return prefix + Component.translatable("ui.chatae.tool.query.empty").getString();
+        }
+        return prefix + formatItemTag(itemId);
+    }
+
+    private String formatArg(JsonObject args, String key) {
+        String value = getString(args, key);
+        if (value != null && !value.isBlank()) {
+            return value;
+        }
+        return Component.translatable("ui.chatae.tool.query.empty").getString();
+    }
+
+    private String formatQuery(JsonObject args) {
+        String query = getString(args, "query");
+        if (query == null || query.isBlank()) {
+            return Component.translatable("ui.chatae.tool.query.empty").getString();
+        }
+        return query;
+    }
+
+    private String formatQuerySuffix(JsonObject args) {
+        String query = getString(args, "query");
+        if (query == null || query.isBlank()) {
+            return "";
+        }
+        return " (" + query + ")";
+    }
+
+    private JsonObject parseJsonObject(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            JsonElement element = JsonParser.parseString(raw);
+            return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private List<String> formatToolLines(String raw) {
+        String text = raw == null ? "" : raw.trim();
+        if (text.isEmpty()) {
+            return List.of();
+        }
+        if ("null".equals(text)) {
+            return List.of("No result.");
+        }
+        if (!text.startsWith("{") && !text.startsWith("[")) {
+            return List.of(raw);
+        }
+        try {
+            JsonElement element = JsonParser.parseString(text);
+            if (!element.isJsonObject()) {
+                return List.of(raw);
+            }
+            JsonObject obj = element.getAsJsonObject();
+            if (obj.has("results") && obj.get("results").isJsonArray()) {
+                JsonArray results = obj.getAsJsonArray("results");
+                if (isRecipeResults(results)) {
+                    return formatRecipeSearch(results, getString(obj, "nextPageToken"));
+                }
+                if (isAe2ListResults(results)) {
+                    return formatAe2List(results, getString(obj, "nextPageToken"), getString(obj, "error"));
+                }
+            }
+            if (obj.has("recipeId") || obj.has("outputItemId")) {
+                return formatRecipeSummary(obj);
+            }
+            if (obj.has("jobId")) {
+                return formatJobStatus(obj);
+            }
+            if (obj.has("status") || obj.has("error")) {
+                List<String> lines = new ArrayList<>();
+                String status = getString(obj, "status");
+                if (status != null && !status.isBlank()) {
+                    lines.add("Status: " + status);
+                }
+                String error = getString(obj, "error");
+                if (error != null && !error.isBlank()) {
+                    lines.add("Error: " + error);
+                }
+                if (!lines.isEmpty()) {
+                    return lines;
+                }
+            }
+        } catch (Exception ignored) {
+            return List.of(raw);
+        }
+        return List.of(raw);
+    }
+
+    private List<String> formatRecipeSearch(JsonArray results, String nextPageToken) {
+        List<String> lines = new ArrayList<>();
+        int total = results.size();
+        if (total == 0) {
+            lines.add("No recipes found.");
+        } else {
+            lines.add("Recipes (" + total + "):");
+            int shown = Math.min(total, TOOL_RESULT_MAX);
+            for (int i = 0; i < shown; i++) {
+                JsonObject obj = safeObject(results.get(i));
+                if (obj == null) {
+                    continue;
+                }
+                String itemId = getString(obj, "outputItemId");
+                int count = getInt(obj, "outputCount", 1);
+                String type = getString(obj, "recipeType");
+                String label = (count > 1 ? count + "x " : "") + formatItemTag(itemId);
+                if (type != null && !type.isBlank()) {
+                    label += " [" + type + "]";
+                }
+                lines.add("• " + label);
+            }
+            if (total > shown) {
+                lines.add("… +" + (total - shown) + " more");
+            }
+        }
+        if (nextPageToken != null && !nextPageToken.isBlank()) {
+            lines.add("Next page: " + nextPageToken);
+        }
+        return lines;
+    }
+
+    private List<String> formatRecipeSummary(JsonObject obj) {
+        List<String> lines = new ArrayList<>();
+        String outputItem = getString(obj, "outputItemId");
+        int count = getInt(obj, "outputCount", 1);
+        String type = getString(obj, "recipeType");
+        String recipeId = getString(obj, "recipeId");
+        String header = "Recipe: " + (count > 1 ? count + "x " : "") + formatItemTag(outputItem);
+        lines.add(header);
+        if (type != null && !type.isBlank()) {
+            lines.add("Type: " + type);
+        }
+        if (recipeId != null && !recipeId.isBlank()) {
+            lines.add("Id: " + recipeId);
+        }
+        JsonArray ingredients = obj.getAsJsonArray("ingredientItemIds");
+        if (ingredients != null) {
+            lines.add("Ingredients: " + formatItemList(ingredients, 6));
+        }
+        return lines;
+    }
+
+    private List<String> formatAe2List(JsonArray results, String nextPageToken, String error) {
+        List<String> lines = new ArrayList<>();
+        int total = results.size();
+        if (total == 0) {
+            lines.add("No items found.");
+        } else {
+            lines.add("Items (" + total + "):");
+            int shown = Math.min(total, TOOL_RESULT_MAX);
+            for (int i = 0; i < shown; i++) {
+                JsonObject obj = safeObject(results.get(i));
+                if (obj == null) {
+                    continue;
+                }
+                String itemId = getString(obj, "itemId");
+                long amount = getLong(obj, "amount", 0);
+                boolean craftable = getBoolean(obj, "craftable");
+                String label = formatItemTag(itemId) + " — " + amount;
+                if (craftable) {
+                    label += " (craftable)";
+                }
+                lines.add("• " + label);
+            }
+            if (total > shown) {
+                lines.add("… +" + (total - shown) + " more");
+            }
+        }
+        if (nextPageToken != null && !nextPageToken.isBlank()) {
+            lines.add("Next page: " + nextPageToken);
+        }
+        if (error != null && !error.isBlank()) {
+            lines.add("Error: " + error);
+        }
+        return lines;
+    }
+
+    private List<String> formatJobStatus(JsonObject obj) {
+        List<String> lines = new ArrayList<>();
+        String jobId = getString(obj, "jobId");
+        String status = getString(obj, "status");
+        String header = "Job " + (jobId == null ? "" : jobId);
+        if (status != null && !status.isBlank()) {
+            header += " — " + status;
+        }
+        lines.add(header.trim());
+
+        JsonArray missing = obj.getAsJsonArray("missingItems");
+        if (missing != null && missing.size() > 0) {
+            lines.add("Missing:");
+            int shown = Math.min(missing.size(), TOOL_RESULT_MAX);
+            for (int i = 0; i < shown; i++) {
+                JsonObject item = safeObject(missing.get(i));
+                if (item == null) {
+                    continue;
+                }
+                String itemId = getString(item, "itemId");
+                long amount = getLong(item, "amount", 0);
+                lines.add("• " + amount + "x " + formatItemTag(itemId));
+            }
+            if (missing.size() > shown) {
+                lines.add("… +" + (missing.size() - shown) + " more");
+            }
+        }
+
+        String error = getString(obj, "error");
+        if (error != null && !error.isBlank()) {
+            lines.add("Error: " + error);
+        }
+        return lines;
+    }
+
+    private boolean isRecipeResults(JsonArray results) {
+        JsonObject first = firstObject(results);
+        return first != null && (first.has("recipeId") || first.has("outputItemId"));
+    }
+
+    private boolean isAe2ListResults(JsonArray results) {
+        JsonObject first = firstObject(results);
+        return first != null && first.has("itemId") && first.has("amount");
+    }
+
+    private JsonObject firstObject(JsonArray array) {
+        if (array == null || array.isEmpty()) {
+            return null;
+        }
+        return safeObject(array.get(0));
+    }
+
+    private JsonObject safeObject(JsonElement element) {
+        if (element == null || !element.isJsonObject()) {
+            return null;
+        }
+        return element.getAsJsonObject();
+    }
+
+    private String formatItemTag(String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return "unknown";
+        }
+        ItemToken token = buildItemToken(itemId, null);
+        if (token == null) {
+            return itemId;
+        }
+        String name = token.displayName().replace("\"", "'");
+        return "<item id=\"" + token.itemId() + "\" display_name=\"" + name + "\">";
+    }
+
+    private String formatItemList(JsonArray items, int limit) {
+        if (items == null || items.isEmpty()) {
+            return "none";
+        }
+        List<String> parts = new ArrayList<>();
+        int shown = Math.min(items.size(), Math.max(1, limit));
+        for (int i = 0; i < shown; i++) {
+            JsonElement el = items.get(i);
+            if (el != null && el.isJsonPrimitive()) {
+                parts.add(formatItemTag(el.getAsString()));
+            }
+        }
+        if (items.size() > shown) {
+            parts.add("+" + (items.size() - shown) + " more");
+        }
+        return String.join(", ", parts);
+    }
+
+    private static String getString(JsonObject obj, String key) {
+        if (obj == null || key == null || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return null;
+        }
+        try {
+            return obj.get(key).getAsString();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static int getInt(JsonObject obj, String key, int fallback) {
+        if (obj == null || key == null || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return fallback;
+        }
+        try {
+            return obj.get(key).getAsInt();
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static long getLong(JsonObject obj, String key, long fallback) {
+        if (obj == null || key == null || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return fallback;
+        }
+        try {
+            return obj.get(key).getAsLong();
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static boolean getBoolean(JsonObject obj, String key) {
+        if (obj == null || key == null || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return false;
+        }
+        try {
+            return obj.get(key).getAsBoolean();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private ToolPayload parseToolPayload(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            JsonElement element = JsonParser.parseString(raw);
+            if (element == null || !element.isJsonObject()) {
+                return null;
+            }
+            JsonObject obj = element.getAsJsonObject();
+            if (!obj.has("tool") && !obj.has("args") && !obj.has("output") && !obj.has("error")) {
+                return null;
+            }
+            String tool = getString(obj, "tool");
+            String args = stringifyElement(obj.get("args"));
+            String output = stringifyElement(obj.get("output"));
+            String error = getString(obj, "error");
+            return new ToolPayload(tool, args, output, error);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String stringifyElement(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element.isJsonPrimitive()) {
+            try {
+                return element.getAsString();
+            } catch (Exception ignored) {
+                return element.toString();
+            }
+        }
+        return element.toString();
+    }
+
+    private void renderToolTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        if (this.hoveredToolPayload == null) {
+            return;
+        }
+        List<Component> lines = new ArrayList<>();
+        String tool = this.hoveredToolPayload.tool();
+        if (tool != null && !tool.isBlank()) {
+            lines.add(Component.literal("Tool: " + tool));
+        }
+        lines.add(Component.literal("Input:"));
+        String args = this.hoveredToolPayload.argsJson();
+        lines.add(Component.literal(args == null || args.isBlank() ? "(none)" : args));
+        lines.add(Component.literal("Output:"));
+        String output = this.hoveredToolPayload.outputJson();
+        lines.add(Component.literal(output == null || output.isBlank() ? "(none)" : output));
+        String error = this.hoveredToolPayload.error();
+        if (error != null && !error.isBlank()) {
+            lines.add(Component.literal("Error: " + error));
+        }
+        guiGraphics.renderTooltip(this.font, lines, Optional.empty(), mouseX, mouseY);
+    }
+
     private ItemToken buildItemToken(String itemId, String displayName) {
         if (itemId == null) {
             return null;
@@ -1586,7 +2101,13 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 output = replaceFirstLiteral(output, tokenLabel, tag);
             }
         }
-        return output;
+        if (output.length() <= MAX_CHAT_MESSAGE_LENGTH) {
+            return output;
+        }
+        if (sanitized.length() <= MAX_CHAT_MESSAGE_LENGTH) {
+            return sanitized;
+        }
+        return sanitized.substring(0, MAX_CHAT_MESSAGE_LENGTH);
     }
 
     private String replaceFirstLiteral(String source, String target, String replacement) {
@@ -1679,8 +2200,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.wrappedLines.clear();
         int maxWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
         for (ChatMessage message : this.messages) {
-            List<ChatSpan> spans = parseMessageSpans(message.text());
-            List<ChatLine> lines = wrapSpans(spans, maxWidth, message.role());
+            List<ChatLine> lines = buildMessageLines(message, maxWidth);
             this.wrappedLines.addAll(lines);
             String timestamp = formatMessageTimestamp(message.timestampMillis());
             if (!timestamp.isBlank()) {
@@ -1888,6 +2408,9 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private record ItemToken(Item item, String displayName, String itemId, int color, int index) {
+    }
+
+    private record ToolPayload(String tool, String argsJson, String outputJson, String error) {
     }
 
     private static final class SessionRow {

@@ -92,7 +92,7 @@ public final class AgentRunner {
 
         @Override
         public void appendMessage(UUID sessionId, ChatMessage message) {
-            ChatAENetwork.SESSIONS.appendMessage(sessionId, message);
+            ChatAENetwork.appendMessageAndBroadcast(sessionId, message);
         }
 
         @Override

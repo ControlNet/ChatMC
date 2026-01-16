@@ -16,6 +16,7 @@ import space.controlnet.chatae.core.session.TerminalBinding;
 import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
+import space.controlnet.chatae.core.tools.ToolMessagePayload;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -275,33 +276,31 @@ public final class AgentLoop {
                 .map(DecisionState.class::cast)
                 .orElse(null);
 
-        if (player == null || decision == null || decision.toolCall == null || ctx == null) {
+        if (player == null || decision == null || decision.toolCalls == null || decision.toolCalls.isEmpty() || ctx == null) {
             return Map.of(KEY_RESULT, ResultState.error("Invalid state for execution", iteration));
         }
-
-        ToolCall call = decision.toolCall;
-        ctx.logDebug("Agent executing tool: {} args: {}", call.toolName(), call.argsJson());
 
         // Get terminal context from player
         Optional<TerminalContext> terminal = ctx.getTerminal(player);
 
-        // Execute tool
-        ToolOutcome outcome = ctx.executeTool(terminal, call, false);
+        for (ToolCall call : decision.toolCalls) {
+            ctx.logDebug("Agent executing tool: {} args: {}", call.toolName(), call.argsJson());
 
-        // If proposal is needed, return it and exit the loop
-        if (outcome.hasProposal()) {
-            ctx.logDebug("Agent produced proposal: {}", outcome.proposal().id());
-            return Map.of(KEY_RESULT, ResultState.proposal(outcome.proposal(), iteration));
-        }
+            // Execute tool
+            ToolOutcome outcome = ctx.executeTool(terminal, call, false);
 
-        // Append tool result to session
-        if (outcome.result() != null) {
-            String payload = outcome.result().payloadJson();
-            if (payload == null && outcome.result().error() != null) {
-                payload = "Error: " + outcome.result().error().message();
+            // If proposal is needed, return it and exit the loop
+            if (outcome.hasProposal()) {
+                ctx.logDebug("Agent produced proposal: {}", outcome.proposal().id());
+                return Map.of(KEY_RESULT, ResultState.proposal(outcome.proposal(), iteration));
             }
-            if (payload != null && !payload.isBlank()) {
-                ctx.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
+
+            // Append tool result to session
+            if (outcome.result() != null) {
+                String payload = ToolMessagePayload.wrap(call, outcome.result());
+                if (payload != null && !payload.isBlank()) {
+                    ctx.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
+                }
             }
         }
 
@@ -360,13 +359,13 @@ public final class AgentLoop {
     private static final class DecisionState implements Serializable {
         private final AgentDecision.AgentAction action;
         private final String thinking;
-        private final ToolCall toolCall;
+        private final java.util.List<ToolCall> toolCalls;
         private final String response;
 
-        private DecisionState(AgentDecision.AgentAction action, String thinking, ToolCall toolCall, String response) {
+        private DecisionState(AgentDecision.AgentAction action, String thinking, java.util.List<ToolCall> toolCalls, String response) {
             this.action = action;
             this.thinking = thinking;
-            this.toolCall = toolCall;
+            this.toolCalls = toolCalls == null ? java.util.List.of() : java.util.List.copyOf(toolCalls);
             this.response = response;
         }
 
@@ -374,7 +373,7 @@ public final class AgentLoop {
             return new DecisionState(
                     decision.action(),
                     decision.thinking().orElse(null),
-                    decision.toolCall().orElse(null),
+                    decision.toolCalls(),
                     decision.response().orElse(null)
             );
         }

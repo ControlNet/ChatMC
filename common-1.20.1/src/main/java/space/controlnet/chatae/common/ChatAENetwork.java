@@ -31,6 +31,7 @@ import space.controlnet.chatae.core.session.SessionVisibility;
 import space.controlnet.chatae.core.session.TerminalBinding;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
+import space.controlnet.chatae.core.tools.ToolMessagePayload;
 import space.controlnet.chatae.core.tools.ToolResult;
 import space.controlnet.chatae.core.util.ItemTagParser;
 import space.controlnet.chatae.core.util.LocaleResolver;
@@ -60,6 +61,7 @@ import java.util.concurrent.Executors;
 public final class ChatAENetwork {
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
     private static final int PROTOCOL_VERSION = 3;
+    private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
@@ -84,11 +86,11 @@ public final class ChatAENetwork {
                 C2SSendChatPacket.class,
                 (packet, buf) -> {
                     buf.writeVarInt(packet.protocolVersion());
-                    buf.writeUtf(packet.text(), 256);
+                    buf.writeUtf(packet.text(), MAX_CHAT_MESSAGE_LENGTH);
                     buf.writeUtf(packet.clientLocale(), 32);
                     buf.writeUtf(packet.aiLocaleOverride(), 32);
                 },
-                buf -> new C2SSendChatPacket(buf.readVarInt(), buf.readUtf(256), buf.readUtf(32), buf.readUtf(32)),
+                buf -> new C2SSendChatPacket(buf.readVarInt(), buf.readUtf(MAX_CHAT_MESSAGE_LENGTH), buf.readUtf(32), buf.readUtf(32)),
                 (packet, context) -> context.get().queue(() -> {
                     ServerPlayer player = (ServerPlayer) context.get().getPlayer();
                     if (packet.protocolVersion() != PROTOCOL_VERSION) {
@@ -418,6 +420,22 @@ public final class ChatAENetwork {
             return;
         }
         saved.setData(SESSIONS.exportForSave());
+    }
+
+    public static void appendMessageAndBroadcast(UUID sessionId, ChatMessage message) {
+        if (sessionId == null || message == null) {
+            return;
+        }
+        MinecraftServer server = SERVER.get();
+        if (server == null) {
+            SESSIONS.appendMessage(sessionId, message);
+            return;
+        }
+        server.execute(() -> {
+            SESSIONS.appendMessage(sessionId, message);
+            persistSessions();
+            broadcastSessionSnapshot(sessionId);
+        });
     }
 
     public static void sendChatToServer(String text, String clientLocale, String aiLocaleOverride) {
@@ -1055,10 +1073,7 @@ public final class ChatAENetwork {
 
         if (outcome.result() != null) {
             // Append tool result to session
-            String payload = outcome.result().payloadJson();
-            if (payload == null && outcome.result().error() != null) {
-                payload = "Error: " + outcome.result().error().message();
-            }
+            String payload = ToolMessagePayload.wrap(proposal.toolCall(), outcome.result());
             if (payload != null && !payload.isBlank()) {
                 SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
             }

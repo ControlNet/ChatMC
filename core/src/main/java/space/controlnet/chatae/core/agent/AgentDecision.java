@@ -3,6 +3,7 @@ package space.controlnet.chatae.core.agent;
 import space.controlnet.chatae.core.tools.ToolCall;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -12,9 +13,13 @@ import java.util.Optional;
 public record AgentDecision(
         AgentAction action,
         Optional<String> thinking,
-        Optional<ToolCall> toolCall,
+        List<ToolCall> toolCalls,
         Optional<String> response
 ) implements Serializable {
+    public AgentDecision {
+        toolCalls = toolCalls == null ? List.of() : List.copyOf(toolCalls);
+    }
+
     public enum AgentAction {
         TOOL_CALL,
         RESPOND
@@ -24,12 +29,18 @@ public record AgentDecision(
      * Create a decision to call a tool.
      */
     public static AgentDecision toolCall(ToolCall call, String thinking) {
+        return toolCalls(List.of(call), thinking);
+    }
+
+    /**
+     * Create a decision to call multiple tools.
+     */
+    public static AgentDecision toolCalls(List<ToolCall> calls, String thinking) {
         return new AgentDecision(
                 AgentAction.TOOL_CALL,
                 Optional.ofNullable(thinking),
-                Optional.of(call),
-                Optional.empty()
-        );
+                calls,
+                Optional.empty());
     }
 
     /**
@@ -39,7 +50,7 @@ public record AgentDecision(
         return new AgentDecision(
                 AgentAction.RESPOND,
                 Optional.ofNullable(thinking),
-                Optional.empty(),
+                List.of(),
                 Optional.of(response)
         );
     }
