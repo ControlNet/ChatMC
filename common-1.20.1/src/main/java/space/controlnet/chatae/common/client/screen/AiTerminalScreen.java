@@ -401,82 +401,72 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         drawScaledString(guiGraphics, this.font.plainSubstrByWidth(hint, Math.max(1, this.inputW - 8)), hintX, hintY, COLOR_TEXT_DIM, false);
     }
 
-    private void renderChatLog(GuiGraphics guiGraphics) {
-        int lineHeight = scaledLineHeight();
-        int visibleLines = Math.max(1, (this.chatH - 4) / Math.max(1, lineHeight));
-        int totalLines = this.wrappedLines.size();
+        private void renderChatLog(GuiGraphics guiGraphics) {
+            int lineHeight = scaledLineHeight();
+            int spacing = 2;
 
-        int baseStart = Math.max(0, totalLines - visibleLines);
-        int maxScroll = baseStart;
-        this.scrollOffsetLines = clamp(this.scrollOffsetLines, 0, maxScroll);
+            guiGraphics.enableScissor(this.chatX + 1, this.chatY + 1, this.chatX + this.chatW - 1, this.chatY + this.chatH - 1);
 
-        int startIndex = Math.max(0, baseStart - this.scrollOffsetLines);
-        int endIndex = Math.min(totalLines, startIndex + visibleLines);
+            int currentY = this.chatY + 4;
 
-        guiGraphics.enableScissor(this.chatX + 1, this.chatY + 1, this.chatX + this.chatW - 1, this.chatY + this.chatH - 1);
+            for (ChatMessage message : this.messages) {
+                List<ChatSpan> spans = parseMessageSpans(message.text());
+                int maxWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
+                List<ChatLine> messageLines = wrapSpans(spans, maxWidth, message.role());
 
-        int y = this.chatY + 2;
-        for (int i = startIndex; i < endIndex; i++) {
-            ChatLine line = this.wrappedLines.get(i);
-            int textWidth = line.width();
-            int maxBubbleWidth = Math.max(1, this.chatW - MESSAGE_MAX_WIDTH_PAD);
-            int bubbleWidth = Math.min(maxBubbleWidth, textWidth + MESSAGE_PAD_X * 2);
-            int lineY = y;
+                if (messageLines.isEmpty()) continue;
 
-        int bubbleX;
-            int textX;
-            if (line.role() == ChatRole.USER) {
-                bubbleX = this.chatX + this.chatW - bubbleWidth - 6;
-            } else if (line.role() == ChatRole.SYSTEM) {
-                bubbleX = this.chatX + (this.chatW - bubbleWidth) / 2;
-            } else {
-                bubbleX = this.chatX + 6;
-            }
-            textX = bubbleX + MESSAGE_PAD_X;
+                int totalTextHeight = messageLines.size() * lineHeight + (messageLines.size() - 1) * spacing;
+                int bubbleH = totalTextHeight + (MESSAGE_PAD_Y * 2);
 
-            if (!line.isMeta() && line.role() != ChatRole.SYSTEM) {
-                int bubbleY = lineY - MESSAGE_PAD_Y;
-                int bubbleH = lineHeight + (MESSAGE_PAD_Y * 2);
-                int bgColor = line.role() == ChatRole.USER ? 0x336B2FB5 : 0x662A2A2A;
-                int borderColor = line.role() == ChatRole.USER ? COLOR_PRIMARY_FLUIX : COLOR_ACCENT_CYAN;
-                guiGraphics.fill(bubbleX, bubbleY, bubbleX + bubbleWidth, bubbleY + bubbleH, bgColor);
-                guiGraphics.renderOutline(bubbleX, bubbleY, bubbleWidth, bubbleH, borderColor);
-                if (line.role() == ChatRole.ASSISTANT) {
-                    guiGraphics.fill(bubbleX, bubbleY, bubbleX + 2, bubbleY + bubbleH, COLOR_ACCENT_CYAN);
+                int maxLineWidth = 0;
+                for (ChatLine line : messageLines) {
+                    maxLineWidth = Math.max(maxLineWidth, line.width());
                 }
-            }
+                int bubbleW = maxLineWidth + (MESSAGE_PAD_X * 2);
 
-            int textColor = line.role() == ChatRole.SYSTEM || line.isMeta() ? COLOR_TEXT_DIM : COLOR_TEXT_MAIN;
-            int drawX = textX;
-            if (line.isMeta()) {
-                if (line.role() == ChatRole.USER) {
-                    drawX = this.chatX + this.chatW - textWidth - 10;
-                } else if (line.role() == ChatRole.SYSTEM) {
-                    drawX = this.chatX + (this.chatW - textWidth) / 2;
+                int bubbleX;
+                if (message.role() == ChatRole.USER) {
+                    bubbleX = this.chatX + this.chatW - bubbleW - 10;
+                } else if (message.role() == ChatRole.SYSTEM) {
+                    bubbleX = this.chatX + (this.chatW - bubbleW) / 2;
                 } else {
-                    drawX = this.chatX + 10;
+                    bubbleX = this.chatX + 10;
                 }
-            }
 
-            if (line.isMeta()) {
-                drawScaledString(guiGraphics, line.plainText(), drawX, lineY, textColor, false);
-            } else {
-                int tokenHeight = Math.max(12, lineHeight + 4);
-                int tokenY = lineY - (tokenHeight - lineHeight) / 2;
-                for (ChatSpan span : line.spans()) {
-                    if (span.token() != null) {
-                        renderTokenPill(guiGraphics, span.token(), drawX, tokenY, span.width(), tokenHeight);
-                    } else {
-                        drawScaledString(guiGraphics, span.text(), drawX, lineY, textColor, false);
+                if (message.role() != ChatRole.SYSTEM) {
+                    int bgColor = message.role() == ChatRole.USER ? 0x336B2FB5 : 0x662A2A2A;
+                    int borderColor = message.role() == ChatRole.USER ? COLOR_PRIMARY_FLUIX : COLOR_ACCENT_CYAN;
+                    guiGraphics.fill(bubbleX, currentY, bubbleX + bubbleW, currentY + bubbleH, bgColor);
+                    guiGraphics.renderOutline(bubbleX, currentY, bubbleW, bubbleH, borderColor);
+                    if (message.role() == ChatRole.ASSISTANT) {
+                        guiGraphics.fill(bubbleX, currentY, bubbleX + 2, currentY + bubbleH, COLOR_ACCENT_CYAN);
                     }
-                    drawX += span.width();
                 }
-            }
-            y += lineHeight + (line.isMeta() ? 4 : 0);
-        }
 
-        guiGraphics.disableScissor();
-    }
+                int textY = currentY + MESSAGE_PAD_Y;
+                for (ChatLine line : messageLines) {
+                    int drawX = bubbleX + MESSAGE_PAD_X;
+                    for (ChatSpan span : line.spans()) {
+                        if (span.token() != null) {
+                            renderTokenPill(guiGraphics, span.token(), drawX, textY - 2, span.width(), lineHeight + 4);
+                        } else {
+                            drawScaledString(guiGraphics, span.text(), drawX, textY, COLOR_TEXT_MAIN, false);
+                        }
+                        drawX += span.width();
+                    }
+                    textY += lineHeight + spacing;
+                }
+
+                String timestamp = formatMessageTimestamp(message.timestampMillis());
+                int timeX = (message.role() == ChatRole.USER) ? bubbleX + bubbleW - scaledWidth(timestamp) : bubbleX;
+                drawScaledString(guiGraphics, timestamp, timeX, currentY + bubbleH + 2, COLOR_TEXT_DIM, false);
+
+                currentY += bubbleH + 12;
+            }
+
+            guiGraphics.disableScissor();
+        }
 
     private void renderInputTokens(GuiGraphics guiGraphics) {
         if (this.inputBox == null || this.inputTokens.isEmpty()) {
@@ -526,14 +516,21 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         guiGraphics.renderOutline(x, y, width, height, outline);
 
         ItemStack stack = new ItemStack(token.item());
-        int iconX = x + TOKEN_PADDING_X;
-        int iconY = y + (height - TOKEN_ICON_SIZE) / 2;
-        guiGraphics.renderItem(stack, iconX, iconY);
 
-        int textX = iconX + TOKEN_ICON_SIZE + TOKEN_TEXT_GAP;
-        int nameMaxWidth = Math.max(1, width - TOKEN_PADDING_X - TOKEN_ICON_SIZE - TOKEN_TEXT_GAP - TOKEN_PADDING_X);
-        String label = this.font.plainSubstrByWidth(token.displayName(), nameMaxWidth);
-        int textY = y + (height - this.font.lineHeight) / 2 + 1;
+        float iconScale = FONT_SCALE;
+        int iconSize = Math.round(16 * iconScale);
+        int iconX = x + 2;
+        int iconY = y + (height - iconSize) / 2;
+
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(iconX, iconY, 0);
+        guiGraphics.pose().scale(iconScale, iconScale, 1.0f);
+        guiGraphics.renderItem(stack, 0, 0);
+        guiGraphics.pose().popPose();
+
+        int textX = iconX + iconSize + 2;
+        int textY = y + (height - Math.round(this.font.lineHeight * FONT_SCALE)) / 2;
+        String label = token.displayName();
         drawScaledString(guiGraphics, label, textX, textY, token.color(), false);
     }
 
@@ -720,7 +717,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (isWithinChat(mouseX, mouseY) && !this.wrappedLines.isEmpty()) {
-            int direction = delta > 0 ? -1 : 1;
+            int direction = delta > 0 ? 1 : -1;
             this.scrollOffsetLines = this.scrollOffsetLines + direction;
             return true;
         }
@@ -1620,8 +1617,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private TokenMetrics measureToken(ItemToken token) {
-        int textWidth = this.font.width("@" + token.displayName());
-        int width = TOKEN_PADDING_X + TOKEN_ICON_SIZE + TOKEN_TEXT_GAP + textWidth + TOKEN_PADDING_X;
+        int textWidth = scaledWidth(token.displayName());
+        int width = 2 + 10 + 2 + textWidth;
         return new TokenMetrics(width);
     }
 

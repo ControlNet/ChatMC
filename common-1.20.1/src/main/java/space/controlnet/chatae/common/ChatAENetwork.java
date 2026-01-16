@@ -272,6 +272,17 @@ public final class ChatAENetwork {
         SESSION_BY_VIEWER.clear();
     }
 
+    public static Optional<ServerPlayer> findPlayer(UUID playerId) {
+        if (playerId == null) {
+            return Optional.empty();
+        }
+        MinecraftServer server = SERVER.get();
+        if (server == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(server.getPlayerList().getPlayer(playerId));
+    }
+
     public static void updateLlmCooldown(long cooldownMillis) {
         if (cooldownMillis < 0) {
             return;

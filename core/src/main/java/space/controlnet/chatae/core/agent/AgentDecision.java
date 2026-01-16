@@ -2,6 +2,7 @@ package space.controlnet.chatae.core.agent;
 
 import space.controlnet.chatae.core.tools.ToolCall;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 /**
@@ -13,7 +14,7 @@ public record AgentDecision(
         Optional<String> thinking,
         Optional<ToolCall> toolCall,
         Optional<String> response
-) {
+) implements Serializable {
     public enum AgentAction {
         TOOL_CALL,
         RESPOND

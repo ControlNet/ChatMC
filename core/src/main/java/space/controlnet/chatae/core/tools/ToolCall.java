@@ -1,4 +1,6 @@
 package space.controlnet.chatae.core.tools;
 
-public record ToolCall(String toolName, String argsJson) {
+import java.io.Serializable;
+
+public record ToolCall(String toolName, String argsJson) implements Serializable {
 }

@@ -32,7 +32,7 @@ public record LlmConfig(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Duration.ofSeconds(5),
+                Duration.ofSeconds(60),
                 2,
                 0L,
                 true,

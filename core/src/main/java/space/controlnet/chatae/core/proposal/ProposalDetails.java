@@ -1,5 +1,6 @@
 package space.controlnet.chatae.core.proposal;
 
+import java.io.Serializable;
 import java.util.List;
 
 public record ProposalDetails(
@@ -8,7 +9,7 @@ public record ProposalDetails(
         long count,
         List<String> missingItems,
         String note
-) {
+) implements Serializable {
     public ProposalDetails {
         action = action == null ? "" : action;
         itemId = itemId == null ? "" : itemId;

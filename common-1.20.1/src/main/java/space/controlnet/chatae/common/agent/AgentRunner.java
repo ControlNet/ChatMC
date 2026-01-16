@@ -20,6 +20,7 @@ import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -54,34 +55,34 @@ public final class AgentRunner {
      * Run the agent loop for a user message.
      */
     public AgentLoopResult runLoop(ServerPlayer player, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
-        AgentPlayerContext playerContext = new McPlayerContext(player);
-        AgentSessionContext sessionContext = new McSessionContext(player);
+        AgentPlayerContext playerContext = new McPlayerContext(player.getUUID(), player.getGameProfile().getName());
+        AgentSessionContext sessionContext = new McSessionContext(player.getUUID());
         return agentLoop.runLoop(playerContext, sessionId, binding, effectiveLocale, sessionContext);
     }
 
     /**
      * MC-specific player context implementation.
      */
-    private record McPlayerContext(ServerPlayer player) implements AgentPlayerContext {
+    private record McPlayerContext(UUID playerId, String playerName) implements AgentPlayerContext, Serializable {
         @Override
         public UUID getPlayerId() {
-            return player.getUUID();
+            return playerId;
         }
 
         @Override
         public String getPlayerName() {
-            return player.getGameProfile().getName();
+            return playerName;
         }
     }
 
     /**
      * MC-specific session context implementation.
      */
-    private static final class McSessionContext implements AgentSessionContext {
-        private final ServerPlayer player;
+    private static final class McSessionContext implements AgentSessionContext, Serializable {
+        private final UUID playerId;
 
-        McSessionContext(ServerPlayer player) {
-            this.player = player;
+        McSessionContext(UUID playerId) {
+            this.playerId = playerId;
         }
 
         @Override
@@ -96,7 +97,8 @@ public final class AgentRunner {
 
         @Override
         public Optional<TerminalContext> getTerminal(AgentPlayerContext playerCtx) {
-            return TerminalContextFactory.fromPlayer(player);
+            return ChatAENetwork.findPlayer(playerId)
+                    .flatMap(TerminalContextFactory::fromPlayer);
         }
 
         @Override

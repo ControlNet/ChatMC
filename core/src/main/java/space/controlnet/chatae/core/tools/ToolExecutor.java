@@ -1,12 +1,12 @@
 package space.controlnet.chatae.core.tools;
 
-import com.google.gson.Gson;
 import space.controlnet.chatae.core.policy.PolicyDecision;
 import space.controlnet.chatae.core.policy.RiskLevel;
 import space.controlnet.chatae.core.proposal.Proposal;
 import space.controlnet.chatae.core.proposal.ProposalFactory;
 import space.controlnet.chatae.core.recipes.RecipeSearchFilters;
 import space.controlnet.chatae.core.terminal.TerminalContext;
+import space.controlnet.chatae.core.util.JsonSupport;
 
 import java.util.Optional;
 
@@ -15,7 +15,7 @@ import java.util.Optional;
  * This class contains the pure tool dispatch logic without MC dependencies.
  */
 public final class ToolExecutor {
-    private static final Gson GSON = new Gson();
+    private static final com.google.gson.Gson GSON = JsonSupport.GSON;
 
     private ToolExecutor() {
     }

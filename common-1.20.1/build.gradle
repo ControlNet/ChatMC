@@ -18,19 +18,19 @@ dependencies {
     minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
     mappings loom.officialMojangMappings()
 
-    api project(":core")
+    compileOnly project(":core")
 
     // Fabric loader only for annotations/mixin deps; do not call loader APIs from common.
-    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modCompileOnly "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
 
     // Architectury common
-    modImplementation "dev.architectury:architectury:${rootProject.architectury_version}"
+    modCompileOnly "dev.architectury:architectury:${rootProject.architectury_version}"
 
     // AE2 API (common uses the API types).
     // Match ae2_pattern_counter: use Fabric AE2 in common for access widener support.
-    modImplementation "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    modCompileOnly "appeng:appliedenergistics2-fabric:${rootProject.ae2_version}"
+    modCompileOnly "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
 
     // LangChain4j + LangGraph4j (agent orchestration)
-    addAgentDeps(dependencies, "implementation")
+    addAgentDeps(dependencies, "compileOnly")
 }

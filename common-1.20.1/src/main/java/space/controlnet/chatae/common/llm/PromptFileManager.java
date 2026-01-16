@@ -8,13 +8,21 @@ import space.controlnet.chatae.common.ChatAE;
 import space.controlnet.chatae.core.agent.PromptId;
 import space.controlnet.chatae.core.agent.PromptStore;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+
+import static space.controlnet.chatae.common.ChatAE.MOD_ID;
 
 public final class PromptFileManager {
     private static final String PROMPT_DIR = "chatae/prompts";
@@ -58,6 +66,9 @@ public final class PromptFileManager {
             }
         } catch (Exception e) {
             ChatAE.LOGGER.warn("Failed to enumerate language resources", e);
+        }
+        if (locales.isEmpty()) {
+            locales.addAll(discoverLocalesFromClasspath());
         }
         if (locales.isEmpty()) {
             locales.add("en_us");
@@ -117,6 +128,18 @@ public final class PromptFileManager {
 
     @SuppressWarnings("unchecked")
     private static String resolveLangEntry(MinecraftServer server, String locale, String key) {
+        Map<String, String> map = readLangMapFromServer(server, locale);
+        if (map == null) {
+            map = readLangMapFromClasspath(locale);
+        }
+        if (map == null) {
+            return null;
+        }
+        return map.get(key);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> readLangMapFromServer(MinecraftServer server, String locale) {
         if (server == null) {
             return null;
         }
@@ -128,15 +151,91 @@ public final class PromptFileManager {
                 return null;
             }
             try (InputStream in = resource.get().open()) {
-                Map<String, String> map = new Gson().fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), Map.class);
-                if (map == null) {
-                    return null;
-                }
-                return map.get(key);
+                return new Gson().fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), Map.class);
             }
         } catch (Exception e) {
-            ChatAE.LOGGER.warn("Failed to read lang entry {}:{}", locale, key, e);
+            ChatAE.LOGGER.warn("Failed to read lang entry {} from server resources", locale, e);
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> readLangMapFromClasspath(String locale) {
+        String path = "assets/chatae/lang/" + locale + ".json";
+        try (InputStream in = PromptFileManager.class.getClassLoader().getResourceAsStream(path)) {
+            if (in == null) {
+                return null;
+            }
+            return new Gson().fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), Map.class);
+        } catch (Exception e) {
+            ChatAE.LOGGER.warn("Failed to read lang entry {} from classpath", locale, e);
+            return null;
+        }
+    }
+
+    private static Set<String> discoverLocalesFromClasspath() {
+        Set<String> locales = new HashSet<>();
+        Enumeration<URL> resources;
+        try {
+            resources = PromptFileManager.class.getClassLoader().getResources("assets/" + MOD_ID + "/lang");
+        } catch (IOException e) {
+            ChatAE.LOGGER.warn("Failed to enumerate classpath language resources", e);
+            return locales;
+        }
+
+        while (resources.hasMoreElements()) {
+            URL url = resources.nextElement();
+            String protocol = url.getProtocol();
+            if ("file".equals(protocol)) {
+                try {
+                    File dir = new File(url.toURI());
+                    File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
+                    if (files == null) {
+                        continue;
+                    }
+                    for (File file : files) {
+                        String name = file.getName();
+                        locales.add(name.substring(0, name.length() - ".json".length()));
+                    }
+                } catch (URISyntaxException e) {
+                    ChatAE.LOGGER.warn("Failed to read lang directory {}", url, e);
+                }
+            } else if ("jar".equals(protocol)) {
+                try {
+                    JarURLConnection connection = (JarURLConnection) url.openConnection();
+                    try (JarFile jar = connection.getJarFile()) {
+                        Enumeration<JarEntry> entries = jar.entries();
+                        while (entries.hasMoreElements()) {
+                            JarEntry entry = entries.nextElement();
+                            String name = entry.getName();
+                            if (name.startsWith("assets/chatae/lang/") && name.endsWith(".json")) {
+                                String locale = name.substring("assets/chatae/lang/".length(), name.length() - ".json".length());
+                                locales.add(locale);
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    ChatAE.LOGGER.warn("Failed to read lang resources from jar {}", url, e);
+                }
+            } else {
+                try {
+                    Path dir = Path.of(url.toURI());
+                    if (!Files.isDirectory(dir)) {
+                        continue;
+                    }
+                    try (var stream = Files.list(dir)) {
+                        stream.filter(path -> path.getFileName().toString().endsWith(".json"))
+                                .forEach(path -> {
+                                    String name = path.getFileName().toString();
+                                    locales.add(name.substring(0, name.length() - ".json".length()));
+                                });
+                    }
+                } catch (Exception e) {
+                    ChatAE.LOGGER.warn("Failed to read lang resources from {}", url, e);
+                }
+            }
+        }
+
+        return locales;
     }
 }

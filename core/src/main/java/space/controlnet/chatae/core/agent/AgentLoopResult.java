@@ -2,6 +2,7 @@ package space.controlnet.chatae.core.agent;
 
 import space.controlnet.chatae.core.proposal.Proposal;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 /**
@@ -14,7 +15,7 @@ public record AgentLoopResult(
         Optional<String> finalResponse,
         Optional<String> error,
         int iterationsUsed
-) {
+) implements Serializable {
     /**
      * Create a successful result with a proposal requiring approval.
      */
