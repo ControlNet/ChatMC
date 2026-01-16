@@ -82,6 +82,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
     private static final float TITLE_FONT_SCALE = 0.9f;
     private static final float FONT_SCALE = 0.5f;
+    private static final float TOOLTIP_FONT_SCALE = 0.7f;
 
     private static final int COLOR_BG_DARK = 0xFF0B0B0D;
     private static final int COLOR_BG_PANEL = 0xFF151518;
@@ -1769,7 +1770,48 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (error != null && !error.isBlank()) {
             lines.add(Component.literal("Error: " + error));
         }
-        guiGraphics.renderTooltip(this.font, lines, Optional.empty(), mouseX, mouseY);
+        renderScaledTooltip(guiGraphics, lines, mouseX, mouseY);
+    }
+
+    private void renderScaledTooltip(GuiGraphics guiGraphics, List<Component> lines, int mouseX, int mouseY) {
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
+        int padding = 4;
+        int maxWidth = 0;
+        for (Component line : lines) {
+            maxWidth = Math.max(maxWidth, this.font.width(line));
+        }
+        int lineHeight = this.font.lineHeight;
+        int boxW = maxWidth + padding * 2;
+        int boxH = lineHeight * lines.size() + padding * 2;
+
+        float scale = TOOLTIP_FONT_SCALE;
+        int x = mouseX + 8;
+        int y = mouseY + 8;
+
+        int scaledX = Math.round(x / scale);
+        int scaledY = Math.round(y / scale);
+        int maxX = Math.round(this.width / scale);
+        int maxY = Math.round(this.height / scale);
+        if (scaledX + boxW > maxX) {
+            scaledX = Math.max(2, maxX - boxW - 2);
+        }
+        if (scaledY + boxH > maxY) {
+            scaledY = Math.max(2, maxY - boxH - 2);
+        }
+
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().scale(scale, scale, 1.0f);
+        guiGraphics.fill(scaledX, scaledY, scaledX + boxW, scaledY + boxH, 0xF0100010);
+        guiGraphics.renderOutline(scaledX, scaledY, boxW, boxH, COLOR_BORDER);
+        int textX = scaledX + padding;
+        int textY = scaledY + padding;
+        for (Component line : lines) {
+            guiGraphics.drawString(this.font, line, textX, textY, COLOR_TEXT_MAIN, false);
+            textY += lineHeight;
+        }
+        guiGraphics.pose().popPose();
     }
 
     private ItemToken buildItemToken(String itemId, String displayName) {
