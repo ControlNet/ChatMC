@@ -14,6 +14,7 @@ import space.controlnet.chatae.core.session.ChatRole;
 import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.TerminalBinding;
 import space.controlnet.chatae.core.terminal.TerminalContext;
+import space.controlnet.chatae.core.tools.AgentTool;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 import space.controlnet.chatae.core.tools.ToolMessagePayload;
@@ -49,7 +50,7 @@ public final class AgentLoop {
     private static final String KEY_RESULT = "result";
     private static final String KEY_CONTEXT = "context";
 
-    private static final String TOOL_LIST = String.join(", ",
+    private static final String TOOL_LIST_FALLBACK = String.join(", ",
             "mc.find_recipes",
             "mc.find_usage",
             "ae2.list_items",
@@ -61,7 +62,7 @@ public final class AgentLoop {
             "response"
     );
 
-    private static final String ARGS_SCHEMA = "- mc.find_recipes: {itemId, pageToken?, limit}\n"
+    private static final String ARGS_SCHEMA_FALLBACK = "- mc.find_recipes: {itemId, pageToken?, limit}\n"
             + "- mc.find_usage: {itemId, pageToken?, limit}\n"
             + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
             + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
@@ -245,9 +246,12 @@ public final class AgentLoop {
         String history = ConversationHistoryBuilder.build(messages, maxHistoryMessages.get());
 
         // Render prompt
+        List<AgentTool> tools = ctx.getToolSpecs();
+        ToolPrompt promptData = buildToolPrompt(tools);
         Map<String, String> variables = new HashMap<>();
-        variables.put("tool_list", TOOL_LIST);
-        variables.put("args_schema", ARGS_SCHEMA);
+        variables.put("tool_list", promptData.toolList());
+        variables.put("args_schema", promptData.argsSchema());
+        variables.put("tools_section", promptData.toolsSection());
         variables.put("effectiveLocale", locale);
         variables.put("conversation_history", history);
 
@@ -267,6 +271,108 @@ public final class AgentLoop {
                 KEY_DECISION, DecisionState.fromDecision(d),
                 KEY_ITERATION, iteration + 1
         );
+    }
+
+    private static ToolPrompt buildToolPrompt(List<AgentTool> tools) {
+        if (tools == null || tools.isEmpty()) {
+            return new ToolPrompt(TOOL_LIST_FALLBACK, ARGS_SCHEMA_FALLBACK, "");
+        }
+
+        String toolList = tools.stream()
+                .map(AgentTool::name)
+                .reduce((a, b) -> a + ", " + b)
+                .orElse(TOOL_LIST_FALLBACK);
+
+        String argsSchema = tools.stream()
+                .map(tool -> "- " + tool.name() + ": " + tool.argsSchema())
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse(ARGS_SCHEMA_FALLBACK);
+
+        String toolsSection = tools.stream()
+                .map(AgentLoop::buildToolSection)
+                .filter(section -> !section.isBlank())
+                .reduce((a, b) -> a + "\n\n" + b)
+                .orElse("");
+
+        return new ToolPrompt(toolList, argsSchema, toolsSection);
+    }
+
+    private static String buildSection(String toolName, String header, List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append(header);
+        for (String line : lines) {
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            builder.append("\n  - ").append(line);
+        }
+        return builder.toString();
+    }
+
+    private static String buildReturnSection(AgentTool tool) {
+        if (tool == null) {
+            return "";
+        }
+        String schema = tool.resultSchema();
+        List<String> details = tool.resultDescription();
+        if ((schema == null || schema.isBlank()) && (details == null || details.isEmpty())) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("Return Details:");
+        if (schema != null && !schema.isBlank()) {
+            builder.append("\n  - ").append(schema);
+        }
+        if (details != null && !details.isEmpty()) {
+            for (String line : details) {
+                if (line == null || line.isBlank()) {
+                    continue;
+                }
+                builder.append("\n  - ").append(line);
+            }
+        }
+        return builder.toString();
+    }
+
+    private record ToolPrompt(
+            String toolList,
+            String argsSchema,
+            String toolsSection
+    ) {
+    }
+
+    private static String buildToolSection(AgentTool tool) {
+        if (tool == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("### ").append(tool.name()).append("\n\n");
+        builder.append("Description:\n");
+        builder.append(tool.description() == null ? "" : tool.description()).append("\n\n");
+        builder.append("Arguments Schema:\n");
+        builder.append(tool.argsSchema() == null ? "" : tool.argsSchema()).append("\n\n");
+        String argsDetails = buildSection(tool.name(), "Arguments Details:", tool.argsDescription());
+        if (!argsDetails.isBlank()) {
+            builder.append(argsDetails).append("\n\n");
+        } else {
+            builder.append("Arguments Details:\n  - (none)\n\n");
+        }
+        String returns = buildReturnSection(tool);
+        if (!returns.isBlank()) {
+            builder.append(returns).append("\n\n");
+        } else {
+            builder.append("Return Details:\n  - (none)\n\n");
+        }
+        String examples = buildSection(tool.name(), "Examples:", tool.examples());
+        if (!examples.isBlank()) {
+            builder.append(examples);
+        } else {
+            builder.append("Examples:\n  - (none)");
+        }
+        return builder.toString().trim();
     }
 
     /**

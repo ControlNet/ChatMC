@@ -7,7 +7,9 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
+import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
 
 public final class LlmModelFactory {
@@ -44,7 +46,7 @@ public final class LlmModelFactory {
         config.baseUrl().filter(value -> !value.isBlank()).ifPresent(builder::baseUrl);
         config.temperature().ifPresent(builder::temperature);
         config.topP().ifPresent(builder::topP);
-        config.maxTokens().ifPresent(builder::maxTokens);
+        applyOpenAiMaxTokens(builder, config.maxTokens(), config.model());
         if (config.logRequests()) {
             builder.logRequests(true);
         }
@@ -79,7 +81,7 @@ public final class LlmModelFactory {
         }
         config.temperature().ifPresent(builder::temperature);
         config.topP().ifPresent(builder::topP);
-        config.maxTokens().ifPresent(builder::maxTokens);
+        applyOpenAiMaxTokens(builder, config.maxTokens(), config.model());
         if (config.logRequests()) {
             builder.logRequestsAndResponses(true);
         }
@@ -170,5 +172,46 @@ public final class LlmModelFactory {
             return value == null ? "" : value;
         }
         return "";
+    }
+
+    private static void applyOpenAiMaxTokens(Object builder, Optional<Integer> maxTokens, String modelName) {
+        if (builder == null || maxTokens == null || maxTokens.isEmpty()) {
+            return;
+        }
+        int value = maxTokens.get();
+        if (invokeIntSetter(builder, "maxCompletionTokens", value)) {
+            return;
+        }
+        if (isGpt5Model(modelName)) {
+            return;
+        }
+        invokeIntSetter(builder, "maxTokens", value);
+    }
+
+    private static boolean isGpt5Model(String modelName) {
+        if (modelName == null) {
+            return false;
+        }
+        return modelName.toLowerCase(Locale.ROOT).contains("gpt-5");
+    }
+
+    private static boolean invokeIntSetter(Object target, String methodName, int value) {
+        try {
+            Method method = target.getClass().getMethod(methodName, int.class);
+            method.invoke(target, value);
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            try {
+                Method method = target.getClass().getMethod(methodName, Integer.class);
+                method.invoke(target, value);
+                return true;
+            } catch (NoSuchMethodException ignored2) {
+                return false;
+            } catch (Exception ignored2) {
+                return false;
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 }

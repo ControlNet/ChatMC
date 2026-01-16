@@ -33,7 +33,7 @@ public record LlmConfig(
                 Optional.of("CHATAE_OPENAI_API_KEY"),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(128000),
                 Duration.ofSeconds(180),
                 10,
                 0L,

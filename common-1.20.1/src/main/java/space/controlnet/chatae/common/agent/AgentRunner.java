@@ -6,6 +6,7 @@ import space.controlnet.chatae.common.ChatAENetwork;
 import space.controlnet.chatae.common.audit.AuditLogger;
 import space.controlnet.chatae.common.llm.PromptRuntime;
 import space.controlnet.chatae.common.terminal.TerminalContextFactory;
+import space.controlnet.chatae.common.tools.AgentToolRegistry;
 import space.controlnet.chatae.common.tools.ToolRouter;
 import space.controlnet.chatae.core.agent.AgentLoop;
 import space.controlnet.chatae.core.agent.AgentLoopResult;
@@ -149,6 +150,11 @@ public final class AgentRunner {
         @Override
         public ToolOutcome executeTool(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
             return ToolRouter.execute(terminal, call, approved);
+        }
+
+        @Override
+        public java.util.List<space.controlnet.chatae.core.tools.AgentTool> getToolSpecs() {
+            return AgentToolRegistry.all();
         }
 
         @Override

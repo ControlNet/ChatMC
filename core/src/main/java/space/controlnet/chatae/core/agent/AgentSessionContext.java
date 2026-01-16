@@ -35,6 +35,11 @@ public interface AgentSessionContext {
     ToolOutcome executeTool(Optional<TerminalContext> terminal, ToolCall call, boolean approved);
 
     /**
+     * Gets the available tool specifications.
+     */
+    java.util.List<space.controlnet.chatae.core.tools.AgentTool> getToolSpecs();
+
+    /**
      * Renders a prompt template.
      */
     String renderPrompt(PromptId promptId, String locale, java.util.Map<String, String> variables);

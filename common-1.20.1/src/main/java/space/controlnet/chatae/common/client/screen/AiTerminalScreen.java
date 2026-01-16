@@ -18,6 +18,8 @@ import org.jetbrains.annotations.NotNull;
 import space.controlnet.chatae.common.ChatAENetwork;
 import space.controlnet.chatae.common.menu.AiTerminalMenu;
 import space.controlnet.chatae.common.team.TeamAccess;
+import space.controlnet.chatae.common.tools.AgentToolRegistry;
+import space.controlnet.chatae.common.tools.ToolOutputFormatter;
 import space.controlnet.chatae.core.client.ClientSessionIndex;
 import space.controlnet.chatae.core.client.ClientSessionStore;
 import space.controlnet.chatae.core.proposal.ApprovalDecision;
@@ -30,6 +32,9 @@ import space.controlnet.chatae.core.session.SessionSnapshot;
 import space.controlnet.chatae.core.session.SessionState;
 import space.controlnet.chatae.core.session.SessionSummary;
 import space.controlnet.chatae.core.session.SessionVisibility;
+import space.controlnet.chatae.core.tools.AgentTool;
+import space.controlnet.chatae.core.tools.ToolPayload;
+import space.controlnet.chatae.core.tools.ToolRender;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -473,7 +478,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             if (message.role() == ChatRole.TOOL
                     && mouseX >= bubbleX && mouseX < bubbleX + bubbleW
                     && mouseY >= currentY && mouseY < currentY + bubbleH) {
-                this.hoveredToolPayload = parseToolPayload(message.text());
+                this.hoveredToolPayload = ToolOutputFormatter.parsePayload(message.text());
             }
 
             int textY = currentY + MESSAGE_PAD_Y;
@@ -1323,174 +1328,58 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private String formatToolText(String raw) {
-        ToolPayload payload = parseToolPayload(raw);
+        ToolPayload payload = ToolOutputFormatter.parsePayload(raw);
         if (payload != null && payload.tool() != null) {
-            List<String> lines = new ArrayList<>();
-            String summary = formatToolSummary(payload);
-            if (summary != null && !summary.isBlank()) {
-                lines.add(summary);
-            }
-            if (payload.error() != null && !payload.error().isBlank()) {
-                lines.add(Component.translatable("ui.chatae.tool.error", payload.error()).getString());
-            }
-            if (payload.outputJson() != null && !payload.outputJson().isBlank()) {
-                lines.addAll(formatToolLines(payload.outputJson()));
-            }
-            if (!lines.isEmpty()) {
-                return String.join("\n", lines);
+            AgentTool tool = AgentToolRegistry.get(payload.tool());
+            ToolRender render = tool == null ? null : tool.render(payload);
+            String formatted = buildToolText(payload, render);
+            if (formatted != null && !formatted.isBlank()) {
+                return formatted;
             }
         }
-        List<String> lines = formatToolLines(raw);
+        List<String> lines = ToolOutputFormatter.formatLines(raw);
         if (lines.isEmpty()) {
             return raw == null ? "" : raw;
         }
         return String.join("\n", lines);
     }
 
-    private String formatToolSummary(ToolPayload payload) {
-        String tool = payload.tool();
-        if (tool == null || tool.isBlank()) {
-            return null;
-        }
-        JsonObject args = parseJsonObject(payload.argsJson());
-        String fallback = Component.translatable("ui.chatae.tool.unknown", tool).getString();
-        return switch (tool) {
-            case "mc.find_recipes" -> Component.translatable(
-                    "ui.chatae.tool.mc.find_recipes",
-                    formatSearchTarget(args, "itemId", "itemId")).getString();
-            case "mc.find_usage" -> Component.translatable(
-                    "ui.chatae.tool.mc.find_usage",
-                    formatSearchTarget(args, "itemId", "itemId")).getString();
-            case "ae2.list_items" -> Component.translatable(
-                    "ui.chatae.tool.ae2.list_items",
-                    formatQuery(args)).getString();
-            case "ae2.list_craftables" -> Component.translatable(
-                    "ui.chatae.tool.ae2.list_craftables",
-                    formatQuerySuffix(args)).getString();
-            case "ae2.simulate_craft" -> Component.translatable(
-                    "ui.chatae.tool.ae2.simulate_craft",
-                    formatCraftTarget(args)).getString();
-            case "ae2.request_craft" -> Component.translatable(
-                    "ui.chatae.tool.ae2.request_craft",
-                    formatCraftTarget(args)).getString();
-            case "ae2.job_status" -> Component.translatable(
-                    "ui.chatae.tool.ae2.job_status",
-                    formatArg(args, "jobId")).getString();
-            case "ae2.job_cancel" -> Component.translatable(
-                    "ui.chatae.tool.ae2.job_cancel",
-                    formatArg(args, "jobId")).getString();
-            default -> fallback;
-        };
-    }
-
-    private String formatSearchTarget(JsonObject args, String itemKey, String fallbackKey) {
-        String itemId = getString(args, itemKey);
-        if (itemId != null && !itemId.isBlank()) {
-            return formatItemTag(itemId);
-        }
-        String fallback = getString(args, fallbackKey);
-        if (fallback != null && !fallback.isBlank()) {
-            return fallback;
-        }
-        return Component.translatable("ui.chatae.tool.query.empty").getString();
-    }
-
-    private String formatCraftTarget(JsonObject args) {
-        String itemId = getString(args, "itemId");
-        long count = getLong(args, "count", 1);
-        String prefix = count > 1 ? count + "x " : "";
-        if (itemId == null || itemId.isBlank()) {
-            return prefix + Component.translatable("ui.chatae.tool.query.empty").getString();
-        }
-        return prefix + formatItemTag(itemId);
-    }
-
-    private String formatArg(JsonObject args, String key) {
-        String value = getString(args, key);
-        if (value != null && !value.isBlank()) {
-            return value;
-        }
-        return Component.translatable("ui.chatae.tool.query.empty").getString();
-    }
-
-    private String formatQuery(JsonObject args) {
-        String query = getString(args, "query");
-        if (query == null || query.isBlank()) {
-            return Component.translatable("ui.chatae.tool.query.empty").getString();
-        }
-        return query;
-    }
-
-    private String formatQuerySuffix(JsonObject args) {
-        String query = getString(args, "query");
-        if (query == null || query.isBlank()) {
+    private String buildToolText(ToolPayload payload, ToolRender render) {
+        if (payload == null) {
             return "";
         }
-        return " (" + query + ")";
+        List<String> lines = new ArrayList<>();
+        String summary = formatToolSummary(payload.tool(), render);
+        if (summary != null && !summary.isBlank()) {
+            lines.add(summary);
+        }
+        if (render != null && render.error() != null && !render.error().isBlank()) {
+            lines.add(Component.translatable("ui.chatae.tool.error", render.error()).getString());
+        }
+        List<String> outputLines = render != null && !render.lines().isEmpty()
+                ? render.lines()
+                : ToolOutputFormatter.formatLines(payload.outputJson());
+        if (outputLines != null && !outputLines.isEmpty()) {
+            lines.addAll(outputLines);
+        }
+        if (lines.isEmpty()) {
+            return payload.outputJson() == null ? "" : payload.outputJson();
+        }
+        return String.join("\n", lines);
     }
 
-    private JsonObject parseJsonObject(String raw) {
-        if (raw == null || raw.isBlank()) {
+    private String formatToolSummary(String toolName, ToolRender render) {
+        if (toolName == null || toolName.isBlank()) {
             return null;
         }
-        try {
-            JsonElement element = JsonParser.parseString(raw);
-            return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
-        } catch (Exception ignored) {
-            return null;
+        if (render == null || render.summaryKey() == null || render.summaryKey().isBlank()) {
+            return Component.translatable("ui.chatae.tool.unknown", toolName).getString();
         }
-    }
-
-    private List<String> formatToolLines(String raw) {
-        String text = raw == null ? "" : raw.trim();
-        if (text.isEmpty()) {
-            return List.of();
+        List<String> args = render.summaryArgs();
+        if (args == null || args.isEmpty()) {
+            return Component.translatable(render.summaryKey()).getString();
         }
-        if ("null".equals(text)) {
-            return List.of("No result.");
-        }
-        if (!text.startsWith("{") && !text.startsWith("[")) {
-            return List.of(raw);
-        }
-        try {
-            JsonElement element = JsonParser.parseString(text);
-            if (!element.isJsonObject()) {
-                return List.of(raw);
-            }
-            JsonObject obj = element.getAsJsonObject();
-            if (obj.has("results") && obj.get("results").isJsonArray()) {
-                JsonArray results = obj.getAsJsonArray("results");
-                if (isRecipeResults(results)) {
-                    return formatRecipeSearch(results, getString(obj, "nextPageToken"));
-                }
-                if (isAe2ListResults(results)) {
-                    return formatAe2List(results, getString(obj, "nextPageToken"), getString(obj, "error"));
-                }
-            }
-            if (obj.has("recipeId") || obj.has("outputItemId")) {
-                return formatRecipeSummary(obj);
-            }
-            if (obj.has("jobId")) {
-                return formatJobStatus(obj);
-            }
-            if (obj.has("status") || obj.has("error")) {
-                List<String> lines = new ArrayList<>();
-                String status = getString(obj, "status");
-                if (status != null && !status.isBlank()) {
-                    lines.add("Status: " + status);
-                }
-                String error = getString(obj, "error");
-                if (error != null && !error.isBlank()) {
-                    lines.add("Error: " + error);
-                }
-                if (!lines.isEmpty()) {
-                    return lines;
-                }
-            }
-        } catch (Exception ignored) {
-            return List.of(raw);
-        }
-        return List.of(raw);
+        return Component.translatable(render.summaryKey(), args.toArray(new Object[0])).getString();
     }
 
     private List<String> formatRecipeSearch(JsonArray results, String nextPageToken) {
@@ -1712,43 +1601,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private ToolPayload parseToolPayload(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            JsonElement element = JsonParser.parseString(raw);
-            if (element == null || !element.isJsonObject()) {
-                return null;
-            }
-            JsonObject obj = element.getAsJsonObject();
-            if (!obj.has("tool") && !obj.has("args") && !obj.has("output") && !obj.has("error")) {
-                return null;
-            }
-            String tool = getString(obj, "tool");
-            String args = stringifyElement(obj.get("args"));
-            String output = stringifyElement(obj.get("output"));
-            String error = getString(obj, "error");
-            return new ToolPayload(tool, args, output, error);
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private static String stringifyElement(JsonElement element) {
-        if (element == null || element.isJsonNull()) {
-            return null;
-        }
-        if (element.isJsonPrimitive()) {
-            try {
-                return element.getAsString();
-            } catch (Exception ignored) {
-                return element.toString();
-            }
-        }
-        return element.toString();
     }
 
     private void renderToolTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
@@ -2450,9 +2302,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private record ItemToken(Item item, String displayName, String itemId, int color, int index) {
-    }
-
-    private record ToolPayload(String tool, String argsJson, String outputJson, String error) {
     }
 
     private static final class SessionRow {
