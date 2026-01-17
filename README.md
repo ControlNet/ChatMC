@@ -1,4 +1,4 @@
-# ChatAE (Minecraft 1.20.1) — Windows dev quickstart
+# ChatAE (Minecraft 1.20.1)
 
 ChatAE is an Applied Energistics 2 (AE2) addon mod built with Architectury (multi-loader).
 

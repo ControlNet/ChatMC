@@ -59,6 +59,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class ChatAENetwork {
+    private static final int MAX_MESSAGE_LENGTH = Integer.getInteger("chatae.maxMessageLength", 65536);
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatAERegistries.id("main"));
     private static final int PROTOCOL_VERSION = 3;
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
@@ -633,14 +634,14 @@ public final class ChatAENetwork {
         buf.writeVarInt(messages.size());
         for (ChatMessage message : messages) {
             buf.writeVarInt(message.role().ordinal());
-            buf.writeUtf(message.text(), 1024);
+            buf.writeUtf(message.text(), MAX_MESSAGE_LENGTH);
             buf.writeLong(message.timestampMillis());
         }
 
         boolean hasError = snapshot.lastError().isPresent();
         buf.writeBoolean(hasError);
         if (hasError) {
-            buf.writeUtf(snapshot.lastError().orElse(""), 1024);
+            buf.writeUtf(snapshot.lastError().orElse(""), MAX_MESSAGE_LENGTH);
         }
 
         boolean hasProposal = snapshot.pendingProposal().isPresent();
@@ -694,14 +695,14 @@ public final class ChatAENetwork {
         List<ChatMessage> messages = new ArrayList<>(messageCount);
         for (int i = 0; i < messageCount; i++) {
             ChatRole role = ChatRole.values()[buf.readVarInt()];
-            String text = buf.readUtf(1024);
+            String text = buf.readUtf(MAX_MESSAGE_LENGTH);
             long ts = buf.readLong();
             messages.add(new ChatMessage(role, text, ts));
         }
 
         Optional<String> error = Optional.empty();
         if (buf.readBoolean()) {
-            error = Optional.of(buf.readUtf(1024));
+            error = Optional.of(buf.readUtf(MAX_MESSAGE_LENGTH));
         }
 
         Proposal proposal = null;

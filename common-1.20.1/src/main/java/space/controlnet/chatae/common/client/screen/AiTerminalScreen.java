@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -53,7 +54,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int SIDEBAR_HEADER_HEIGHT = 22;
     private static final int SIDEBAR_FOOTER_HEIGHT = 22;
     private static final int SEND_BUTTON_WIDTH = 46;
-    private static final int MAX_MESSAGES = 200;
+    private static final int MAX_MESSAGES = 400;
     private static final int PROPOSAL_CARD_HEIGHT = 56;
     private static final int PROPOSAL_CARD_GAP = 6;
     private static final int PROPOSAL_BUTTON_WIDTH = 62;
@@ -83,7 +84,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private static final int MESSAGE_PAD_X = 8;
     private static final int MESSAGE_PAD_Y = 4;
     private static final int MESSAGE_MAX_WIDTH_PAD = 36;
-    private static final int TOOL_RESULT_MAX = 8;
+    private static final int TOOL_RESULT_MAX = 100;
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
     private static final float TITLE_FONT_SCALE = 0.9f;
     private static final float FONT_SCALE = 0.5f;
@@ -165,6 +166,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private int scrollOffsetLines;
     private int maxScrollLines;
+    private boolean scrollToBottomOnNextRender;
     private long lastSnapshotVersion = -1;
     private long lastSessionIndexVersion = -1;
     private boolean sessionsOpen;
@@ -437,7 +439,12 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         int visibleHeight = this.chatH - 8;
         int maxScrollPx = Math.max(0, totalHeight - visibleHeight);
         this.maxScrollLines = maxScrollPx == 0 ? 0 : (int) Math.ceil(maxScrollPx / (double) lineStep);
-        this.scrollOffsetLines = clamp(this.scrollOffsetLines, 0, this.maxScrollLines);
+        if (this.scrollToBottomOnNextRender) {
+            this.scrollOffsetLines = this.maxScrollLines;
+            this.scrollToBottomOnNextRender = false;
+        } else {
+            this.scrollOffsetLines = clamp(this.scrollOffsetLines, 0, this.maxScrollLines);
+        }
         int scrollOffsetPx = this.scrollOffsetLines * lineStep;
 
         guiGraphics.enableScissor(this.chatX + 1, this.chatY + 1, this.chatX + this.chatW - 1, this.chatY + this.chatH - 1);
@@ -718,7 +725,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             int visY = rowY + 2;
             guiGraphics.fill(visX, visY, visX + visWidth, visY + this.font.lineHeight + 2, 0x1AFFFFFF);
             guiGraphics.renderOutline(visX, visY, visWidth, this.font.lineHeight + 2, visColor);
-            drawScaledString(guiGraphics, visibility, visX + 3, visY + 1, visColor, false);
+            drawScaledString(guiGraphics, visibility, visX + 3, visY + 3, visColor, false);
 
             int titleX = visX + visWidth + 4;
             int reservedRight = showActions ? (SESSION_DELETE_BUTTON_WIDTH + SESSION_BUTTON_GAP + 6) : 0;
@@ -1178,7 +1185,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         this.inputTokens.clear();
         this.itemSuggestions.clear();
         this.suggestionsVisible = false;
-        this.scrollOffsetLines = 0;
+        this.scrollToBottomOnNextRender = true;
     }
 
     private void sendApprovalDecision(ApprovalDecision decision) {
@@ -1349,6 +1356,9 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             return "";
         }
         List<String> lines = new ArrayList<>();
+        if (payload.thinking() != null && !payload.thinking().isBlank()) {
+            lines.add(payload.thinking());
+        }
         String summary = formatToolSummary(payload.tool(), render);
         if (summary != null && !summary.isBlank()) {
             lines.add(summary);
@@ -1612,6 +1622,11 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (tool != null && !tool.isBlank()) {
             lines.add(Component.literal("Tool: " + tool));
         }
+        String thinking = this.hoveredToolPayload.thinking();
+        if (thinking != null && !thinking.isBlank()) {
+            lines.add(Component.literal("Thinking:"));
+            lines.add(Component.literal(thinking));
+        }
         lines.add(Component.literal("Input:"));
         String args = this.hoveredToolPayload.argsJson();
         lines.add(Component.literal(args == null || args.isBlank() ? "(none)" : args));
@@ -1629,16 +1644,21 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (lines == null || lines.isEmpty()) {
             return;
         }
+        float scale = TOOLTIP_FONT_SCALE;
         int padding = 4;
-        int maxWidth = 0;
-        for (Component line : lines) {
-            maxWidth = Math.max(maxWidth, this.font.width(line));
+        int maxWidthPx = Math.min(240, Math.max(1, this.width - 20));
+        int maxWidth = Math.max(1, Math.round(maxWidthPx / scale));
+        List<FormattedCharSequence> wrapped = wrapTooltipLines(lines, maxWidth);
+        if (wrapped.isEmpty()) {
+            return;
+        }
+        int widest = 0;
+        for (FormattedCharSequence line : wrapped) {
+            widest = Math.max(widest, this.font.width(line));
         }
         int lineHeight = this.font.lineHeight;
-        int boxW = maxWidth + padding * 2;
-        int boxH = lineHeight * lines.size() + padding * 2;
-
-        float scale = TOOLTIP_FONT_SCALE;
+        int boxW = widest + padding * 2;
+        int boxH = lineHeight * wrapped.size() + padding * 2;
         int x = mouseX + 8;
         int y = mouseY + 8;
 
@@ -1654,16 +1674,37 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0f, 0.0f, 400.0f);
         guiGraphics.pose().scale(scale, scale, 1.0f);
         guiGraphics.fill(scaledX, scaledY, scaledX + boxW, scaledY + boxH, 0xF0100010);
         guiGraphics.renderOutline(scaledX, scaledY, boxW, boxH, COLOR_BORDER);
         int textX = scaledX + padding;
         int textY = scaledY + padding;
-        for (Component line : lines) {
+        for (FormattedCharSequence line : wrapped) {
             guiGraphics.drawString(this.font, line, textX, textY, COLOR_TEXT_MAIN, false);
             textY += lineHeight;
         }
         guiGraphics.pose().popPose();
+    }
+
+    private List<FormattedCharSequence> wrapTooltipLines(List<Component> lines, int maxWidth) {
+        List<FormattedCharSequence> wrapped = new ArrayList<>();
+        if (lines == null || lines.isEmpty()) {
+            return wrapped;
+        }
+        int width = Math.max(1, maxWidth);
+        for (Component line : lines) {
+            if (line == null) {
+                continue;
+            }
+            String text = line.getString();
+            if (text == null || text.isEmpty()) {
+                wrapped.add(FormattedCharSequence.EMPTY);
+                continue;
+            }
+            wrapped.addAll(this.font.split(line, width));
+        }
+        return wrapped;
     }
 
     private ItemToken buildItemToken(String itemId, String displayName) {

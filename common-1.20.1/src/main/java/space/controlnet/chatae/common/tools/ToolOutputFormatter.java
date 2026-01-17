@@ -158,25 +158,7 @@ public final class ToolOutputFormatter {
         if (total == 0) {
             lines.add("No recipes found.");
         } else {
-            lines.add("Recipes (" + total + "):");
-            int shown = Math.min(total, TOOL_RESULT_MAX);
-            for (int i = 0; i < shown; i++) {
-                JsonObject obj = safeObject(results.get(i));
-                if (obj == null) {
-                    continue;
-                }
-                String itemId = getString(obj, "outputItemId");
-                int count = getInt(obj, "outputCount", 1);
-                String type = getString(obj, "recipeType");
-                String label = (count > 1 ? count + "x " : "") + formatItemTag(itemId);
-                if (type != null && !type.isBlank()) {
-                    label += " [" + type + "]";
-                }
-                lines.add("• " + label);
-            }
-            if (total > shown) {
-                lines.add("• +" + (total - shown) + " more");
-            }
+            lines.add("Found " + total + " recipes.");
         }
         if (nextPageToken != null && !nextPageToken.isBlank()) {
             lines.add("Next page: " + nextPageToken);

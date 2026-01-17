@@ -421,6 +421,7 @@ public final class AgentLoop {
         // Get terminal context from player
         Optional<TerminalContext> terminal = ctx.getTerminal(player);
 
+        boolean firstCall = true;
         for (ToolCall call : decision.toolCalls) {
             ctx.logDebug("Agent executing tool: {} args: {}", call.toolName(), call.argsJson());
 
@@ -435,11 +436,13 @@ public final class AgentLoop {
 
             // Append tool result to session
             if (outcome.result() != null) {
-                String payload = ToolMessagePayload.wrap(call, outcome.result());
+                String thinking = firstCall ? decision.thinking : null;
+                String payload = ToolMessagePayload.wrap(call, outcome.result(), thinking);
                 if (payload != null && !payload.isBlank()) {
                     ctx.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
                 }
             }
+            firstCall = false;
         }
 
         // Continue the loop

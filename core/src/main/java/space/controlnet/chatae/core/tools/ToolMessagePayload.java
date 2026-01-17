@@ -15,10 +15,17 @@ public final class ToolMessagePayload {
     }
 
     public static String wrap(ToolCall call, ToolResult result) {
-        if (call == null && result == null) {
+        return wrap(call, result, null);
+    }
+
+    public static String wrap(ToolCall call, ToolResult result, String thinking) {
+        if (call == null && result == null && (thinking == null || thinking.isBlank())) {
             return null;
         }
         JsonObject obj = new JsonObject();
+        if (thinking != null && !thinking.isBlank()) {
+            obj.addProperty("thinking", thinking);
+        }
         if (call != null) {
             obj.addProperty("tool", call.toolName());
             addJsonOrString(obj, "args", call.argsJson());
@@ -42,14 +49,15 @@ public final class ToolMessagePayload {
                 return null;
             }
             JsonObject obj = element.getAsJsonObject();
-            if (!obj.has("tool") && !obj.has("args") && !obj.has("output") && !obj.has("error")) {
+            if (!obj.has("tool") && !obj.has("thinking") && !obj.has("args") && !obj.has("output") && !obj.has("error")) {
                 return null;
             }
             String tool = getString(obj, "tool");
+            String thinking = getString(obj, "thinking");
             String args = stringifyElement(obj.get("args"));
             String output = stringifyElement(obj.get("output"));
             String error = getString(obj, "error");
-            return new ToolPayload(tool, args, output, error);
+            return new ToolPayload(tool, thinking, args, output, error);
         } catch (Exception ignored) {
             return null;
         }

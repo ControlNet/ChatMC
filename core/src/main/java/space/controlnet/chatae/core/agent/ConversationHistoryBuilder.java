@@ -36,10 +36,6 @@ public final class ConversationHistoryBuilder {
             if (text == null) {
                 text = "";
             }
-            // Truncate very long messages
-            if (text.length() > 500) {
-                text = text.substring(0, 500) + "... (truncated)";
-            }
             sb.append(prefix).append(": ").append(text).append("\n");
         }
 

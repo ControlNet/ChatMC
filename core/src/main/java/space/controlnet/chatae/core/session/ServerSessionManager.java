@@ -15,7 +15,7 @@ public final class ServerSessionManager {
     private static final int MAX_MESSAGES_PER_SESSION = intProperty("chatae.maxMessagesPerSession", 400);
     private static final int MAX_DECISIONS_PER_SESSION = intProperty("chatae.maxDecisionsPerSession", 200);
     private static final int MAX_SESSIONS_TOTAL = intProperty("chatae.maxSessionsTotal", 200);
-    private static final int MAX_MESSAGE_LENGTH = intProperty("chatae.maxMessageLength", 1024);
+    private static final int MAX_MESSAGE_LENGTH = intProperty("chatae.maxMessageLength", 65536);
 
     private final ConcurrentHashMap<UUID, SessionSnapshot> sessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, UUID> activeSessionByPlayer = new ConcurrentHashMap<>();
