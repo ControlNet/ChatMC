@@ -131,6 +131,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private String suggestionQuery = "";
     private boolean suggestionsVisible;
     private int hoveredSuggestionIndex = -1;
+    private int selectedSuggestionIndex = -1;
 
     private int sidebarX;
     private int sidebarY;
@@ -596,10 +597,18 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         guiGraphics.renderOutline(panelX, panelY, panelW, panelH, outline);
 
         this.hoveredSuggestionIndex = -1;
+        if (mouseX >= panelX && mouseX < panelX + panelW && mouseY >= panelY && mouseY < panelY + panelH) {
+            int rowY = mouseY - panelY - TOKEN_PANEL_PADDING;
+            int rowIndex = rowY / TOKEN_PANEL_ROW_HEIGHT;
+            if (rowIndex >= 0 && rowIndex < visibleRows) {
+                this.hoveredSuggestionIndex = rowIndex;
+            }
+        }
+
+        int highlightIndex = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex : this.selectedSuggestionIndex;
         for (int i = 0; i < visibleRows; i++) {
             int rowY = panelY + TOKEN_PANEL_PADDING + i * TOKEN_PANEL_ROW_HEIGHT;
-            if (mouseX >= panelX && mouseX < panelX + panelW && mouseY >= rowY && mouseY < rowY + TOKEN_PANEL_ROW_HEIGHT) {
-                this.hoveredSuggestionIndex = i;
+            if (i == highlightIndex) {
                 guiGraphics.fill(panelX + 2, rowY + 1, panelX + panelW - 2, rowY + TOKEN_PANEL_ROW_HEIGHT - 1, 0x33404040);
             }
             renderSuggestionRow(guiGraphics, this.itemSuggestions.get(i), panelX + TOKEN_PANEL_PADDING, rowY, panelW - TOKEN_PANEL_PADDING * 2);
@@ -1034,7 +1043,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (this.inputBox != null && this.inputBox.isFocused()) {
             if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
                 if (this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
-                    int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex : 0;
+                    int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex
+                            : this.selectedSuggestionIndex >= 0 ? this.selectedSuggestionIndex : 0;
                     if (index >= 0 && index < this.itemSuggestions.size()) {
                         applySuggestion(this.itemSuggestions.get(index));
                         return true;
@@ -1048,8 +1058,25 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                     return true;
                 }
             }
+            if (this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
+                if (keyCode == InputConstants.KEY_UP || keyCode == InputConstants.KEY_DOWN) {
+                    int size = this.itemSuggestions.size();
+                    if (size > 0) {
+                        int index = this.selectedSuggestionIndex < 0 ? 0 : this.selectedSuggestionIndex;
+                        if (keyCode == InputConstants.KEY_UP) {
+                            index = (index - 1 + size) % size;
+                        } else {
+                            index = (index + 1) % size;
+                        }
+                        this.selectedSuggestionIndex = index;
+                        this.hoveredSuggestionIndex = -1;
+                    }
+                    return true;
+                }
+            }
             if (keyCode == InputConstants.KEY_TAB && this.suggestionsVisible && !this.itemSuggestions.isEmpty()) {
-                int index = Math.max(this.hoveredSuggestionIndex, 0);
+                int index = this.hoveredSuggestionIndex >= 0 ? this.hoveredSuggestionIndex
+                        : this.selectedSuggestionIndex >= 0 ? this.selectedSuggestionIndex : 0;
                 applySuggestion(this.itemSuggestions.get(index));
                 return true;
             }
@@ -1925,12 +1952,18 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (limit < this.itemSuggestions.size()) {
             this.itemSuggestions.subList(limit, this.itemSuggestions.size()).clear();
         }
+        if (this.itemSuggestions.isEmpty()) {
+            this.selectedSuggestionIndex = -1;
+        } else if (this.selectedSuggestionIndex < 0 || this.selectedSuggestionIndex >= this.itemSuggestions.size()) {
+            this.selectedSuggestionIndex = 0;
+        }
     }
 
     private void clearSuggestions() {
         this.suggestionsVisible = false;
         this.itemSuggestions.clear();
         this.hoveredSuggestionIndex = -1;
+        this.selectedSuggestionIndex = -1;
     }
 
     private boolean matchesQuery(String displayName, String id, String query) {

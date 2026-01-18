@@ -6,6 +6,7 @@ import space.controlnet.chatae.core.terminal.TerminalContext;
 import space.controlnet.chatae.core.tools.ToolCall;
 import space.controlnet.chatae.core.tools.ToolOutcome;
 
+import java.io.Serializable;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
  * Context interface for agent session operations.
  * This abstracts away MC-specific session access and tool execution.
  */
-public interface AgentSessionContext {
+public interface AgentSessionContext extends Serializable {
     /**
      * Gets the current session snapshot.
      */

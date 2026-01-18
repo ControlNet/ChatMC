@@ -110,6 +110,7 @@ public final class AgentRunner {
      * MC-specific player context implementation.
      */
     private record McPlayerContext(UUID playerId, String playerName) implements AgentPlayerContext, Serializable {
+        private static final long serialVersionUID = 1L;
         @Override
         public UUID getPlayerId() {
             return playerId;
@@ -125,6 +126,7 @@ public final class AgentRunner {
      * MC-specific session context implementation.
      */
     private static final class McSessionContext implements AgentSessionContext, Serializable {
+        private static final long serialVersionUID = 1L;
         private final UUID playerId;
 
         McSessionContext(UUID playerId) {
