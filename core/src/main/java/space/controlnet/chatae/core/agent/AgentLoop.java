@@ -50,28 +50,6 @@ public final class AgentLoop {
     private static final String KEY_RESULT = "result";
     private static final String KEY_CONTEXT = "context";
 
-    private static final String TOOL_LIST_FALLBACK = String.join(", ",
-            "mc.find_recipes",
-            "mc.find_usage",
-            "ae2.list_items",
-            "ae2.list_craftables",
-            "ae2.simulate_craft",
-            "ae2.request_craft",
-            "ae2.job_status",
-            "ae2.job_cancel",
-            "response"
-    );
-
-    private static final String ARGS_SCHEMA_FALLBACK = "- mc.find_recipes: {itemId, pageToken?, limit}\n"
-            + "- mc.find_usage: {itemId, pageToken?, limit}\n"
-            + "- ae2.list_items: {query, craftableOnly, limit, pageToken?}\n"
-            + "- ae2.list_craftables: {query, craftableOnly, limit, pageToken?}\n"
-            + "- ae2.simulate_craft: {itemId, count}\n"
-            + "- ae2.request_craft: {itemId, count, cpuName?}\n"
-            + "- ae2.job_status: {jobId}\n"
-            + "- ae2.job_cancel: {jobId}\n"
-            + "- response: {message}.";
-
     private final CompiledGraph<LoopState> graph;
     private final AgentReasoningService reasoningService;
     private final LlmRateLimiter rateLimiter;
@@ -275,18 +253,18 @@ public final class AgentLoop {
 
     private static ToolPrompt buildToolPrompt(List<AgentTool> tools) {
         if (tools == null || tools.isEmpty()) {
-            return new ToolPrompt(TOOL_LIST_FALLBACK, ARGS_SCHEMA_FALLBACK, "");
+            return new ToolPrompt("", "", "");
         }
 
         String toolList = tools.stream()
                 .map(AgentTool::name)
                 .reduce((a, b) -> a + ", " + b)
-                .orElse(TOOL_LIST_FALLBACK);
+                .orElse("");
 
         String argsSchema = tools.stream()
                 .map(tool -> "- " + tool.name() + ": " + tool.argsSchema())
                 .reduce((a, b) -> a + "\n" + b)
-                .orElse(ARGS_SCHEMA_FALLBACK);
+                .orElse("");
 
         String toolsSection = tools.stream()
                 .map(AgentLoop::buildToolSection)

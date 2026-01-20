@@ -5,10 +5,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -44,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.lang.reflect.Field;
 
 public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMenu> {
     private static final int PADDING = 10;
@@ -188,7 +191,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         super.init();
         computeLayout();
 
-        this.inputBox = new EditBox(this.font, this.inputFieldX, this.inputY, this.inputW, INPUT_HEIGHT, Component.empty());
+        this.inputBox = new TokenEditBox(this.font, this.inputFieldX, this.inputY, this.inputW, INPUT_HEIGHT, Component.empty());
         this.inputBox.setMaxLength(MAX_CHAT_MESSAGE_LENGTH);
         this.inputBox.setBordered(false);
         this.inputBox.setCanLoseFocus(true);
@@ -399,7 +402,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         renderChatLog(guiGraphics, mouseX, mouseY);
         renderProposalCard(guiGraphics);
         renderSessionsPanel(guiGraphics);
-        renderInputTokens(guiGraphics);
         renderInputHint(guiGraphics);
         renderItemSuggestions(guiGraphics, mouseX, mouseY);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
@@ -417,6 +419,66 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         int hintX = this.inputFieldX + 4;
         int hintY = this.inputY + (INPUT_HEIGHT - this.font.lineHeight) / 2 + 1;
         drawScaledString(guiGraphics, this.font.plainSubstrByWidth(hint, Math.max(1, this.inputW - 8)), hintX, hintY, COLOR_TEXT_DIM, false);
+    }
+
+    private List<InputSpan> buildInputSpans(String value) {
+        List<InputSpan> spans = new ArrayList<>();
+        if (value == null || value.isEmpty()) {
+            return spans;
+        }
+        List<TokenRange> ranges = findTokenRanges(value);
+        ranges.sort((a, b) -> Integer.compare(a.start(), b.start()));
+        int cursor = 0;
+        for (TokenRange range : ranges) {
+            if (range.start() > cursor) {
+                String text = value.substring(cursor, range.start());
+                spans.add(new InputSpan(cursor, range.start(), text, null, scaledWidth(text)));
+            }
+            spans.add(new InputSpan(range.start(), range.end(), value.substring(range.start(), range.end()),
+                    range.token(), measureToken(range.token()).width()));
+            cursor = range.end();
+        }
+        if (cursor < value.length()) {
+            String tail = value.substring(cursor);
+            spans.add(new InputSpan(cursor, value.length(), tail, null, scaledWidth(tail)));
+        }
+        return spans;
+    }
+
+    private int widthToIndex(List<InputSpan> spans, int index) {
+        if (index <= 0 || spans.isEmpty()) {
+            return 0;
+        }
+        int width = 0;
+        for (InputSpan span : spans) {
+            if (index >= span.end()) {
+                width += span.width();
+                continue;
+            }
+            if (index <= span.start()) {
+                break;
+            }
+            int offset = index - span.start();
+            if (span.token() == null) {
+                String text = span.text();
+                if (offset > 0 && offset <= text.length()) {
+                    width += scaledWidth(text.substring(0, offset));
+                }
+            } else {
+                ItemToken token = span.token();
+                int iconSize = Math.round(16 * FONT_SCALE);
+                int padding = 2;
+                int gap = 2;
+                int textOffset = Math.max(0, offset - 1);
+                String label = token.displayName();
+                if (textOffset > label.length()) {
+                    textOffset = label.length();
+                }
+                width += padding + iconSize + gap + scaledWidth(label.substring(0, textOffset));
+            }
+            break;
+        }
+        return width;
     }
 
     private void renderChatLog(GuiGraphics guiGraphics, int mouseX, int mouseY) {
@@ -508,47 +570,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             drawScaledString(guiGraphics, timestamp, timeX, currentY + bubbleH + 2, COLOR_TEXT_DIM, false);
 
             currentY += bubbleH + 12;
-        }
-
-        guiGraphics.disableScissor();
-    }
-
-    private void renderInputTokens(GuiGraphics guiGraphics) {
-        if (this.inputBox == null || this.inputTokens.isEmpty()) {
-            return;
-        }
-
-        String value = this.inputBox.getValue();
-        if (value.isBlank()) {
-            return;
-        }
-
-        int inputX = this.inputBox.getX();
-        int inputY = this.inputBox.getY();
-        int inputW = this.inputBox.getWidth();
-        int inputH = this.inputBox.getHeight();
-        int rowHeight = Math.max(12, scaledLineHeight() + 4);
-        int baseX = inputX + 4;
-        int baseY = inputY + (inputH - rowHeight) / 2;
-        int maxX = inputX + inputW - 4;
-
-        guiGraphics.enableScissor(inputX + 1, inputY + 1, inputX + inputW - 1, inputY + inputH - 1);
-
-        int searchStart = 0;
-        for (ItemToken token : this.inputTokens) {
-            String label = "@" + token.displayName();
-            int idx = value.indexOf(label, searchStart);
-            if (idx < 0) {
-                continue;
-            }
-            int textWidth = this.font.width(value.substring(0, idx));
-            int x = baseX + textWidth;
-            TokenMetrics metrics = measureToken(token);
-            int tokenW = metrics.width();
-            if (x < maxX && x + tokenW > baseX) {
-                renderTokenPill(guiGraphics, token, x, baseY, tokenW, rowHeight);
-            }
-            searchStart = idx + label.length();
         }
 
         guiGraphics.disableScissor();
@@ -2107,7 +2128,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private TokenMetrics measureToken(ItemToken token) {
         int textWidth = scaledWidth(token.displayName());
-        int width = 2 + 10 + 2 + textWidth;
+        int iconSize = Math.round(16 * FONT_SCALE);
+        int width = 2 + iconSize + 2 + textWidth;
         return new TokenMetrics(width);
     }
 
@@ -2279,6 +2301,153 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         guiGraphics.pose().popPose();
     }
 
+    private final class TokenEditBox extends EditBox {
+        private static final int CURSOR_COLOR = -3092272;
+        private static final Field FIELD_DISPLAY_POS = getField("displayPos");
+        private static final Field FIELD_HIGHLIGHT_POS = getField("highlightPos");
+        private static final Field FIELD_FRAME = getField("frame");
+        private static final Field FIELD_TEXT_COLOR = getField("textColor");
+        private static final Field FIELD_TEXT_COLOR_UNEDITABLE = getField("textColorUneditable");
+        private static final Field FIELD_EDITABLE = getField("isEditable");
+
+        private TokenEditBox(Font font, int x, int y, int width, int height, Component message) {
+            super(font, x, y, width, height, message);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+            if (!this.isVisible()) {
+                return;
+            }
+
+            String value = this.getValue();
+            List<InputSpan> spans = buildInputSpans(value);
+            int displayPos = getDisplayPos();
+            int cursorPos = this.getCursorPosition();
+            int highlightPos = getHighlightPos();
+
+            int innerWidth = this.getInnerWidth();
+            int baseX = this.getX() + Math.max(0, (this.getWidth() - innerWidth) / 2);
+            int lineHeight = scaledLineHeight();
+            int rowHeight = Math.max(12, lineHeight + 4);
+            int textY = this.getY() + (this.getHeight() - lineHeight) / 2;
+
+            int startOffset = widthToIndex(spans, displayPos);
+            int drawX = baseX - startOffset;
+
+            guiGraphics.enableScissor(this.getX(), this.getY(), this.getX() + this.getWidth(), this.getY() + this.getHeight());
+
+            int textColor = isEditableInternal() ? getTextColorInternal(COLOR_TEXT_MAIN) : getTextColorUneditableInternal(COLOR_TEXT_DIM);
+            for (InputSpan span : spans) {
+                if (span.token() != null) {
+                    renderTokenPill(guiGraphics, span.token(), drawX, textY - 2, span.width(), rowHeight);
+                } else {
+                    drawScaledString(guiGraphics, span.text(), drawX, textY, textColor, false);
+                }
+                drawX += span.width();
+            }
+
+            if (highlightPos != cursorPos) {
+                int minPos = Math.min(cursorPos, highlightPos);
+                int maxPos = Math.max(cursorPos, highlightPos);
+                int x1 = baseX + widthToIndex(spans, minPos) - startOffset;
+                int x2 = baseX + widthToIndex(spans, maxPos) - startOffset;
+                int y1 = textY - 2;
+                int y2 = y1 + rowHeight;
+                renderHighlight(guiGraphics, x1, y1, x2, y2);
+            }
+
+            int frame = getFrame();
+            boolean blink = this.isFocused() && frame / 6 % 2 == 0;
+            if (blink) {
+                int cursorX = baseX + widthToIndex(spans, cursorPos) - startOffset;
+                int y1 = textY - 2;
+                int y2 = y1 + rowHeight;
+                guiGraphics.fill(RenderType.guiOverlay(), cursorX, y1, cursorX + 1, y2, CURSOR_COLOR);
+            }
+
+            guiGraphics.disableScissor();
+        }
+
+        private void renderHighlight(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2) {
+            if (x1 < x2) {
+                int tmp = x1;
+                x1 = x2;
+                x2 = tmp;
+            }
+            if (y1 < y2) {
+                int tmp = y1;
+                y1 = y2;
+                y2 = tmp;
+            }
+
+            int maxX = this.getX() + this.getWidth();
+            if (x2 > maxX) {
+                x2 = maxX;
+            }
+            if (x1 > maxX) {
+                x1 = maxX;
+            }
+            guiGraphics.fill(RenderType.guiTextHighlight(), x1, y1, x2, y2, -16776961);
+        }
+
+        private int getDisplayPos() {
+            return getIntField(FIELD_DISPLAY_POS, 0);
+        }
+
+        private int getHighlightPos() {
+            return getIntField(FIELD_HIGHLIGHT_POS, this.getCursorPosition());
+        }
+
+        private int getFrame() {
+            int value = getIntField(FIELD_FRAME, 0);
+            if (value <= 0) {
+                return (int) (System.currentTimeMillis() / 100L);
+            }
+            return value;
+        }
+
+        private boolean isEditableInternal() {
+            if (FIELD_EDITABLE == null) {
+                return true;
+            }
+            try {
+                return FIELD_EDITABLE.getBoolean(this);
+            } catch (IllegalAccessException e) {
+                return true;
+            }
+        }
+
+        private int getTextColorInternal(int fallback) {
+            return getIntField(FIELD_TEXT_COLOR, fallback);
+        }
+
+        private int getTextColorUneditableInternal(int fallback) {
+            return getIntField(FIELD_TEXT_COLOR_UNEDITABLE, fallback);
+        }
+
+        private int getIntField(Field field, int fallback) {
+            if (field == null) {
+                return fallback;
+            }
+            try {
+                return field.getInt(this);
+            } catch (IllegalAccessException e) {
+                return fallback;
+            }
+        }
+
+        private static Field getField(String name) {
+            try {
+                Field field = EditBox.class.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException e) {
+                return null;
+            }
+        }
+    }
+
     private enum UiButtonStyle {
         PRIMARY,
         ACCENT,
@@ -2376,6 +2545,9 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     }
 
     private record ItemToken(Item item, String displayName, String itemId, int color, int index) {
+    }
+
+    private record InputSpan(int start, int end, String text, ItemToken token, int width) {
     }
 
     private static final class SessionRow {
