@@ -1,0 +1,84 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.github.johnrengelman.shadow"
+}
+
+loom {
+    silentMojangMappingsLicense()
+    forge {
+        // Forge-specific Loom configuration lives here when needed.
+    }
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge {
+        def group = project.findProperty("maven_group") ?: rootProject.maven_group
+        platformPackage = "${group}.forge"
+    }
+}
+
+configurations {
+    forge
+
+    common
+    shadowCommon
+
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentForge.extendsFrom common
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    forge "net.minecraftforge:forge:${rootProject.forge_version}"
+
+    compileOnly "net.minecraftforge:forge:${rootProject.forge_version}:universal"
+    compileOnly "net.minecraftforge:fmlcore:${rootProject.forge_version}"
+    compileOnly "net.minecraftforge:fmlloader:${rootProject.forge_version}"
+    compileOnly "net.minecraftforge:javafmllanguage:${rootProject.forge_version}"
+    compileOnly "net.minecraftforge:lowcodelanguage:${rootProject.forge_version}"
+    compileOnly "net.minecraftforge:mclanguage:${rootProject.forge_version}"
+
+    modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_version}"
+
+    // Base mod dependency (ChatMC) - compile + runtime
+    // Use 'common' config which extends runtimeClasspath + developmentForge
+    modCompileOnly project(path: ":base:forge-1.20.1", configuration: "namedElements")
+    modLocalRuntime project(path: ":base:forge-1.20.1", configuration: "namedElements")
+    // Base common + core classes needed at dev runtime (not in forge dev jar)
+    common(project(path: ":base:common-1.20.1", configuration: "namedElements"))
+    common(project(path: ":base:core"))
+
+    // AE2 Forge
+    modImplementation "appeng:appliedenergistics2-forge:${rootProject.ae2_version}"
+    modImplementation "org.appliedenergistics:guideme:${rootProject.guideme_version}"
+
+    // Agent dependencies (runtime + shaded into jar)
+    rootProject.ext.addAgentDeps(dependencies, "implementation")
+    rootProject.ext.addAgentDeps(dependencies, "forgeRuntimeLibrary")
+    rootProject.ext.addAgentDeps(dependencies, "shadowCommon")
+
+    common(project(path: ":ext-ae:common-1.20.1", configuration: "namedElements"))
+    shadowCommon(project(path: ":ext-ae:common-1.20.1", configuration: "transformProductionForge"))
+
+    common(project(path: ":ext-ae:core"))
+    shadowCommon(project(path: ":ext-ae:core"))
+}
+
+// shadowJar, remapJar, and jar configurations are handled in root build.gradle
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", rootProject.minecraft_version
+
+    filesMatching("META-INF/mods.toml") {
+        expand(
+            "version": project.version,
+            "minecraft_version": rootProject.minecraft_version
+        )
+    }
+}

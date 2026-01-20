@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="AGPL-3.0"
+
+[[mods]]
+modId="chatmcae"
+version="${version}"
+displayName="ChatMC AE"
+description='''AE2 tools and AI Terminal for ChatMC'''
+
+[[dependencies.chatmcae]]
+modId="minecraft"
+mandatory=true
+versionRange="[${minecraft_version}]"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.chatmcae]]
+modId="architectury"
+mandatory=true
+versionRange="[9.2,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.chatmcae]]
+modId="chatmc"
+mandatory=true
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.chatmcae]]
+modId="ae2"
+mandatory=true
+versionRange="[15,)"
+ordering="NONE"
+side="BOTH"

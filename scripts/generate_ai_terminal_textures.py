@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate AI Terminal textures for ChatAE mod.
+Generate AI Terminal textures for ChatMCAe mod.
 Creates a rotating wireframe cube animation for the terminal's bright layer,
 and a static cube for the off state.
 
@@ -8,7 +8,7 @@ Usage:
     python generate_ai_terminal_textures.py
 
 Output:
-    common-1.20.1/src/main/resources/assets/chatae/textures/part/
+    ext-ae/common-1.20.1/src/main/resources/assets/chatmcae/textures/part/
         ai_terminal_on.png        - Animated rotating cube (16 frames)
         ai_terminal_on.png.mcmeta - Animation config
         ai_terminal_off.png       - Static cube for off state (first frame)
@@ -22,35 +22,29 @@ import math
 import os
 
 # Configuration
-CUBE_SIZE = 1.3          # Size of the cube (smaller = smaller cube)
-TILT_ANGLE = 25          # Degrees to tilt the cube for 3D effect
-NUM_FRAMES = 16          # Number of animation frames
-FRAME_TIME = 5           # Ticks per frame (20 ticks = 1 second)
-SCALE = 2.5              # Projection scale
-OFFSET_X = 8             # Center X offset
-OFFSET_Y = 8             # Center Y offset
-STATIC_ANGLE = 0         # Y rotation angle for static cube (degrees) - matches first frame of animation
+CUBE_SIZE = 1.3  # Size of the cube (smaller = smaller cube)
+TILT_ANGLE = 25  # Degrees to tilt the cube for 3D effect
+NUM_FRAMES = 16  # Number of animation frames
+FRAME_TIME = 5  # Ticks per frame (20 ticks = 1 second)
+SCALE = 2.5  # Projection scale
+OFFSET_X = 8  # Center X offset
+OFFSET_Y = 8  # Center Y offset
+STATIC_ANGLE = (
+    0  # Y rotation angle for static cube (degrees) - matches first frame of animation
+)
 
 
 def rotate_y(points, angle):
     """Rotate points around Y axis"""
     cos_a, sin_a = math.cos(angle), math.sin(angle)
-    rotation = np.array([
-        [cos_a, 0, sin_a],
-        [0, 1, 0],
-        [-sin_a, 0, cos_a]
-    ])
+    rotation = np.array([[cos_a, 0, sin_a], [0, 1, 0], [-sin_a, 0, cos_a]])
     return points @ rotation.T
 
 
 def rotate_x(points, angle):
     """Rotate points around X axis"""
     cos_a, sin_a = math.cos(angle), math.sin(angle)
-    rotation = np.array([
-        [1, 0, 0],
-        [0, cos_a, -sin_a],
-        [0, sin_a, cos_a]
-    ])
+    rotation = np.array([[1, 0, 0], [0, cos_a, -sin_a], [0, sin_a, cos_a]])
     return points @ rotation.T
 
 
@@ -95,22 +89,33 @@ def generate_cube_frames():
     """Generate rotating cube animation frames"""
     # Define cube vertices
     size = CUBE_SIZE
-    cube_vertices = np.array([
-        [-size, -size, -size],
-        [+size, -size, -size],
-        [+size, +size, -size],
-        [-size, +size, -size],
-        [-size, -size, +size],
-        [+size, -size, +size],
-        [+size, +size, +size],
-        [-size, +size, +size],
-    ])
+    cube_vertices = np.array(
+        [
+            [-size, -size, -size],
+            [+size, -size, -size],
+            [+size, +size, -size],
+            [-size, +size, -size],
+            [-size, -size, +size],
+            [+size, -size, +size],
+            [+size, +size, +size],
+            [-size, +size, +size],
+        ]
+    )
 
     # Define edges (pairs of vertex indices)
     edges = [
-        (0, 1), (1, 2), (2, 3), (3, 0),  # Back face
-        (4, 5), (5, 6), (6, 7), (7, 4),  # Front face
-        (0, 4), (1, 5), (2, 6), (3, 7),  # Connecting edges
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 0),  # Back face
+        (4, 5),
+        (5, 6),
+        (6, 7),
+        (7, 4),  # Front face
+        (0, 4),
+        (1, 5),
+        (2, 6),
+        (3, 7),  # Connecting edges
     ]
 
     # Apply initial tilt
@@ -122,7 +127,7 @@ def generate_cube_frames():
         rotated = rotate_y(base_vertices, angle)
         projected = project_isometric(rotated)
 
-        img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
 
         for e in edges:
             p1 = projected[e[0]]
@@ -138,22 +143,33 @@ def generate_static_cube():
     """Generate a single static cube frame at the perfect viewing angle"""
     # Define cube vertices
     size = CUBE_SIZE
-    cube_vertices = np.array([
-        [-size, -size, -size],
-        [+size, -size, -size],
-        [+size, +size, -size],
-        [-size, +size, -size],
-        [-size, -size, +size],
-        [+size, -size, +size],
-        [+size, +size, +size],
-        [-size, +size, +size],
-    ])
+    cube_vertices = np.array(
+        [
+            [-size, -size, -size],
+            [+size, -size, -size],
+            [+size, +size, -size],
+            [-size, +size, -size],
+            [-size, -size, +size],
+            [+size, -size, +size],
+            [+size, +size, +size],
+            [-size, +size, +size],
+        ]
+    )
 
     # Define edges (pairs of vertex indices)
     edges = [
-        (0, 1), (1, 2), (2, 3), (3, 0),  # Back face
-        (4, 5), (5, 6), (6, 7), (7, 4),  # Front face
-        (0, 4), (1, 5), (2, 6), (3, 7),  # Connecting edges
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 0),  # Back face
+        (4, 5),
+        (5, 6),
+        (6, 7),
+        (7, 4),  # Front face
+        (0, 4),
+        (1, 5),
+        (2, 6),
+        (3, 7),  # Connecting edges
     ]
 
     # Apply tilt and rotation for perfect viewing angle
@@ -161,7 +177,7 @@ def generate_static_cube():
     rotated = rotate_y(tilted, math.radians(STATIC_ANGLE))
     projected = project_isometric(rotated)
 
-    img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
 
     for e in edges:
         p1 = projected[e[0]]
@@ -177,7 +193,7 @@ def main():
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(
         project_root,
-        'common-1.20.1/src/main/resources/assets/chatae/textures/part'
+        "ext-ae/common-1.20.1/src/main/resources/assets/chatmcae/textures/part",
     )
 
     # Create output directory if needed
@@ -185,26 +201,28 @@ def main():
 
     print(f"Generating AI Terminal textures...")
     print(f"Output directory: {output_dir}")
-    print(f"Settings: cube_size={CUBE_SIZE}, tilt={TILT_ANGLE}°, frames={NUM_FRAMES}, frametime={FRAME_TIME}")
+    print(
+        f"Settings: cube_size={CUBE_SIZE}, tilt={TILT_ANGLE}°, frames={NUM_FRAMES}, frametime={FRAME_TIME}"
+    )
 
     # Generate bright layer (animated cube)
     frames = generate_cube_frames()
     total_height = 16 * NUM_FRAMES
-    bright_strip = Image.new('RGBA', (16, total_height), (0, 0, 0, 0))
+    bright_strip = Image.new("RGBA", (16, total_height), (0, 0, 0, 0))
     for i, frame in enumerate(frames):
         bright_strip.paste(frame, (0, i * 16))
-    bright_strip.save(os.path.join(output_dir, 'ai_terminal_on.png'))
+    bright_strip.save(os.path.join(output_dir, "ai_terminal_on.png"))
     print(f"  Created ai_terminal_on.png (16x{total_height}, {NUM_FRAMES} frames)")
 
     # Generate mcmeta for animation
-    mcmeta = f'''{{"animation": {{"frametime": {FRAME_TIME}, "interpolate": false}}}}'''
-    with open(os.path.join(output_dir, 'ai_terminal_on.png.mcmeta'), 'w') as f:
+    mcmeta = f"""{{"animation": {{"frametime": {FRAME_TIME}, "interpolate": false}}}}"""
+    with open(os.path.join(output_dir, "ai_terminal_on.png.mcmeta"), "w") as f:
         f.write(mcmeta)
     print(f"  Created ai_terminal_on.png.mcmeta (frametime={FRAME_TIME})")
 
     # Generate static cube for off state
     static_cube = generate_static_cube()
-    static_cube.save(os.path.join(output_dir, 'ai_terminal_off.png'))
+    static_cube.save(os.path.join(output_dir, "ai_terminal_off.png"))
     print(f"  Created ai_terminal_off.png (16x16, angle={STATIC_ANGLE}°)")
 
     # Calculate animation timing
@@ -213,5 +231,5 @@ def main():
     print("Done!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

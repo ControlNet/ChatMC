@@ -9,7 +9,17 @@ pluginManagement {
 
 rootProject.name = "ChatAE"
 
-include("core")
-include("common-1.20.1")
-include("fabric-1.20.1")
-include("forge-1.20.1")
+include("base:core")
+include("base:common-1.20.1")
+include("base:fabric-1.20.1")
+include("base:forge-1.20.1")
+
+include("ext-ae:core")
+include("ext-ae:common-1.20.1")
+include("ext-ae:fabric-1.20.1")
+include("ext-ae:forge-1.20.1")
+
+include("ext-matrix:core")
+include("ext-matrix:common-1.20.1")
+include("ext-matrix:fabric-1.20.1")
+include("ext-matrix:forge-1.20.1")

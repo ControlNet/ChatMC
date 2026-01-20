@@ -1,0 +1,17 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    // Pure domain module: no Minecraft/AE2/Architectury deps.
+    // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
+    rootProject.ext.addAgentDeps(dependencies, "compileOnly")
+
+    compileOnly project(":base:core")
+    
+    // Gson is provided by the Minecraft runtime; don't package it.
+    compileOnly "com.google.code.gson:gson:2.10.1"
+
+    // NightConfig TOML (Forge provides at runtime; compile-only here)
+    compileOnly "com.electronwill.night-config:toml:3.6.4"
+}

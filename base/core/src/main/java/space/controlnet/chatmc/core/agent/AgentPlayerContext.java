@@ -1,0 +1,20 @@
+package space.controlnet.chatmc.core.agent;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+/**
+ * Context interface for agent operations that require player information.
+ * This abstracts away MC-specific player types.
+ */
+public interface AgentPlayerContext extends Serializable {
+    /**
+     * Gets the player's unique ID.
+     */
+    UUID getPlayerId();
+
+    /**
+     * Gets the player's display name.
+     */
+    String getPlayerName();
+}

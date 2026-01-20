@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "chatmcmatrix",
+  "version": "${version}",
+  "name": "ChatMC Matrix",
+  "description": "Matrix bridge extension for ChatMC",
+  "authors": ["controlnet"],
+  "license": "AGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["space.controlnet.chatmc.matrix.fabric.ChatMCMatrixFabric"],
+    "client": ["space.controlnet.chatmc.matrix.fabric.ChatMCMatrixFabricClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.20.1",
+    "architectury": ">=9.2.0",
+    "fabric-api": "*",
+    "chatmc": "*"
+  }
+}

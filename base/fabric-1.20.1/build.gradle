@@ -1,0 +1,59 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.github.johnrengelman.shadow"
+}
+
+loom {
+    silentMojangMappingsLicense()
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric {
+        def group = project.findProperty("maven_group") ?: rootProject.maven_group
+        platformPackage = "${group}.fabric"
+    }
+}
+
+configurations {
+    common
+    shadowCommon
+
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
+
+    // NightConfig TOML (shade for Fabric)
+    implementation "com.electronwill.night-config:toml:3.6.4"
+    shadowCommon "com.electronwill.night-config:toml:3.6.4"
+
+    // Agent dependencies (runtime + shaded into jar)
+    rootProject.ext.addAgentDeps(dependencies, "implementation")
+    rootProject.ext.addAgentDeps(dependencies, "shadowCommon")
+
+    common(project(path: ":base:common-1.20.1", configuration: "namedElements")) { transitive false }
+    shadowCommon(project(path: ":base:common-1.20.1", configuration: "transformProductionFabric")) { transitive false }
+
+    common(project(path: ":base:core")) { transitive false }
+    shadowCommon(project(path: ":base:core")) { transitive false }
+}
+
+// shadowJar, remapJar, and jar configurations are handled in root build.gradle
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
