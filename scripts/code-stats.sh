@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Code statistics script for ChatAE subprojects
+# Code statistics script for ChatMC base + extensions
 # Calculates lines of code, classes, and methods for each module
 #
 # Usage:
@@ -26,7 +26,20 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Subprojects to analyze
-SUBPROJECTS=("core" "common-1.20.1" "forge-1.20.1" "fabric-1.20.1")
+SUBPROJECTS=(
+    "base/core"
+    "base/common-1.20.1"
+    "base/forge-1.20.1"
+    "base/fabric-1.20.1"
+    "ext-ae/core"
+    "ext-ae/common-1.20.1"
+    "ext-ae/forge-1.20.1"
+    "ext-ae/fabric-1.20.1"
+    "ext-matrix/core"
+    "ext-matrix/common-1.20.1"
+    "ext-matrix/forge-1.20.1"
+    "ext-matrix/fabric-1.20.1"
+)
 
 # Function to count lines in Java files
 count_lines() {
@@ -103,13 +116,13 @@ count_files() {
 }
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}ChatAE Code Statistics${NC}"
+echo -e "${BLUE}ChatMC Code Statistics${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Table header
-printf "%-20s %10s %10s %10s %10s %10s\n" "Module" "Files" "Total Lines" "Code Lines" "Classes" "Methods"
-echo "----------------------------------------------------------------------------"
+printf "%-28s %10s %10s %10s %10s %10s\n" "Module" "Files" "Total Lines" "Code Lines" "Classes" "Methods"
+echo "--------------------------------------------------------------------------------"
 
 TOTAL_FILES=0
 TOTAL_LINES=0
@@ -128,7 +141,7 @@ for subproject in "${SUBPROJECTS[@]}"; do
     classes=$(count_classes "$subproject")
     methods=$(count_methods_accurate "$subproject")
     
-    printf "%-20s %10s %10s %10s %10s %10s\n" "$subproject" "$files" "$lines" "$code_lines" "$classes" "$methods"
+    printf "%-28s %10s %10s %10s %10s %10s\n" "$subproject" "$files" "$lines" "$code_lines" "$classes" "$methods"
     
     TOTAL_FILES=$((TOTAL_FILES + files))
     TOTAL_LINES=$((TOTAL_LINES + lines))
@@ -137,8 +150,8 @@ for subproject in "${SUBPROJECTS[@]}"; do
     TOTAL_METHODS=$((TOTAL_METHODS + methods))
 done
 
-echo "----------------------------------------------------------------------------"
-printf "%-20s %10s %10s %10s %10s %10s\n" "${GREEN}TOTAL${NC}" "$TOTAL_FILES" "$TOTAL_LINES" "$TOTAL_CODE_LINES" "$TOTAL_CLASSES" "$TOTAL_METHODS"
+echo "--------------------------------------------------------------------------------"
+printf "%-28s %10s %10s %10s %10s %10s\n" "${GREEN}TOTAL${NC}" "$TOTAL_FILES" "$TOTAL_LINES" "$TOTAL_CODE_LINES" "$TOTAL_CLASSES" "$TOTAL_METHODS"
 echo ""
 
 # Additional statistics

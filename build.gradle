@@ -39,10 +39,10 @@ subprojects {
 
     if (isAe) {
         moduleGroup = "space.controlnet.chatmc.ae"
-        moduleBase = "chatmcae"
+        moduleBase = "chatmc-ae"
     } else if (isMatrix) {
         moduleGroup = "space.controlnet.chatmc.matrix"
-        moduleBase = "chatmcmatrix"
+        moduleBase = "chatmc-matrix"
     } else {
         moduleGroup = project.findProperty("maven_group") ?: rootProject.maven_group
         moduleBase = project.findProperty("archives_base_name") ?: rootProject.archives_base_name

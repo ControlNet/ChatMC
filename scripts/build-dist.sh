@@ -26,8 +26,8 @@ rm -f "$DIST_DIR"/*.jar
 declare -a jars=(
   "$ROOT_DIR/base/fabric-1.20.1/build/libs/chatmc-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
   "$ROOT_DIR/base/forge-1.20.1/build/libs/chatmc-${MOD_VERSION}-forge-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae2/fabric-1.20.1/build/libs/chatmcae2-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae2/forge-1.20.1/build/libs/chatmcae2-${MOD_VERSION}-forge-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae2/fabric-1.20.1/build/libs/chatmcae-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae2/forge-1.20.1/build/libs/chatmcae-${MOD_VERSION}-forge-${MC_VERSION}.jar"
   "$ROOT_DIR/ext-matrix/fabric-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
   "$ROOT_DIR/ext-matrix/forge-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-forge-${MC_VERSION}.jar"
 )

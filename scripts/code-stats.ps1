@@ -1,4 +1,4 @@
-# Code statistics script for ChatAE subprojects
+# Code statistics script for ChatMC base + extensions
 # Calculates lines of code, classes, and methods for each module
 #
 # Usage:
@@ -21,7 +21,20 @@ $ProjectRoot = Split-Path -Parent $ScriptDir
 Set-Location $ProjectRoot
 
 # Subprojects to analyze
-$Subprojects = @("core", "common-1.20.1", "forge-1.20.1", "fabric-1.20.1")
+$Subprojects = @(
+    "base/core",
+    "base/common-1.20.1",
+    "base/forge-1.20.1",
+    "base/fabric-1.20.1",
+    "ext-ae/core",
+    "ext-ae/common-1.20.1",
+    "ext-ae/forge-1.20.1",
+    "ext-ae/fabric-1.20.1",
+    "ext-matrix/core",
+    "ext-matrix/common-1.20.1",
+    "ext-matrix/forge-1.20.1",
+    "ext-matrix/fabric-1.20.1"
+)
 
 # Function to count lines in Java files
 function Count-Lines {
@@ -146,13 +159,13 @@ function Count-Files {
 }
 
 Write-Host "========================================" -ForegroundColor Blue
-Write-Host "ChatAE Code Statistics" -ForegroundColor Blue
+Write-Host "ChatMC Code Statistics" -ForegroundColor Blue
 Write-Host "========================================" -ForegroundColor Blue
 Write-Host ""
 
 # Table header
-Write-Host ("{0,-20} {1,10} {2,10} {3,10} {4,10} {5,10}" -f "Module", "Files", "Total Lines", "Code Lines", "Classes", "Methods")
-Write-Host ("-" * 72)
+Write-Host ("{0,-28} {1,10} {2,10} {3,10} {4,10} {5,10}" -f "Module", "Files", "Total Lines", "Code Lines", "Classes", "Methods")
+Write-Host ("-" * 80)
 
 $TotalFiles = 0
 $TotalLines = 0
@@ -173,7 +186,7 @@ foreach ($subproject in $Subprojects) {
     $classes = Count-Classes $subproject
     $methods = Count-Methods $subproject
     
-    Write-Host ("{0,-20} {1,10} {2,10} {3,10} {4,10} {5,10}" -f $subproject, $files, $lines, $codeLines, $classes, $methods)
+    Write-Host ("{0,-28} {1,10} {2,10} {3,10} {4,10} {5,10}" -f $subproject, $files, $lines, $codeLines, $classes, $methods)
     
     $TotalFiles += $files
     $TotalLines += $lines
@@ -191,8 +204,8 @@ foreach ($subproject in $Subprojects) {
     }
 }
 
-Write-Host ("-" * 72)
-Write-Host ("{0,-20} {1,10} {2,10} {3,10} {4,10} {5,10}" -f "TOTAL", $TotalFiles, $TotalLines, $TotalCodeLines, $TotalClasses, $TotalMethods) -ForegroundColor Green
+Write-Host ("-" * 80)
+Write-Host ("{0,-28} {1,10} {2,10} {3,10} {4,10} {5,10}" -f "TOTAL", $TotalFiles, $TotalLines, $TotalCodeLines, $TotalClasses, $TotalMethods) -ForegroundColor Green
 Write-Host ""
 
 # Additional statistics

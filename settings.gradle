@@ -7,7 +7,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "ChatAE"
+rootProject.name = "ChatMC"
 
 include("base:core")
 include("base:common-1.20.1")
