@@ -1,5 +1,6 @@
 package space.controlnet.chatmc.common.agent;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import space.controlnet.chatmc.common.ChatMC;
 import space.controlnet.chatmc.common.ChatMCNetwork;
@@ -19,11 +20,16 @@ import space.controlnet.chatmc.core.session.TerminalBinding;
 import space.controlnet.chatmc.core.terminal.TerminalContext;
 import space.controlnet.chatmc.core.tools.ToolCall;
 import space.controlnet.chatmc.core.tools.ToolOutcome;
+import space.controlnet.chatmc.core.tools.ToolResult;
 
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * MC-specific wrapper for the core AgentLoop.
@@ -126,6 +132,7 @@ public final class AgentRunner {
      */
     private static final class McSessionContext implements AgentSessionContext, Serializable {
         private static final long serialVersionUID = 1L;
+        private static final long TOOL_EXECUTION_TIMEOUT_MS = 30_000L;
         private final UUID playerId;
 
         McSessionContext(UUID playerId) {
@@ -150,7 +157,44 @@ public final class AgentRunner {
 
         @Override
         public ToolOutcome executeTool(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
-            return ToolRegistry.executeTool(terminal, call, approved);
+            MinecraftServer server = ChatMCNetwork.findPlayer(playerId)
+                    .map(ServerPlayer::getServer)
+                    .orElse(null);
+            if (server == null) {
+                return ToolOutcome.result(ToolResult.error("tool_execution_failed", "tool execution failed"));
+            }
+
+            if (server.isSameThread()) {
+                return ToolRegistry.executeTool(terminal, call, approved);
+            }
+
+            CompletableFuture<ToolOutcome> outcomeFuture = new CompletableFuture<>();
+            try {
+                server.execute(() -> {
+                    try {
+                        outcomeFuture.complete(ToolRegistry.executeTool(terminal, call, approved));
+                    } catch (Throwable throwable) {
+                        outcomeFuture.completeExceptionally(throwable);
+                    }
+                });
+            } catch (RuntimeException queueFailure) {
+                ChatMC.LOGGER.warn("Failed to queue tool execution on server thread", queueFailure);
+                return ToolOutcome.result(ToolResult.error("tool_execution_failed", "tool execution failed"));
+            }
+
+            try {
+                return outcomeFuture.get(TOOL_EXECUTION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeoutException) {
+                ChatMC.LOGGER.warn("Timed out executing tool {} on server thread",
+                        call != null ? call.toolName() : "<unknown>", timeoutException);
+                return ToolOutcome.result(ToolResult.error("tool_timeout", "tool execution timeout"));
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                return ToolOutcome.result(ToolResult.error("tool_execution_failed", "tool execution failed"));
+            } catch (ExecutionException executionException) {
+                ChatMC.LOGGER.warn("Tool execution failed on server thread", executionException.getCause());
+                return ToolOutcome.result(ToolResult.error("tool_execution_failed", "tool execution failed"));
+            }
         }
 
         @Override

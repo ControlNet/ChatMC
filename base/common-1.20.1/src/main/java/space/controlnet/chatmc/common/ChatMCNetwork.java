@@ -60,6 +60,8 @@ import java.util.concurrent.Executors;
 
 public final class ChatMCNetwork {
     private static final int MAX_MESSAGE_LENGTH = Integer.getInteger("chatmc.maxMessageLength", 65536);
+    private static final int MAX_TOOL_ARGS_JSON_LENGTH = 65_536;
+    private static final String NETWORK_BOUNDARY_SIGNAL = "NETWORK_BOUNDARY_TOOL_ARGS_TOO_LARGE";
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatMCRegistries.id("main"));
     private static final int PROTOCOL_VERSION = 3;
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
@@ -399,28 +401,38 @@ public final class ChatMCNetwork {
             return;
         }
 
+        SessionSnapshot snapshot = ensureIndexingStateIfNeeded(base);
+
         for (UUID viewerId : List.copyOf(viewers)) {
             ServerPlayer viewer = server.getPlayerList().getPlayer(viewerId);
             if (viewer == null) {
                 unsubscribeViewer(viewerId);
                 continue;
             }
-            if (!canView(viewer, base)) {
+            if (!canView(viewer, snapshot)) {
                 unsubscribeViewer(viewerId);
                 continue;
             }
-            SessionSnapshot snapshot = ensureIndexingStateIfNeeded(base);
             CHANNEL.sendToPlayer(viewer, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
         }
     }
 
     private static SessionSnapshot ensureIndexingStateIfNeeded(SessionSnapshot snapshot) {
-        if (!ChatMC.RECIPE_INDEX.isReady()
-                && (snapshot.state() == SessionState.IDLE || snapshot.state() == SessionState.DONE)) {
-            SessionSnapshot updated = SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.INDEXING);
+        if (!ChatMC.RECIPE_INDEX.isReady()) {
+            if (snapshot.state() == SessionState.IDLE || snapshot.state() == SessionState.DONE) {
+                SessionSnapshot updated = SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.INDEXING);
+                persistSessions();
+                return updated;
+            }
+            return snapshot;
+        }
+
+        if (snapshot.state() == SessionState.INDEXING) {
+            SessionSnapshot updated = SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.IDLE);
             persistSessions();
             return updated;
         }
+
         return snapshot;
     }
 
@@ -544,10 +556,7 @@ public final class ChatMCNetwork {
             snapshot = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
             SESSIONS.setActive(player.getUUID(), snapshot.metadata().sessionId());
         }
-        if (!ChatMC.RECIPE_INDEX.isReady()
-                && (snapshot.state() == SessionState.IDLE || snapshot.state() == SessionState.DONE)) {
-            snapshot = SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.INDEXING);
-        }
+        snapshot = ensureIndexingStateIfNeeded(snapshot);
         CHANNEL.sendToPlayer(player, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
     }
 
@@ -559,6 +568,8 @@ public final class ChatMCNetwork {
         if (!canView(player, snapshot)) {
             return;
         }
+
+        snapshot = ensureIndexingStateIfNeeded(snapshot);
 
         UUID sessionId = snapshot.metadata().sessionId();
 
@@ -651,8 +662,10 @@ public final class ChatMCNetwork {
             buf.writeUtf(proposal.id(), 64);
             buf.writeVarInt(proposal.riskLevel().ordinal());
             buf.writeUtf(proposal.summary(), 512);
-            buf.writeUtf(proposal.toolCall().toolName(), 128);
-            buf.writeUtf(proposal.toolCall().argsJson(), 2048);
+            ToolCall toolCall = proposal.toolCall();
+            validateToolArgsBoundary(toolCall.toolName(), toolCall.argsJson(), "encode");
+            buf.writeUtf(toolCall.toolName(), 128);
+            buf.writeUtf(toolCall.argsJson(), MAX_TOOL_ARGS_JSON_LENGTH);
             buf.writeLong(proposal.createdAtMillis());
             ProposalDetails details = proposal.details();
             buf.writeUtf(details.action(), 64);
@@ -711,7 +724,8 @@ public final class ChatMCNetwork {
             RiskLevel risk = RiskLevel.values()[buf.readVarInt()];
             String summary = buf.readUtf(512);
             String toolName = buf.readUtf(128);
-            String argsJson = buf.readUtf(2048);
+            String argsJson = buf.readUtf(MAX_TOOL_ARGS_JSON_LENGTH);
+            validateToolArgsBoundary(toolName, argsJson, "decode");
             long proposalCreatedAt = buf.readLong();
             String action = buf.readUtf(64);
             String itemId = buf.readUtf(256);
@@ -741,6 +755,20 @@ public final class ChatMCNetwork {
         return new SessionSnapshot(metadata, messages, state, Optional.empty(), Optional.empty(), List.of(), error);
     }
 
+    private static void validateToolArgsBoundary(String toolName, String argsJson, String phase) {
+        if (argsJson == null) {
+            return;
+        }
+        int length = argsJson.length();
+        if (length > MAX_TOOL_ARGS_JSON_LENGTH) {
+            throw new IllegalArgumentException(
+                    NETWORK_BOUNDARY_SIGNAL
+                            + ": phase='" + phase + "', tool='" + toolName + "', argsJson.length=" + length
+                            + ", max=" + MAX_TOOL_ARGS_JSON_LENGTH
+            );
+        }
+    }
+
     private static CompletableFuture<space.controlnet.chatmc.core.agent.AgentLoopResult> runAgentLoopAsync(
             ServerPlayer player, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
         return CompletableFuture.supplyAsync(() -> {
@@ -756,11 +784,17 @@ public final class ChatMCNetwork {
         }
 
         if (result.hasProposal()) {
-            // Set proposal and move to WAIT_APPROVAL
-            // Keep locale stored for approval resume
-            if (!SESSIONS.trySetProposal(sessionId, result.proposal().get(), binding)) {
-                SESSIONS.setState(sessionId, SessionState.IDLE);
+            Proposal proposal = result.proposal().orElse(null);
+            if (proposal == null) {
+                applyAgentError(sessionId, "Agent returned invalid proposal result");
                 SESSION_LOCALE.remove(sessionId);
+                return;
+            }
+
+            if (!SESSIONS.trySetProposal(sessionId, proposal, binding)) {
+                applyAgentError(sessionId, "Session transition rejected proposal result");
+                SESSION_LOCALE.remove(sessionId);
+                return;
             }
         } else if (result.hasResponse()) {
             // Response already appended by agent, just set state to DONE

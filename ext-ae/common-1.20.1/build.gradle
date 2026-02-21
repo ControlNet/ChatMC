@@ -22,12 +22,17 @@ dependencies {
     compileOnly project(":ext-ae:core")
     compileOnly project(":base:core")
     compileOnly project(":base:common-1.20.1")
+    testImplementation project(":ext-ae:core")
+    testImplementation project(":base:core")
+    testImplementation project(":base:common-1.20.1")
 
     // Fabric loader only for annotations/mixin deps; do not call loader APIs from common.
     modCompileOnly "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modLocalRuntime "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
 
     // Architectury common
     modCompileOnly "dev.architectury:architectury:${rootProject.architectury_version}"
+    modLocalRuntime "dev.architectury:architectury:${rootProject.architectury_version}"
 
     // AE2 API (common uses the API types).
     // Match ae2_pattern_counter: use Fabric AE2 in common for access widener support.
@@ -36,4 +41,10 @@ dependencies {
 
     // LangChain4j + LangGraph4j (agent orchestration)
     addAgentDeps(dependencies, "compileOnly")
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+}
+
+tasks.named("test", Test).configure {
+    useJUnitPlatform()
 }

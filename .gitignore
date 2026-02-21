@@ -35,3 +35,10 @@ run/
 
 # Node
 node_modules/
+
+.beads/
+.sisyphus/
+.project
+.settings
+.classpath
+.factorypath

@@ -44,7 +44,11 @@ public final class LangChainToolCallParser implements ToolCallParser {
             }
             String tool = obj.get("tool").getAsString();
             String argsJson = obj.get("args").toString();
+            ToolCallArgsParseBoundary.validate(tool, argsJson);
             return Optional.of(new ToolCall(tool, argsJson));
+        } catch (ToolCallArgsParseBoundary.ToolCallParseBoundaryException e) {
+            logger.warn(e.getMessage(), null);
+            return Optional.empty();
         } catch (Exception e) {
             logger.warn("LangChain parsing failed", e);
             return Optional.empty();

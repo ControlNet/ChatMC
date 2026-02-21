@@ -247,6 +247,9 @@ public final class AgentReasoningService {
 
             logger.warn("Invalid agent decision: missing tool calls", null);
             return Optional.empty();
+        } catch (ToolCallArgsParseBoundary.ToolCallParseBoundaryException e) {
+            logger.warn(e.getMessage(), null);
+            return Optional.empty();
         } catch (Exception e) {
             String preview = content.length() > 200 ? content.substring(0, 200) + "..." : content;
             logger.warn("Failed to parse agent decision JSON: " + preview, e);
@@ -431,6 +434,7 @@ public final class AgentReasoningService {
                     return message;
                 }
                 String argsJson = entry.get("args").toString();
+                ToolCallArgsParseBoundary.validate(tool, argsJson);
                 toolCalls.add(new ToolCall(tool, argsJson));
             }
             return null;
@@ -453,6 +457,7 @@ public final class AgentReasoningService {
             return null;
         }
         String argsJson = obj.get("args").toString();
+        ToolCallArgsParseBoundary.validate(tool, argsJson);
         toolCalls.add(new ToolCall(tool, argsJson));
         return null;
     }

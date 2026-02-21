@@ -232,7 +232,11 @@ public final class ServerSessionManager {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
             SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
-            if (snapshot.state() != SessionState.EXECUTING) {
+            if (proposal == null) {
+                return snapshot;
+            }
+            SessionState state = snapshot.state();
+            if (state != SessionState.THINKING && state != SessionState.EXECUTING) {
                 return snapshot;
             }
             ok.set(true);
@@ -240,7 +244,7 @@ public final class ServerSessionManager {
                     snapshot.metadata(),
                     snapshot.messages(),
                     SessionState.WAIT_APPROVAL,
-                    Optional.ofNullable(proposal),
+                    Optional.of(proposal),
                     Optional.ofNullable(binding),
                     snapshot.decisions(),
                     snapshot.lastError()
@@ -278,6 +282,9 @@ public final class ServerSessionManager {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
             SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (snapshot.state() != SessionState.EXECUTING) {
+                return snapshot;
+            }
             Optional<Proposal> proposal = snapshot.pendingProposal();
             if (proposal.isEmpty() || !proposal.get().id().equals(proposalId)) {
                 return snapshot;

@@ -29,6 +29,8 @@ import java.util.UUID;
 public final class ChatMCSessionsSavedData extends SavedData {
     private static final String STORAGE_ID = "chatmc_sessions";
     private static final int CURRENT_VERSION = 1;
+    private static final int MAX_TOOL_ARGS_JSON_LENGTH = 65_536;
+    private static final String PERSIST_BOUNDARY_SIGNAL = "PERSIST_BOUNDARY_TOOL_ARGS_TOO_LARGE";
 
     private PersistedSessions persisted = new PersistedSessions(CURRENT_VERSION, List.of(), Map.of());
 
@@ -206,6 +208,7 @@ public final class ChatMCSessionsSavedData extends SavedData {
 
         ToolCall call = proposal.toolCall();
         t.putString("toolName", call.toolName());
+        validateToolArgsBoundary(call.toolName(), call.argsJson(), "write");
         t.putString("argsJson", call.argsJson());
 
         ProposalDetails details = proposal.details();
@@ -232,6 +235,7 @@ public final class ChatMCSessionsSavedData extends SavedData {
 
         String toolName = t.getString("toolName");
         String argsJson = t.getString("argsJson");
+        validateToolArgsBoundary(toolName, argsJson, "read");
         ToolCall call = new ToolCall(toolName, argsJson);
 
         String action = t.getString("action");
@@ -290,5 +294,19 @@ public final class ChatMCSessionsSavedData extends SavedData {
         Optional<String> toolName = t.getBoolean("hasToolName") ? Optional.of(t.getString("toolName")) : Optional.empty();
         ApprovalDecision decision = ApprovalDecision.values()[t.getInt("decision")];
         return new DecisionLogEntry(ts, playerId, playerName, proposalId, toolName, decision);
+    }
+
+    private static void validateToolArgsBoundary(String toolName, String argsJson, String phase) {
+        if (argsJson == null) {
+            return;
+        }
+        int length = argsJson.length();
+        if (length > MAX_TOOL_ARGS_JSON_LENGTH) {
+            throw new IllegalArgumentException(
+                    PERSIST_BOUNDARY_SIGNAL
+                            + ": phase='" + phase + "', tool='" + toolName + "', argsJson.length=" + length
+                            + ", max=" + MAX_TOOL_ARGS_JSON_LENGTH
+            );
+        }
     }
 }
