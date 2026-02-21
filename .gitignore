@@ -42,3 +42,5 @@ node_modules/
 .settings
 .classpath
 .factorypath
+AGENTS.md
+REPO.md
