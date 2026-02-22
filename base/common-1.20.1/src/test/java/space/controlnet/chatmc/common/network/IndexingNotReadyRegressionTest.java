@@ -2,8 +2,13 @@ package space.controlnet.chatmc.common.network;
 
 import org.junit.jupiter.api.Test;
 
+import space.controlnet.chatmc.common.testing.DeterministicBarrier;
+import space.controlnet.chatmc.common.testing.TimeoutUtility;
+
+import java.time.Duration;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class IndexingNotReadyRegressionTest {
     @Test
@@ -25,6 +30,38 @@ public final class IndexingNotReadyRegressionTest {
                 "SESSIONS.setState(snapshot.metadata().sessionId(), SessionState.IDLE);");
     }
 
+    @Test
+    void task8_IndexingNotReady_recoveryFlowCanBeDeterministicallyOrchestrated() {
+        DeterministicBarrier indexingBarrier = new DeterministicBarrier("task8/indexing-not-ready/rebuild-barrier");
+        AtomicReference<String> state = new AtomicReference<>("INDEXING");
+
+        Thread rebuildThread = new Thread(() -> {
+            indexingBarrier.arriveAndAwaitRelease("index-rebuild", Duration.ofSeconds(1));
+            state.set("IDLE");
+        }, "task8-indexing-rebuild");
+
+        rebuildThread.start();
+        indexingBarrier.awaitArrivals(1, Duration.ofSeconds(1));
+        TimeoutUtility.retry(
+                "task8/indexing-not-ready/pre-release-state",
+                4,
+                Duration.ofMillis(10),
+                () -> "INDEXING".equals(state.get())
+        );
+
+        indexingBarrier.release();
+        TimeoutUtility.awaitThreadCompletion(
+                "task8/indexing-not-ready/rebuild-thread",
+                rebuildThread,
+                Duration.ofSeconds(1)
+        );
+        TimeoutUtility.await(
+                "task8/indexing-not-ready/post-release-state",
+                Duration.ofSeconds(1),
+                () -> "IDLE".equals(state.get())
+        );
+    }
+
     private static String readSource(String path) {
         try {
             Path direct = Path.of(path);
@@ -44,8 +81,10 @@ public final class IndexingNotReadyRegressionTest {
     }
 
     private static void assertContains(String assertionName, String haystack, String needle) {
-        if (!haystack.contains(needle)) {
-            throw new AssertionError(assertionName + " -> expected to find: " + needle);
+        try {
+            TimeoutUtility.retry(assertionName, 3, Duration.ofMillis(5), () -> haystack.contains(needle));
+        } catch (AssertionError assertionError) {
+            throw new AssertionError(assertionName + " -> expected to find: " + needle, assertionError);
         }
     }
 }

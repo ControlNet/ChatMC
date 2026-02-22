@@ -9,7 +9,8 @@
   "environment": "*",
   "entrypoints": {
     "main": ["space.controlnet.chatmc.ae.fabric.ChatMCAeFabric"],
-    "client": ["space.controlnet.chatmc.ae.fabric.ChatMCAeFabricClient"]
+    "client": ["space.controlnet.chatmc.ae.fabric.ChatMCAeFabricClient"],
+    "fabric-gametest": ["space.controlnet.chatmc.ae.fabric.gametest.ChatMCAeFabricGameTestEntrypoint"]
   },
   "depends": {
     "fabricloader": ">=0.16.0",

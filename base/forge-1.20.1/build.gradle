@@ -9,6 +9,26 @@ loom {
     forge {
         // Forge-specific Loom configuration lives here when needed.
     }
+    runs {
+        create("gameTestServer") {
+            server()
+            environment("gameTestServer")
+            mods {
+                create("chatmc") {
+                    sourceSet project.sourceSets.main
+                }
+            }
+            property("forge.enableGameTest", "true")
+            property("forge.enabledGameTestNamespaces", "chatmc")
+        }
+        named("server") {
+            mods {
+                create("chatmc") {
+                    sourceSet project.sourceSets.main
+                }
+            }
+        }
+    }
 }
 
 architectury {
@@ -69,4 +89,47 @@ processResources {
             "minecraft_version": rootProject.minecraft_version
         )
     }
+}
+
+def syncBinMainModsToml = tasks.register("syncBinMainModsToml", Sync) {
+    dependsOn(tasks.named("processResources"))
+    from(layout.buildDirectory.file("resources/main/META-INF/mods.toml"))
+    into(layout.projectDirectory.dir("bin/main/META-INF"))
+}
+
+def syncBinMainCompiledArtifacts = tasks.register("syncBinMainCompiledArtifacts", Sync) {
+    dependsOn(tasks.named("classes"))
+    from(layout.buildDirectory.dir("classes/java/main"))
+    from(layout.buildDirectory.dir("resources/main"))
+    into(layout.projectDirectory.dir("bin/main"))
+}
+
+def syncBinMainGameTestStructures = tasks.register("syncBinMainGameTestStructures", Sync) {
+    dependsOn(tasks.named("processResources"))
+    from(layout.projectDirectory.dir("gameteststructures"))
+    from(layout.projectDirectory.dir("src/main/resources/data/minecraft/gameteststructures"))
+    include("**/*.snbt")
+    into(layout.projectDirectory.dir("run/gameteststructures"))
+}
+
+def ensureGameTestEula = tasks.register("ensureGameTestEula") {
+    doLast {
+        def runDir = layout.projectDirectory.dir("run").asFile
+        runDir.mkdirs()
+        new File(runDir, "eula.txt").text = "eula=true\n"
+    }
+}
+
+tasks.named("runGameTestServer", JavaExec) {
+    doFirst {
+        def filteredJvmArgs = (jvmArgs ?: []).findAll { !it.startsWith("-Dfabric.dli.env=") }
+        setJvmArgs(filteredJvmArgs + "-Dfabric.dli.env=gameTestServer")
+    }
+}
+
+tasks.matching { it.name == "runGameTestServer" }.configureEach {
+    dependsOn(syncBinMainModsToml)
+    dependsOn(syncBinMainGameTestStructures)
+    dependsOn(ensureGameTestEula)
+    dependsOn(syncBinMainCompiledArtifacts)
 }

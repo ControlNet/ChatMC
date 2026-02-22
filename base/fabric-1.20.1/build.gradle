@@ -6,6 +6,20 @@ plugins {
 
 loom {
     silentMojangMappingsLicense()
+
+    runs {
+        register("gametest") { runConfig ->
+            runConfig.configName = "Game Test"
+            runConfig.server()
+            runConfig.runDir("run/gametest")
+
+            runConfig.property("fabric-api.gametest")
+            runConfig.property(
+                "fabric-api.gametest.report-file",
+                layout.buildDirectory.file("reports/gametest/runGametest.xml").get().asFile.absolutePath
+            )
+        }
+    }
 }
 
 architectury {

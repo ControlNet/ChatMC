@@ -3,8 +3,12 @@ package space.controlnet.chatmc.common.agent;
 import org.junit.jupiter.api.Test;
 
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.testing.DeterministicBarrier;
+import space.controlnet.chatmc.common.testing.ThreadConfinementAssertions;
+import space.controlnet.chatmc.common.testing.TimeoutUtility;
 import space.controlnet.chatmc.common.tools.ToolRegistry;
 
+import java.time.Duration;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -53,8 +57,9 @@ public final class ThreadConfinementRegressionTest {
         String providerId = uniqueName("provider");
         AtomicReference<Thread> providerThread = new AtomicReference<>();
         AtomicInteger executeCount = new AtomicInteger();
+        DeterministicBarrier dispatchBarrier = new DeterministicBarrier("task14/base/registry-dispatch/provider-entered");
 
-        registerThreadCapturingProvider(providerId, toolName, providerThread, executeCount);
+        registerThreadCapturingProvider(providerId, toolName, providerThread, executeCount, dispatchBarrier);
 
         AtomicReference<Object> outcomeRef = new AtomicReference<>();
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -68,14 +73,20 @@ public final class ThreadConfinementRegressionTest {
         }, uniqueName("worker"));
 
         worker.start();
-        joinOrFail("task14/base/registry-dispatch/join", worker);
+        dispatchBarrier.awaitArrivals(1, Duration.ofSeconds(1));
+        assertTrue("task14/base/registry-dispatch/outcome-before-release", outcomeRef.get() == null);
+        dispatchBarrier.release();
+        TimeoutUtility.awaitThreadCompletion("task14/base/registry-dispatch", worker, Duration.ofSeconds(2));
         if (errorRef.get() != null) {
             throw new AssertionError("task14/base/registry-dispatch/unexpected-error", errorRef.get());
         }
 
         assertEquals("task14/base/registry-dispatch/execute-count", 1, executeCount.get());
-        assertEquals("task14/base/registry-dispatch/provider-thread", worker.getName(),
-                requireNonNull("task14/base/registry-dispatch/provider-thread-present", providerThread.get()).getName());
+        ThreadConfinementAssertions.assertSameThread(
+                "task14/base/registry-dispatch/provider-thread",
+                worker,
+                requireNonNull("task14/base/registry-dispatch/provider-thread-present", providerThread.get())
+        );
         assertOutcomeSuccess("task14/base/registry-dispatch/outcome", outcomeRef.get());
     }
 
@@ -140,7 +151,8 @@ public final class ThreadConfinementRegressionTest {
             String providerId,
             String toolName,
             AtomicReference<Thread> providerThread,
-            AtomicInteger executeCount
+            AtomicInteger executeCount,
+            DeterministicBarrier dispatchBarrier
     ) {
         try {
             Class<?> toolProviderClass = Class.forName("space.controlnet.chatmc.common.tools.ToolProvider");
@@ -167,6 +179,7 @@ public final class ThreadConfinementRegressionTest {
                     case "execute" -> {
                         executeCount.incrementAndGet();
                         providerThread.set(Thread.currentThread());
+                        dispatchBarrier.arriveAndAwaitRelease("provider-execute", Duration.ofSeconds(1));
                         yield newToolOutcomeResult(newToolResultOk("{\"ok\":true}"));
                     }
                     case "toString" -> "Task14ThreadCapturingProvider(" + providerId + ")";
@@ -234,15 +247,6 @@ public final class ThreadConfinementRegressionTest {
             return method.invoke(nonNullTarget);
         } catch (Exception exception) {
             throw new AssertionError(assertionName + " -> invoke " + methodName + " failed", exception);
-        }
-    }
-
-    private static void joinOrFail(String assertionName, Thread thread) {
-        try {
-            thread.join();
-        } catch (InterruptedException interruptedException) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError(assertionName + " -> interrupted", interruptedException);
         }
     }
 
