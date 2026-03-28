@@ -51,7 +51,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run JUnit matrix task
-        run: ./gradlew --no-daemon ${{ matrix.task }}
+        run: ./gradlew --no-daemon --configure-on-demand ${{ matrix.task }}
 
       - name: Collect lane report
         run: |
@@ -89,7 +89,7 @@ jobs:
 
       - name: Run JUnit suite
         run: |
-          ./gradlew --no-daemon \
+          ./gradlew --no-daemon --configure-on-demand \
             :base:core:test \
             :base:common-1.20.1:test \
             :ext-ae:common-1.20.1:test
@@ -153,7 +153,7 @@ jobs:
 
       - name: Run nightly JUnit suite
         run: |
-          ./gradlew --no-daemon \
+          ./gradlew --no-daemon --configure-on-demand \
             :base:core:test \
             :base:common-1.20.1:test \
             :ext-ae:common-1.20.1:test
