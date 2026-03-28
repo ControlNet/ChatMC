@@ -13,7 +13,7 @@ This document is written for Codex (coding agent). It defines the project goals,
 
 **AE2 Extension:**
 - **Mod name:** ChatMC AE2
-- **modid:** `chatmcae2`
+- **modid:** `chatmcae`
 - **Maven group:** `space.controlnet.chatmc.ae`
 
 **Matrix Extension:**
@@ -33,10 +33,10 @@ This document is written for Codex (coding agent). It defines the project goals,
 **Output jar names (current):**
 - `chatmc-<ver>-forge-<mc-ver>.jar`
 - `chatmc-<ver>-fabric-<mc-ver>.jar`
-- `chatmc-ae-<ver>-forge-<mc-ver>.jar`
-- `chatmc-ae-<ver>-fabric-<mc-ver>.jar`
-- `chatmc-matrix-<ver>-forge-<mc-ver>.jar`
-- `chatmc-matrix-<ver>-fabric-<mc-ver>.jar`
+- `chatmcae-<ver>-forge-<mc-ver>.jar`
+- `chatmcae-<ver>-fabric-<mc-ver>.jar`
+- `chatmcmatrix-<ver>-forge-<mc-ver>.jar`
+- `chatmcmatrix-<ver>-fabric-<mc-ver>.jar`
 
 ---
 
@@ -161,11 +161,11 @@ User Message
 
 ### D) Model & Tool Integration (LangChain4j)
 Use **LangChain4j** for:
-- model/provider abstraction (easy switching and testing)
+- OpenAI model integration
 - tool/function calling integration
 - structured output support (JSON schemas / constraints)
 - prompt templates with variable substitution
-- hot-reloadable model/provider configuration
+- hot-reloadable OpenAI model configuration
 
 ---
 
@@ -458,11 +458,11 @@ No disk caching for MVP.
 - **Dynamic agent loop prompt:** `agent.reason` now expects tool-only JSON objects; direct responses are emitted via the `response` tool with args `{ "message": "..." }`.
 - **Prompt sourcing + overrides:** defaults live in `assets/chatae/lang/*.json` and are generated into `config/chatae/prompts/*.default.prompt` for overrides; global (`<prompt_id>.prompt`) and locale (`<prompt_id>.<locale>.prompt`) overrides are supported.
 - **Hot reload:** `/chatae reload` reloads LLM config and prompts, then rebuilds the active LLM client/model atomically.
-- **LLM config:** provider/model/baseUrl/keys/timeouts/retries/rate-limit cooldown are configurable in `config/chatae/llm.toml`.
+- **LLM config:** OpenAI provider/model/baseUrl/keys/timeouts/retries/rate-limit cooldown are configurable in `config/chatae/llm.toml`.
 - **LLM agent limits:** `maxToolCalls`, `maxIterations`, and `maxHistoryMessages` are configurable in `config/chatae/llm.toml`.
 - **LLM max tokens default:** `maxTokens` now defaults to `128000` in `LlmConfig.defaults()` unless overridden in config.
-- **OpenAI/Azure token param compatibility:** builders prefer `maxCompletionTokens` when available; GPT-5 models skip `maxTokens` to avoid unsupported parameter errors.
-- **Azure OpenAI config:** uses `baseUrl` + `azureDeployment` (+ optional `azureApiVersion`); `azureEndpoint` removed.
+- **OpenAI token param compatibility:** builders prefer `maxCompletionTokens` when available; GPT-5 models skip `maxTokens` to avoid unsupported parameter errors.
+- **OpenAI-compatible endpoint override:** `baseUrl` can point the OpenAI client at a compatible endpoint instead of the default OpenAI API URL.
 - **Observability:** prompt hash, locale, and prompt id are logged during parsing.
 - **Tool specs prompting:** prompt now renders a per-tool section via `{{tools_section}}` instead of category-split blocks.
 
@@ -539,7 +539,7 @@ No disk caching for MVP.
 - **Base mod** provides a clean, minimal agent API and vanilla `mc.*` tools.
 - **Extensions** are separate **addon jars** with their own `modid`s:
   - `chatmc` (base)
-  - `chatmcae2` (AE2 extension)
+- `chatmcae` (AE2 extension)
   - `chatmcmatrix` (Matrix extension)
 - Reduce entanglement: `core` is pure and stable; `common-*` uses core via clean interfaces.
 - Keep UI identical across base and extensions.
@@ -572,7 +572,7 @@ No disk caching for MVP.
 - `base/common-*`: depends on `base/core` + MC APIs.
 - `base/forge-*`, `base/fabric-*`: depend on `base/common-*`.
 
-**AE2 extension (`chatmcae2`)**
+**AE2 extension (`chatmcae`)**
 - `ext-ae/core`: depends on `base/core`.
 - `ext-ae/common-*`: depends on
   - `ext-ae/core`
@@ -598,10 +598,10 @@ No disk caching for MVP.
 ### 14.4 Packaging (separate jars)
 - `chatmc-<ver>-forge-1.20.1.jar`
 - `chatmc-<ver>-fabric-1.20.1.jar`
-- `chatmc-ae-<ver>-forge-1.20.1.jar`
-- `chatmc-ae-<ver>-fabric-1.20.1.jar`
-- `chatmc-matrix-<ver>-forge-1.20.1.jar`
-- `chatmc-matrix-<ver>-fabric-1.20.1.jar`
+- `chatmcae-<ver>-forge-1.20.1.jar`
+- `chatmcae-<ver>-fabric-1.20.1.jar`
+- `chatmcmatrix-<ver>-forge-1.20.1.jar`
+- `chatmcmatrix-<ver>-fabric-1.20.1.jar`
 
 ### 14.5 Extension Types
 - **Tool extension (AE2):** adds `ae.*` tools + AI terminal block/part.
@@ -616,10 +616,10 @@ No disk caching for MVP.
   - UI screen/menu, networking, session sync, keybind/command open.
   - tool registry and execution routing.
   - vanilla `mc.*` tool implementations.
-- **ext-ae/core (chatmcae2)**:
+- **ext-ae/core (chatmcae)**:
   - AE2-specific tool DTOs/schemas (pure Java).
   - no MC/AE2 classes.
-- **ext-ae/common-* (chatmcae2)**:
+- **ext-ae/common-* (chatmcae)**:
   - AE2 tool implementations, AE2 part/block, AE2 network adapters.
   - registers AE2 tool provider into base registry.
 - **ext-matrix/core (chatmcmatrix)**:
@@ -667,10 +667,10 @@ No disk caching for MVP.
 11) Move all `mc.*` tools into base and register default provider.
 12) Verify: base agent loop works with only `mc.*` tools.
 
-**Phase D: AE2 extension (chatmcae2)**
+**Phase D: AE2 extension (chatmcae)**
 13) Copy AE2-related code into `/ext-ae/core` and `/ext-ae/common-*`.
 14) Update modid/group for AE2 extension:
-    - `modid = chatmcae2`
+   - `modid = chatmcae`
     - `group = space.controlnet.chatmc.ae`
 15) Wire dependencies:
     - ext-ae/common-* -> base/core + base/common-* + AE2 APIs.
@@ -688,7 +688,7 @@ No disk caching for MVP.
 
 ### 14.8 Acceptance Criteria (refactor)
 - `chatmc` runs standalone and provides UI + `mc.*` tools.
-- `chatmcae2` loads only when `chatmc` + `ae2` are present.
+- `chatmcae` loads only when `chatmc` + `ae2` are present.
 - `chatmcmatrix` loads only when `chatmc` is present.
 - Tools are discovered only via `ToolRegistry` providers.
 - No AE2 classes in `base/*`.
@@ -717,10 +717,10 @@ After each phase that changes code layout or dependencies:
 
 ### 15.1 Completed (structural)
 - **New module layout created:** `/base/*`, `/ext-ae/*`, `/ext-matrix/*` with nested `core/common-1.20.1/forge-1.20.1/fabric-1.20.1`.
-- **Gradle wiring updated:** `settings.gradle` includes only new modules; root `gradle.properties` set to `chatmc`; per-extension `gradle.properties` set to `chatmcae2` / `chatmcmatrix`.
+- **Gradle wiring updated:** `settings.gradle` includes only new modules; root `gradle.properties` set to `chatmc`; per-extension `gradle.properties` set to `chatmcae` / `chatmcmatrix`.
 - **Jar naming:** per-module `archives_base_name` and `maven_group` applied (root build.gradle enforces ext-ae/ext-matrix overrides to avoid capability collisions).
 - **Base rename:** packages moved to `space.controlnet.chatmc`, modid `chatmc`, resources under `assets/chatmc`.
-- **AE2 extension:** packages under `space.controlnet.chatmc.ae`, modid `chatmcae2`, resources under `assets/chatmcae2`.
+- **AE2 extension:** packages under `space.controlnet.chatmc.ae`, modid `chatmcae`, resources under `assets/chatmcae`.
 - **Matrix extension scaffolded:** packages under `space.controlnet.chatmc.matrix`, modid `chatmcmatrix`, minimal bootstrap + metadata.
 - **Legacy archive deleted:** `/old-root-modules` removed after successful validation.
 
@@ -747,7 +747,7 @@ After each phase that changes code layout or dependencies:
 ### 15.4 Refactor Complete
 The base + extensions refactor is **complete**. All acceptance criteria from §14.8 are met:
 - �?`chatmc` runs standalone and provides UI + `mc.*` tools
-- �?`chatmcae2` loads only when `chatmc` + `ae2` are present
+- �?`chatmcae` loads only when `chatmc` + `ae2` are present
 - �?`chatmcmatrix` loads only when `chatmc` is present
 - �?Tools are discovered via `ToolRegistry` providers
 - �?No AE2 classes in `base/*`
@@ -789,7 +789,7 @@ The following three commits were not yet reflected in this document and are now 
      - server-thread confinement for tool execution,
      - unified `65536` tool-args boundary handling (parse/network/persistence).
    - Added comprehensive regression coverage across `base/core`, `base/common-1.20.1`, and `ext-ae/common-1.20.1` for state machine, indexing, thread confinement, and boundary contracts.
-   - Updated `.gitignore` for repository-local workflow artifacts (`.beads/`, `.sisyphus/`, IDE metadata paths).
+- Updated `.gitignore` for repository-local workflow artifacts (`.sisyphus/`, IDE metadata paths).
 
 ---
 
@@ -821,7 +821,7 @@ timeout 25m ./gradlew --no-daemon :base:fabric-1.20.1:runGametest --stacktrace
 timeout 25m ./gradlew --no-daemon :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke
 ```
 
-**Forge GameTest commands (main-lane path, currently blocked in this workspace):**
+**Forge GameTest commands (dev-lane path, currently blocked in this workspace):**
 ```bash
 timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace
 timeout 25m ./gradlew --no-daemon :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
@@ -832,10 +832,10 @@ timeout 25m ./gradlew --no-daemon :ext-ae:forge-1.20.1:runGameTestServer --stack
 - Fabric GameTest XML:
   - `base/fabric-1.20.1/build/reports/gametest/runGametest.xml`
   - `ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`
-- Forge runtime log (main lane): `ci-reports/main/forge-gametest.log`
+- Forge runtime log (dev lane): `ci-reports/dev/forge-gametest.log`
 - CI summaries:
   - `ci-reports/pr/*-summary.json`
-  - `ci-reports/main/summary.json`
+- `ci-reports/dev/summary.json`
   - `ci-reports/nightly/summary.json`
 - Parity report: `ci-reports/parity/gametest-parity-report.md`
 - Evidence archive: `.sisyphus/evidence/*`
@@ -849,5 +849,5 @@ Main-lane CI still runs the Forge command, captures logs, and reports this state
 
 ### 16.5 CI lane mapping
 - **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:common-1.20.1:test`).
-- **Main lane:** JUnit suite + Forge `:base:forge-1.20.1:runGameTestServer` with blocker-aware policy parsing.
+- **Dev lane:** JUnit suite + Forge `:base:forge-1.20.1:runGameTestServer` with blocker-aware policy parsing.
 - **Nightly lane:** JUnit suite + Fabric `:base:fabric-1.20.1:runGametest` and `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke`.
