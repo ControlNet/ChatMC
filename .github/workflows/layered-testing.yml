@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - dev
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
         default: pr
         options:
           - pr
-          - main
+          - dev
           - nightly
 
 permissions:
@@ -70,8 +70,8 @@ jobs:
             ci-reports/pr/${{ matrix.lane_name }}-summary.json
             **/build/test-results/test/*.xml
 
-  main-lane:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.lane == 'main')
+  dev-lane:
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && inputs.lane == 'dev')
     runs-on: ubuntu-latest
 
     steps:
@@ -97,14 +97,14 @@ jobs:
       - name: Run Forge GameTests (capture blocker logs)
         id: forge_run
         run: |
-          mkdir -p ci-reports/main
+          mkdir -p ci-reports/dev
           set +e
-          timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace > ci-reports/main/forge-gametest.log 2>&1
+          timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace > ci-reports/dev/forge-gametest.log 2>&1
           forge_rc=$?
           set -e
           echo "forge_rc=${forge_rc}" >> "$GITHUB_OUTPUT"
 
-      - name: Collect and enforce main lane policy
+      - name: Collect and enforce dev lane policy
         run: |
           set +e
           python3 scripts/ci_collect_reports.py \
@@ -112,25 +112,25 @@ jobs:
             --policy-file ci/layered-testing-policy.json \
             --junit-glob "**/build/test-results/test/*.xml" \
             --forge-report-glob "base/forge-1.20.1/build/reports/**/*.xml" \
-            --forge-log-glob "ci-reports/main/forge-gametest.log" \
+            --forge-log-glob "ci-reports/dev/forge-gametest.log" \
             --forge-exit-code "${{ steps.forge_run.outputs.forge_rc }}" \
-            --summary-json "ci-reports/main/summary.json"
+            --summary-json "ci-reports/dev/summary.json"
           policy_rc=$?
           set -e
           if [ "$policy_rc" -eq 3 ]; then
-            echo "::warning::Main lane is BLOCKED by known Forge runtime issue; see ci-reports/main/summary.json"
+            echo "::warning::Dev lane is BLOCKED by known Forge runtime issue; see ci-reports/dev/summary.json"
             exit 0
           fi
           exit "$policy_rc"
 
-      - name: Upload main lane reports
+      - name: Upload dev lane reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: main-lane-reports
+          name: dev-lane-reports
           path: |
-            ci-reports/main/summary.json
-            ci-reports/main/forge-gametest.log
+            ci-reports/dev/summary.json
+            ci-reports/dev/forge-gametest.log
             base/forge-1.20.1/build/reports/**/*.xml
             **/build/test-results/test/*.xml
 

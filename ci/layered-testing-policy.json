@@ -18,7 +18,7 @@
       "quarantined_tests": []
     },
     "main": {
-      "description": "Main lane: Forge GameTest + JUnit with explicit blocker surfacing",
+      "description": "Integration lane for the dev branch: Forge GameTest + JUnit with explicit blocker surfacing",
       "retry_attempts": {
         "junit": 0,
         "gametest": 0
