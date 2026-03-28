@@ -13,9 +13,9 @@ MC_VERSION="$(grep -E '^minecraft_version=' "$ROOT_DIR/gradle.properties" | cut 
   :base:common-1.20.1:build \
   :base:fabric-1.20.1:build \
   :base:forge-1.20.1:build \
-  :ext-ae2:common-1.20.1:build \
-  :ext-ae2:fabric-1.20.1:build \
-  :ext-ae2:forge-1.20.1:build \
+  :ext-ae:common-1.20.1:build \
+  :ext-ae:fabric-1.20.1:build \
+  :ext-ae:forge-1.20.1:build \
   :ext-matrix:common-1.20.1:build \
   :ext-matrix:fabric-1.20.1:build \
   :ext-matrix:forge-1.20.1:build
@@ -26,8 +26,8 @@ rm -f "$DIST_DIR"/*.jar
 declare -a jars=(
   "$ROOT_DIR/base/fabric-1.20.1/build/libs/chatmc-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
   "$ROOT_DIR/base/forge-1.20.1/build/libs/chatmc-${MOD_VERSION}-forge-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae2/fabric-1.20.1/build/libs/chatmcae-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae2/forge-1.20.1/build/libs/chatmcae-${MOD_VERSION}-forge-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae/fabric-1.20.1/build/libs/chatmcae-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae/forge-1.20.1/build/libs/chatmcae-${MOD_VERSION}-forge-${MC_VERSION}.jar"
   "$ROOT_DIR/ext-matrix/fabric-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
   "$ROOT_DIR/ext-matrix/forge-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-forge-${MC_VERSION}.jar"
 )
