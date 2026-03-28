@@ -197,8 +197,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: needs deterministic async orchestration abstractions used by many downstream tests.
-  - **Skills**: [`beads`]
-    - `beads`: track multi-step test infrastructure changes and evidence trail.
   - **Skills Evaluated but Omitted**:
     - `playwright`: no browser interaction.
     - `github-cli`: no GitHub API interaction.
@@ -259,8 +257,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: mostly build/run wiring in a small number of files.
-  - **Skills**: [`beads`]
-    - `beads`: keep infra changes traceable with discrete checkpoints.
   - **Skills Evaluated but Omitted**:
     - `git-master`: no commit/rebase work required inside task.
 
@@ -319,8 +315,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: focused loader wrapper + run config changes.
-  - **Skills**: [`beads`]
-    - `beads`: maintains parity-tracking between Forge/Fabric wrappers.
   - **Skills Evaluated but Omitted**:
     - `playwright`: irrelevant to server-side runtime tests.
 
@@ -379,8 +373,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: careful migration to avoid regression gaps.
-  - **Skills**: [`beads`]
-    - `beads`: tracks migration checklist and one-to-one coverage replacement.
   - **Skills Evaluated but Omitted**:
     - `oracle`: not required for straightforward test migration execution.
 
@@ -439,8 +431,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: async determinism directly affects GameTest flake rate.
-  - **Skills**: [`beads`]
-    - `beads`: tracks utility consumers and stabilization checklist.
   - **Skills Evaluated but Omitted**:
     - `git-master`: no history surgery needed for this task.
 
@@ -498,8 +488,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: requires real-world state manipulation and transition validation.
-  - **Skills**: [`beads`]
-    - `beads`: tracks scenario evidence and edge-case checklist.
   - **Skills Evaluated but Omitted**:
     - `playwright`: irrelevant to server runtime scenario.
 
@@ -558,8 +546,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: async lifecycle + state transition interactions.
-  - **Skills**: [`beads`]
-    - `beads`: records deterministic sequencing and evidence.
   - **Skills Evaluated but Omitted**:
     - `github-cli`: no external API operations.
 
@@ -619,8 +605,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: concurrency-heavy networking assertions with viewer churn.
-  - **Skills**: [`beads`]
-    - `beads`: tracks scenario matrix and evidence completeness.
   - **Skills Evaluated but Omitted**:
     - `playwright`: scenario is server/network state, not browser UI.
 
@@ -680,8 +664,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: concurrency and timeout correctness under runtime scheduling.
-  - **Skills**: [`beads`]
-    - `beads`: keep per-scenario evidence/flake history for thread tests.
   - **Skills Evaluated but Omitted**:
     - `oracle`: optional; execution task is concrete and bounded.
 
@@ -740,8 +722,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: cross-layer boundary validation with encoding edge cases.
-  - **Skills**: [`beads`]
-    - `beads`: tracks scenario matrix and boundary corpus versions.
   - **Skills Evaluated but Omitted**:
     - `secret-guard`: no secret-audit scope in this task.
 
@@ -800,8 +780,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: focused integration test additions around persisted contracts.
-  - **Skills**: [`beads`]
-    - `beads`: tracks migration from source contracts to behavior checks.
   - **Skills Evaluated but Omitted**:
     - `playwright`: irrelevant.
 
@@ -858,8 +836,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: AE runtime behavior has asynchronous and environment-specific complexity.
-  - **Skills**: [`beads`]
-    - `beads`: track AE-specific scenario evidence and known instability notes.
   - **Skills Evaluated but Omitted**:
     - `oracle`: analysis complete; implementation is concrete.
 
@@ -917,8 +893,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: thin registration layer and task wiring.
-  - **Skills**: [`beads`]
-    - `beads`: maintains parity checklist across loaders.
   - **Skills Evaluated but Omitted**:
     - `github-cli`: no external PR metadata flow required.
 
@@ -976,8 +950,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: wrapper-level parity work with explicit skip/fail semantics.
-  - **Skills**: [`beads`]
-    - `beads`: tracks parity and known environment caveats.
   - **Skills Evaluated but Omitted**:
     - `oracle`: deep architecture review not required for wrapper implementation.
 
@@ -1035,8 +1007,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: cross-lane orchestration, artifact policy, and reliability controls.
-  - **Skills**: [`beads`]
-    - `beads`: tracks rollout criteria and gate promotion state.
   - **Skills Evaluated but Omitted**:
     - `playwright`: no browser automation in CI policy task.
 
@@ -1095,8 +1065,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: execution and triage on established JUnit suites.
-  - **Skills**: [`beads`]
-    - `beads`: maintains issue list for failing tests and resolutions.
   - **Skills Evaluated but Omitted**:
     - `git-master`: commit management not in scope of this task.
 
@@ -1155,8 +1123,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: runtime flake triage and deterministic hardening across async scenarios.
-  - **Skills**: [`beads`]
-    - `beads`: tracks flake taxonomy and stabilization progress.
   - **Skills Evaluated but Omitted**:
     - `oracle`: optional review, not execution dependency.
 
@@ -1215,8 +1181,6 @@ Max Concurrent: 6 (Wave 2)
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: cross-loader parity analysis and report synthesis.
-  - **Skills**: [`beads`]
-    - `beads`: tracks parity table and unresolved deltas.
   - **Skills Evaluated but Omitted**:
     - `github-cli`: no remote API need.
 

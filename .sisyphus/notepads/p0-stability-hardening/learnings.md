@@ -116,9 +116,9 @@
 
 ## 2026-02-20 F4 final scope refresh learnings (post evidence/filter corrections)
 
-- Re-run scope probes show no `.project`, `.gitattributes`, or `AGENTS.md` artifacts, but `.beads/` has been reintroduced in repo root.
+- Re-run scope probes show no `.project`, `.gitattributes`, or `AGENTS.md` artifacts, but generated support files have been reintroduced in repo root.
 - Remaining code/test/build deltas continue to map to P0 tasks only (`T2/T6/T7/T8/T9/T10/T11/T12/T13/T14/T15`) plus `.sisyphus/*` support artifacts.
-- Deterministic scope result for current working tree is driven by one out-of-scope drift class only: root `.beads/*` artifacts.
+- Deterministic scope result for current working tree is driven by one out-of-scope drift class only: root generated support-file artifacts.
 
 ## 2026-02-20 F4 deep scope fidelity check (current tree)
 

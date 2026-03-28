@@ -162,8 +162,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: state-machine correctness and invariant design.
-  - **Skills**: [`beads`]
-    - `beads`: track sub-decisions and ensure full invariant coverage.
   - **Skills Evaluated but Omitted**:
     - `playwright`: no browser work required for this task.
 
@@ -219,8 +217,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: cross-boundary behavior between session state and recipe subsystem.
-  - **Skills**: [`beads`]
-    - `beads`: maintain traceability from policy to implementation tests.
   - **Skills Evaluated but Omitted**:
     - `frontend-ui-ux`: no UI redesign required.
 
@@ -276,8 +272,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: concurrency correctness under game-server constraints.
-  - **Skills**: [`beads`]
-    - `beads`: track thread-safety acceptance checks.
   - **Skills Evaluated but Omitted**:
     - `git-master`: no git operation focus in this task.
 
@@ -334,8 +328,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: boundary-hardening across multiple layers.
-  - **Skills**: [`beads`]
-    - `beads`: ensure all boundaries share one policy constant.
   - **Skills Evaluated but Omitted**:
     - `secret-guard`: unrelated to args-size boundary logic.
 
@@ -392,8 +384,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: test scaffolding and wiring definition.
-  - **Skills**: [`beads`]
-    - `beads`: track fixture coverage and avoid missing branches.
   - **Skills Evaluated but Omitted**:
     - `playwright`: UI browser automation not required here.
 
@@ -449,8 +439,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: central state-machine mutation logic.
-  - **Skills**: [`beads`]
-    - `beads`: maintain transition checklist and regression tracking.
   - **Skills Evaluated but Omitted**:
     - `frontend-design`: no UI work.
 
@@ -505,8 +493,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: high-impact orchestration logic with multiple side effects.
-  - **Skills**: [`beads`]
-    - `beads`: track side effects (persist/broadcast/locale) in one checklist.
   - **Skills Evaluated but Omitted**:
     - `github-cli`: no remote GitHub inspection required.
 
@@ -562,8 +548,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: cross-module interplay (network + recipe index + session state).
-  - **Skills**: [`beads`]
-    - `beads`: verify every readiness transition branch.
   - **Skills Evaluated but Omitted**:
     - `frontend-ui-ux`: this task is behavior/state, not visual redesign.
 
@@ -619,8 +603,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: concurrency correctness with safety-critical side effects.
-  - **Skills**: [`beads`]
-    - `beads`: track thread-boundary guarantees and failure paths.
   - **Skills Evaluated but Omitted**:
     - `playwright`: not a browser/UI automation task.
 
@@ -677,8 +659,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: parsing robustness and failure-mode determinism.
-  - **Skills**: [`beads`]
-    - `beads`: track edge-case coverage for parser branches.
   - **Skills Evaluated but Omitted**:
     - `frontend-design`: no UI design scope.
 
@@ -734,8 +714,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: cross-boundary serialization hardening.
-  - **Skills**: [`beads`]
-    - `beads`: verify all serialization entry/exit points are covered.
   - **Skills Evaluated but Omitted**:
     - `dev-browser`: no browser workflow.
 
@@ -791,8 +769,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: high-coverage logic testing around state machine correctness.
-  - **Skills**: [`beads`]
-    - `beads`: maintain explicit branch coverage checklist.
   - **Skills Evaluated but Omitted**:
     - `visual-engineering`: not relevant to backend logic tests.
 
@@ -847,8 +823,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `deep`
     - Reason: state + readiness integration tests.
-  - **Skills**: [`beads`]
-    - `beads`: track readiness transition permutations.
   - **Skills Evaluated but Omitted**:
     - `playwright`: not required for server-side behavior validation.
 
@@ -904,8 +878,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: cross-module concurrency validation.
-  - **Skills**: [`beads`]
-    - `beads`: ensure both base and extension paths are covered.
   - **Skills Evaluated but Omitted**:
     - `frontend-design`: unrelated domain.
 
@@ -962,8 +934,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: boundary fuzzing and serialization correctness.
-  - **Skills**: [`beads`]
-    - `beads`: maintain complete matrix of boundary cases.
   - **Skills Evaluated but Omitted**:
     - `dev-browser`: not relevant.
 
@@ -1019,8 +989,6 @@ Wave FINAL (Independent review, parallel):
   **Recommended Agent Profile**:
   - **Category**: `quick`
     - Reason: deterministic execution of final command matrix and evidence collation.
-  - **Skills**: [`beads`]
-    - `beads`: completion checklist and evidence audit.
   - **Skills Evaluated but Omitted**:
     - `git-master`: commit strategy is separate and optional at this stage.
 

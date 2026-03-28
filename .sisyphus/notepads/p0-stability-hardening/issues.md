@@ -85,7 +85,7 @@
 
 ## 2026-02-20 scope-cleanup retry note
 
-- Removed out-of-scope generated artifacts (`.beads/`, `.gitattributes`, `AGENTS.md`, and three module `.project` files) while preserving in-scope JUnit remediation and P0 deltas.
+- Removed out-of-scope generated artifacts (`.gitattributes`, `AGENTS.md`, and three module `.project` files) while preserving in-scope JUnit remediation and P0 deltas.
 
 ## 2026-02-20 base/common scenario-filter coverage issues
 
@@ -151,15 +151,15 @@
 
 ## 2026-02-20 F4 final scope refresh issues (post evidence/filter corrections)
 
-- **Root drift reintroduced:** `.beads/*` exists again in working tree (`.beads/.gitignore`, `README.md`, `config.yaml`, `interactions.jsonl`, `metadata.json`; plus local DB files present on disk).
-- **Scope impact:** despite P0-aligned code/test/build changes, current scope gate remains in ISSUES state until `.beads` drift is removed or explicitly classified/ignored by orchestrator policy.
+- **Root drift reintroduced:** generated support files exist again in the working tree (`README.md`, `config.yaml`, `interactions.jsonl`, `metadata.json`; plus local DB files present on disk).
+- **Scope impact:** despite P0-aligned code/test/build changes, current scope gate remains in ISSUES state until the generated support-file drift is removed or explicitly classified/ignored by orchestrator policy.
 
 ## 2026-02-20 scope-cleanup follow-up
 
-- Removed root `.beads`, `.project`, `.settings` plus every module-level `.project`, `.classpath`, `.factorypath`, and `.settings` artifact so that `git status --short` only lists P0 deltas and support files, keeping `.sisyphus/` and P0 tests intact.
+- Removed root generated support artifacts plus every module-level `.project`, `.classpath`, `.factorypath`, and `.settings` artifact so that `git status --short` only lists P0 deltas and support files, keeping `.sisyphus/` and P0 tests intact.
 
 ## 2026-02-20 scope-drift cleanup note
-- Removed .beads, module .project files, and stray .gitignore entries to restore the clean baseline
+- Removed generated support files, module .project files, and stray .gitignore entries to restore the clean baseline
 
 ## 2026-02-20 root artifact cleanup
 
@@ -167,7 +167,7 @@
  
 ## 2026-02-20 .gitignore reconciliation note
 
-- Removed the `.beads`, `.settings`, `.sisyphus`, `.project`, `.classpath`, and `.factorypath` entries because they were masking scope-drift artifacts introduced by prior delegated runs; dropping them reveals the same root drift directories so they can now be cleaned intentionally in a follow-up step.
+- Removed the `.settings`, `.sisyphus`, `.project`, `.classpath`, and `.factorypath` entries because they were masking scope-drift artifacts introduced by prior delegated runs; dropping them reveals the same root drift directories so they can now be cleaned intentionally in a follow-up step.
 - Verification: `git diff -- .gitignore` is clean (baseline restored) and `git status --short` now lists the untracked root artifacts that the entries had been hiding, which will be handled by the orchestrator separately.
 
 ## 2026-02-20 F4 deep scope fidelity check issues (current tree)

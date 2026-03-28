@@ -1,5 +1,5 @@
 # Issues — chatmc-test-pyramid-gametest-adoption
-- Restored .gitattributes after accidental deletion to keep beads merge config.
+- Restored .gitattributes after accidental deletion.
 - Setting `workingDirectory` on the Loom `gameTestServer` run config caused Gradle evaluation to fail (RunConfigSettings exposes no such property), so the line was dropped.
 - LSP diagnostics cannot run on the Gradle build file because no `.gradle` language server is configured, so only the Java file could be verified.
 - `:base:forge-1.20.1:build` initially failed with "Failed to read tiny jar info"; clearing `~/.gradle/caches/minecraft` forced a fresh download and resolved the issue.
