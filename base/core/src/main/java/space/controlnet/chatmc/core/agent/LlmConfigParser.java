@@ -8,7 +8,6 @@ import java.io.Writer;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.StringJoiner;
 
 public final class LlmConfigParser {
     private LlmConfigParser() {
@@ -40,7 +39,7 @@ public final class LlmConfigParser {
         appendProvider(builder, config);
         appendString(builder, "model", config.model(), "Model identifier.");
         appendOptionalString(builder, "baseUrl", config.baseUrl(),
-                "Optional base URL override (e.g., http://localhost:11434 for Ollama).");
+                "Optional OpenAI-compatible endpoint override for the OpenAI client.");
         appendOptionalString(builder, "apiKey", config.apiKey(),
                 "Optional API key value (avoid committing secrets).");
         appendOptionalString(builder, "apiKeyEnv", config.apiKeyEnv(),
@@ -69,10 +68,6 @@ public final class LlmConfigParser {
                 "Log outbound LLM requests (avoid leaking secrets).");
         appendBoolean(builder, "logResponses", config.logResponses(),
                 "Log LLM responses for debugging.");
-        appendOptionalString(builder, "azureDeployment", config.azureDeployment(),
-                "Azure OpenAI deployment name.");
-        appendOptionalString(builder, "azureApiVersion", config.azureApiVersion(),
-                "Azure OpenAI API version.");
         return builder.toString();
     }
 
@@ -83,11 +78,8 @@ public final class LlmConfigParser {
     }
 
     private static void appendProvider(StringBuilder builder, LlmConfig config) {
-        StringJoiner options = new StringJoiner(", ");
-        for (LlmProvider provider : LlmProvider.values()) {
-            options.add(provider.name());
-        }
-        builder.append("# LLM provider. Options: ").append(options).append(System.lineSeparator());
+        builder.append("# Only supported LLM provider. Keep this set to OPENAI.")
+                .append(System.lineSeparator());
         appendString(builder, "provider", config.provider().name(), null);
     }
 
@@ -182,12 +174,10 @@ public final class LlmConfigParser {
         boolean strictJsonSchema = readBoolean(root, "strictJsonSchema", defaults.strictJsonSchema());
         boolean logRequests = readBoolean(root, "logRequests", defaults.logRequests());
         boolean logResponses = readBoolean(root, "logResponses", defaults.logResponses());
-        Optional<String> azureDeployment = readOptionalString(root, "azureDeployment");
-        Optional<String> azureApiVersion = readOptionalString(root, "azureApiVersion");
 
         return new LlmConfig(provider, model, baseUrl, apiKey, apiKeyEnv, temperature, topP, maxTokens,
                 timeout, maxRetries, cooldownMillis, maxToolCalls, maxIterations, maxHistoryMessages,
-                strictJsonSchema, logRequests, logResponses, azureDeployment, azureApiVersion);
+                strictJsonSchema, logRequests, logResponses);
     }
 
     private static LlmProvider parseProvider(String raw, LlmProvider fallback) {

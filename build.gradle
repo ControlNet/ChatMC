@@ -8,10 +8,6 @@ ext {
     agentLibs = [
             [coord: "dev.langchain4j:langchain4j-core:${rootProject.langchain4j_version}", excludeLogback: false],
             [coord: "dev.langchain4j:langchain4j-open-ai:${rootProject.langchain4j_version}", excludeLogback: true],
-            [coord: "dev.langchain4j:langchain4j-azure-open-ai:${rootProject.langchain4j_version}", excludeLogback: true],
-            [coord: "dev.langchain4j:langchain4j-anthropic:${rootProject.langchain4j_version}", excludeLogback: true],
-            [coord: "dev.langchain4j:langchain4j-google-ai-gemini:${rootProject.langchain4j_version}", excludeLogback: true],
-            [coord: "dev.langchain4j:langchain4j-ollama:${rootProject.langchain4j_version}", excludeLogback: true],
             [coord: "org.bsc.langgraph4j:langgraph4j-core:${rootProject.langgraph4j_version}", excludeLogback: false],
             [coord: "org.bsc.langgraph4j:langgraph4j-langchain4j:${rootProject.langgraph4j_version}", excludeLogback: false],
     ]
@@ -39,10 +35,10 @@ subprojects {
 
     if (isAe) {
         moduleGroup = "space.controlnet.chatmc.ae"
-        moduleBase = "chatmc-ae"
+        moduleBase = "chatmcae"
     } else if (isMatrix) {
         moduleGroup = "space.controlnet.chatmc.matrix"
-        moduleBase = "chatmc-matrix"
+        moduleBase = "chatmcmatrix"
     } else {
         moduleGroup = project.findProperty("maven_group") ?: rootProject.maven_group
         moduleBase = project.findProperty("archives_base_name") ?: rootProject.archives_base_name

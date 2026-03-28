@@ -20,9 +20,7 @@ public record LlmConfig(
         int maxHistoryMessages,
         boolean strictJsonSchema,
         boolean logRequests,
-        boolean logResponses,
-        Optional<String> azureDeployment,
-        Optional<String> azureApiVersion
+        boolean logResponses
 ) {
     public static LlmConfig defaults() {
         return new LlmConfig(
@@ -42,9 +40,7 @@ public record LlmConfig(
                 1000,
                 true,
                 false,
-                false,
-                Optional.empty(),
-                Optional.empty()
+                false
         );
     }
 }
