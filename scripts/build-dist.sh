@@ -9,13 +9,17 @@ cd "$ROOT_DIR"
 MOD_VERSION="$(grep -E '^mod_version=' "$ROOT_DIR/gradle.properties" | cut -d= -f2-)"
 MC_VERSION="$(grep -E '^minecraft_version=' "$ROOT_DIR/gradle.properties" | cut -d= -f2-)"
 
-./gradlew --no-daemon --max-workers=1 \
+./gradlew --no-daemon --configure-on-demand --max-workers=1 \
   :base:common-1.20.1:build \
   :base:fabric-1.20.1:build \
-  :base:forge-1.20.1:build \
+  :base:forge-1.20.1:build
+
+./gradlew --no-daemon --configure-on-demand --max-workers=1 \
   :ext-ae:common-1.20.1:build \
   :ext-ae:fabric-1.20.1:build \
-  :ext-ae:forge-1.20.1:build \
+  :ext-ae:forge-1.20.1:build
+
+./gradlew --no-daemon --configure-on-demand --max-workers=1 \
   :ext-matrix:common-1.20.1:build \
   :ext-matrix:fabric-1.20.1:build \
   :ext-matrix:forge-1.20.1:build
