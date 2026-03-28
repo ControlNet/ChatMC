@@ -99,7 +99,7 @@ jobs:
         run: |
           mkdir -p ci-reports/dev
           set +e
-          timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace > ci-reports/dev/forge-gametest.log 2>&1
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace > ci-reports/dev/forge-gametest.log 2>&1
           forge_rc=$?
           set -e
           echo "forge_rc=${forge_rc}" >> "$GITHUB_OUTPUT"
@@ -159,19 +159,23 @@ jobs:
             :ext-ae:common-1.20.1:test
 
       - name: Run Fabric GameTests (base + AE-heavy)
+        id: fabric_run
         run: |
           mkdir -p ci-reports/nightly
           set +e
-          timeout 25m ./gradlew --no-daemon :base:fabric-1.20.1:runGametest --stacktrace > ci-reports/nightly/base-fabric-gametest.log 2>&1
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace > ci-reports/nightly/base-fabric-gametest.log 2>&1
           base_rc=$?
-          timeout 25m ./gradlew --no-daemon :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke > ci-reports/nightly/ext-ae-fabric-gametest.log 2>&1
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke > ci-reports/nightly/ext-ae-fabric-gametest.log 2>&1
           ae_rc=$?
           set -e
           echo "base_rc=${base_rc}" >> "$GITHUB_STEP_SUMMARY"
           echo "ae_rc=${ae_rc}" >> "$GITHUB_STEP_SUMMARY"
+          echo "base_rc=${base_rc}" >> "$GITHUB_OUTPUT"
+          echo "ae_rc=${ae_rc}" >> "$GITHUB_OUTPUT"
 
       - name: Collect and enforce nightly policy
         run: |
+          set +e
           python3 scripts/ci_collect_reports.py \
             --lane nightly \
             --policy-file ci/layered-testing-policy.json \
@@ -179,6 +183,15 @@ jobs:
             --fabric-gametest-glob "base/fabric-1.20.1/build/reports/gametest/runGametest.xml" \
             --fabric-gametest-glob "ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml" \
             --summary-json "ci-reports/nightly/summary.json"
+          policy_rc=$?
+          set -e
+          if [ "$policy_rc" -ne 0 ]; then
+            exit "$policy_rc"
+          fi
+          if [ "${{ steps.fabric_run.outputs.base_rc }}" -ne 0 ] || [ "${{ steps.fabric_run.outputs.ae_rc }}" -ne 0 ]; then
+            echo "::error::Nightly Fabric GameTests failed (base_rc=${{ steps.fabric_run.outputs.base_rc }}, ae_rc=${{ steps.fabric_run.outputs.ae_rc }})"
+            exit 1
+          fi
 
       - name: Upload nightly lane reports
         uses: actions/upload-artifact@v4

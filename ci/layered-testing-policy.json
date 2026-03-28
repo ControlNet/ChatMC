@@ -42,7 +42,7 @@
       "description": "Nightly lane: Fabric + AE-heavy GameTests + JUnit",
       "retry_attempts": {
         "junit": 0,
-        "gametest": 1
+        "gametest": 0
       },
       "max_non_quarantined_failures": 0,
       "max_quarantined_failures": 0,

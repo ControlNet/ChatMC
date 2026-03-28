@@ -810,21 +810,21 @@ The following three commits were not yet reflected in this document and are now 
 ### 16.2 Canonical execution commands
 **JUnit matrix commands (PR lane style):**
 ```bash
-./gradlew --no-daemon :base:core:test
-./gradlew --no-daemon :base:common-1.20.1:test
-./gradlew --no-daemon :ext-ae:common-1.20.1:test
+./gradlew --no-daemon --configure-on-demand :base:core:test
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test
+./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test
 ```
 
 **Fabric GameTest commands (nightly/parity path):**
 ```bash
-timeout 25m ./gradlew --no-daemon :base:fabric-1.20.1:runGametest --stacktrace
-timeout 25m ./gradlew --no-daemon :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke
+timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace
+timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke
 ```
 
 **Forge GameTest commands (dev-lane path, currently blocked in this workspace):**
 ```bash
-timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace
-timeout 25m ./gradlew --no-daemon :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
+timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace
+timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
 ```
 
 ### 16.3 Report artifacts, parity, and evidence locations

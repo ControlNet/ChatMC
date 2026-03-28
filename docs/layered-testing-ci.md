@@ -11,8 +11,8 @@ This repository uses three explicit CI lanes for layered testing. Lane policy is
 | Lane | Trigger | Exact commands | Collected artifacts |
 |---|---|---|---|
 | **PR** | `pull_request` (or `workflow_dispatch lane=pr`) | `./gradlew --no-daemon --configure-on-demand :base:core:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test` (matrix) | `**/build/test-results/test/*.xml` + `ci-reports/pr/*-summary.json` |
-| **Dev** | `push` to `dev` (or `workflow_dispatch lane=dev`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon :base:forge-1.20.1:runGameTestServer --stacktrace` | JUnit XML + Forge log `ci-reports/dev/forge-gametest.log` + Forge XML reports under `base/forge-1.20.1/build/reports/**` (when available) + `ci-reports/dev/summary.json` |
-| **Nightly** | `schedule` (or `workflow_dispatch lane=nightly`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon :base:fabric-1.20.1:runGametest --stacktrace`<br>`timeout 25m ./gradlew --no-daemon :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke` | JUnit XML + Fabric GameTest XML:<br>`base/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br>`ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br> + `ci-reports/nightly/summary.json` |
+| **Dev** | `push` to `dev` (or `workflow_dispatch lane=dev`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace` | JUnit XML + Forge log `ci-reports/dev/forge-gametest.log` + Forge XML reports under `base/forge-1.20.1/build/reports/**` (when available) + `ci-reports/dev/summary.json` |
+| **Nightly** | `schedule` (or `workflow_dispatch lane=nightly`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke` | JUnit XML + Fabric GameTest XML:<br>`base/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br>`ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br> + `ci-reports/nightly/summary.json` |
 
 ## Forge blocker handling (explicit, not hidden)
 
@@ -46,7 +46,7 @@ The policy file is authoritative (`ci/layered-testing-policy.json`).
   - `max_flaky_recovered = 0`
   - known Forge blocker allowed only as `blocked` (exit `3`) and must match policy signatures
 - **Nightly lane**
-  - retries: JUnit `0`, GameTest `1`
+  - retries: JUnit `0`, GameTest `0`
   - `max_non_quarantined_failures = 0`
   - `max_quarantined_failures = 0`
   - `max_flaky_recovered = 0`

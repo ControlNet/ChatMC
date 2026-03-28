@@ -83,3 +83,7 @@ processResources {
         expand "version": project.version
     }
 }
+
+tasks.named("runGametest") {
+    dependsOn(":base:fabric-1.20.1:build")
+}
