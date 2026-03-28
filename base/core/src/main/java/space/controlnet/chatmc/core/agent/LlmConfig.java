@@ -17,7 +17,6 @@ public record LlmConfig(
         long cooldownMillis,
         int maxToolCalls,
         int maxIterations,
-        int maxHistoryMessages,
         boolean strictJsonSchema,
         boolean logRequests,
         boolean logResponses
@@ -37,7 +36,6 @@ public record LlmConfig(
                 0L,
                 100,
                 200,
-                1000,
                 true,
                 false,
                 false

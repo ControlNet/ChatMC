@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class AgentLoop {
     private static final int DEFAULT_MAX_ITERATIONS = 20;
-    private static final int DEFAULT_MAX_HISTORY_MESSAGES = 20;
     private static final int DEFAULT_GRAPH_RECURSION_LIMIT = 256;
     private static final long DEFAULT_TIMEOUT_MS = 30000;
     private static final long DEFAULT_COOLDOWN_MS = 1500;
@@ -56,7 +55,6 @@ public final class AgentLoop {
     private final ExecutorService llmExecutor;
     private final AtomicLong timeoutMs;
     private final java.util.concurrent.atomic.AtomicInteger maxIterations;
-    private final java.util.concurrent.atomic.AtomicInteger maxHistoryMessages;
 
     /**
      * Creates a new agent loop with the given audit logger.
@@ -73,7 +71,6 @@ public final class AgentLoop {
         });
         this.timeoutMs = new AtomicLong(DEFAULT_TIMEOUT_MS);
         this.maxIterations = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_ITERATIONS);
-        this.maxHistoryMessages = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_HISTORY_MESSAGES);
         this.reasoningService = new AgentReasoningService(
                 logWarning,
                 rateLimiter,
@@ -137,12 +134,6 @@ public final class AgentLoop {
     public void setMaxIterations(int maxIterations) {
         if (maxIterations > 0) {
             this.maxIterations.set(maxIterations);
-        }
-    }
-
-    public void setMaxHistoryMessages(int maxHistoryMessages) {
-        if (maxHistoryMessages > 0) {
-            this.maxHistoryMessages.set(maxHistoryMessages);
         }
     }
 
@@ -221,7 +212,7 @@ public final class AgentLoop {
         List<ChatMessage> messages = ctx.getSession(sessionId)
                 .map(SessionSnapshot::messages)
                 .orElse(List.of());
-        String history = ConversationHistoryBuilder.build(messages, maxHistoryMessages.get());
+        String history = ConversationHistoryBuilder.build(messages);
 
         // Render prompt
         List<AgentTool> tools = ctx.getToolSpecs();

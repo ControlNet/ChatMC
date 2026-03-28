@@ -33,11 +33,6 @@ public final class LlmRuntimeManager {
         void onMaxIterationsUpdated(int maxIterations);
 
         /**
-         * Called when the agent max history messages should be updated.
-         */
-        void onMaxHistoryMessagesUpdated(int maxHistoryMessages);
-
-        /**
          * Called when raw LLM responses should be logged.
          */
         void onLogResponsesUpdated(boolean logResponses);
@@ -64,7 +59,6 @@ public final class LlmRuntimeManager {
                 handler.onTimeoutUpdated(config.timeout().toMillis());
                 handler.onMaxToolCallsUpdated(config.maxToolCalls());
                 handler.onMaxIterationsUpdated(config.maxIterations());
-                handler.onMaxHistoryMessagesUpdated(config.maxHistoryMessages());
                 handler.onLogResponsesUpdated(config.logResponses());
                 handler.onMaxRetriesUpdated(config.maxRetries());
             } else {

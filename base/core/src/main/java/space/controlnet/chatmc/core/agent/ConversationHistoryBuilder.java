@@ -17,20 +17,16 @@ public final class ConversationHistoryBuilder {
     /**
      * Build a formatted conversation history string from session messages.
      *
-     * @param messages    The list of chat messages from the session
-     * @param maxMessages Maximum number of recent messages to include
+     * @param messages The list of chat messages from the session
      * @return Formatted conversation history string
      */
-    public static String build(List<ChatMessage> messages, int maxMessages) {
+    public static String build(List<ChatMessage> messages) {
         if (messages == null || messages.isEmpty()) {
             return "(No conversation history)";
         }
 
-        int startIndex = Math.max(0, messages.size() - maxMessages);
-        List<ChatMessage> recentMessages = messages.subList(startIndex, messages.size());
-
         StringBuilder sb = new StringBuilder();
-        for (ChatMessage message : recentMessages) {
+        for (ChatMessage message : messages) {
             String prefix = formatRolePrefix(message.role());
             String text = message.text();
             if (text == null) {

@@ -82,13 +82,6 @@ public final class AgentRunner {
     }
 
     /**
-     * Update the max history messages in prompts.
-     */
-    public void setMaxHistoryMessages(int maxHistoryMessages) {
-        agentLoop.setMaxHistoryMessages(maxHistoryMessages);
-    }
-
-    /**
      * Update whether raw LLM responses are logged.
      */
     public void setLogResponses(boolean logResponses) {

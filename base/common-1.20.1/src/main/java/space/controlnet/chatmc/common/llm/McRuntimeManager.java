@@ -43,11 +43,6 @@ public final class McRuntimeManager {
             }
 
             @Override
-            public void onMaxHistoryMessagesUpdated(int maxHistoryMessages) {
-                ChatMCNetwork.updateAgentMaxHistoryMessages(maxHistoryMessages);
-            }
-
-            @Override
             public void onLogResponsesUpdated(boolean logResponses) {
                 ChatMCNetwork.updateAgentLogResponses(logResponses);
             }

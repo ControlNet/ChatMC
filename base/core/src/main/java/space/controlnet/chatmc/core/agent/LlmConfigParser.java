@@ -60,8 +60,6 @@ public final class LlmConfigParser {
                 "Maximum tool calls accepted per agent decision.");
         appendInt(builder, "maxIterations", config.maxIterations(),
                 "Maximum agent loop iterations per request.");
-        appendInt(builder, "maxHistoryMessages", config.maxHistoryMessages(),
-                "Maximum conversation messages included in the prompt.");
         appendBoolean(builder, "strictJsonSchema", config.strictJsonSchema(),
                 "Require strict JSON schema adherence in tool calls.");
         appendBoolean(builder, "logRequests", config.logRequests(),
@@ -170,13 +168,12 @@ public final class LlmConfigParser {
         long cooldownMillis = readLong(root, "cooldownMillis", defaults.cooldownMillis());
         int maxToolCalls = readInt(root, "maxToolCalls", defaults.maxToolCalls());
         int maxIterations = readInt(root, "maxIterations", defaults.maxIterations());
-        int maxHistoryMessages = readInt(root, "maxHistoryMessages", defaults.maxHistoryMessages());
         boolean strictJsonSchema = readBoolean(root, "strictJsonSchema", defaults.strictJsonSchema());
         boolean logRequests = readBoolean(root, "logRequests", defaults.logRequests());
         boolean logResponses = readBoolean(root, "logResponses", defaults.logResponses());
 
         return new LlmConfig(provider, model, baseUrl, apiKey, apiKeyEnv, temperature, topP, maxTokens,
-                timeout, maxRetries, cooldownMillis, maxToolCalls, maxIterations, maxHistoryMessages,
+                timeout, maxRetries, cooldownMillis, maxToolCalls, maxIterations,
                 strictJsonSchema, logRequests, logResponses);
     }
 

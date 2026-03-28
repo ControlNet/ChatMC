@@ -316,13 +316,6 @@ public final class ChatMCNetwork {
         AGENT.setMaxIterations(maxIterations);
     }
 
-    public static void updateAgentMaxHistoryMessages(int maxHistoryMessages) {
-        if (maxHistoryMessages <= 0) {
-            return;
-        }
-        AGENT.setMaxHistoryMessages(maxHistoryMessages);
-    }
-
     public static void updateAgentLogResponses(boolean logResponses) {
         AGENT.setLogResponses(logResponses);
     }
@@ -1061,19 +1054,6 @@ public final class ChatMCNetwork {
                 method.invoke(instance, maxIterations);
             } catch (Throwable t) {
                 ChatMC.LOGGER.warn("Failed to set max iterations", t);
-            }
-        }
-
-        void setMaxHistoryMessages(int maxHistoryMessages) {
-            Object instance = ensureRunner();
-            if (instance == null) {
-                return;
-            }
-            try {
-                java.lang.reflect.Method method = instance.getClass().getMethod("setMaxHistoryMessages", int.class);
-                method.invoke(instance, maxHistoryMessages);
-            } catch (Throwable t) {
-                ChatMC.LOGGER.warn("Failed to set max history messages", t);
             }
         }
 

@@ -28,9 +28,6 @@ public final class LlmConfigValidator {
         if (config.maxIterations() <= 0) {
             errors.add("maxIterations must be > 0.");
         }
-        if (config.maxHistoryMessages() <= 0) {
-            errors.add("maxHistoryMessages must be > 0.");
-        }
         return errors;
     }
 

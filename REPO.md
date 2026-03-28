@@ -459,7 +459,7 @@ No disk caching for MVP.
 - **Prompt sourcing + overrides:** defaults live in `assets/chatae/lang/*.json` and are generated into `config/chatae/prompts/*.default.prompt` for overrides; global (`<prompt_id>.prompt`) and locale (`<prompt_id>.<locale>.prompt`) overrides are supported.
 - **Hot reload:** `/chatae reload` reloads LLM config and prompts, then rebuilds the active LLM client/model atomically.
 - **LLM config:** OpenAI provider/model/baseUrl/keys/timeouts/retries/rate-limit cooldown are configurable in `config/chatae/llm.toml`.
-- **LLM agent limits:** `maxToolCalls`, `maxIterations`, and `maxHistoryMessages` are configurable in `config/chatae/llm.toml`.
+- **LLM agent limits:** `maxToolCalls` and `maxIterations` are configurable in `config/chatae/llm.toml`; prompt history now uses the full session history instead of a recent-message window.
 - **LLM max tokens default:** `maxTokens` now defaults to `128000` in `LlmConfig.defaults()` unless overridden in config.
 - **OpenAI token param compatibility:** builders prefer `maxCompletionTokens` when available; GPT-5 models skip `maxTokens` to avoid unsupported parameter errors.
 - **OpenAI-compatible endpoint override:** `baseUrl` can point the OpenAI client at a compatible endpoint instead of the default OpenAI API URL.
