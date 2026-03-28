@@ -1,0 +1,10 @@
+{
+  "parent": "ae2:item/display_base",
+  "textures": {
+    "front": "ae2:part/monitor_front",
+    "front_bright": "chatmcae:part/ai_terminal_off",
+    "front_medium_bright": "ae2:part/monitor_light",
+    "front_medium": "ae2:part/monitor_light",
+    "front_dark": "ae2:part/monitor_light"
+  }
+}

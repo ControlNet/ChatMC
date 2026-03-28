@@ -1,0 +1,145 @@
+name: release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  github-release:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure scripts are executable
+        run: |
+          chmod +x ./gradlew
+          chmod +x ./scripts/build-dist.sh
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mod_version="$(grep -E '^mod_version=' gradle.properties | cut -d= -f2-)"
+          mc_version="$(grep -E '^minecraft_version=' gradle.properties | cut -d= -f2-)"
+          tag="v${mod_version}"
+          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n1)"
+
+          prerelease=false
+          release_type=release
+          shopt -s nocasematch
+          if [[ "$mod_version" == 0.* ]] || [[ "$mod_version" == *alpha* ]]; then
+            prerelease=true
+            release_type=alpha
+          elif [[ "$mod_version" == *beta* ]] || [[ "$mod_version" == *rc* ]]; then
+            prerelease=true
+            release_type=beta
+          fi
+          shopt -u nocasematch
+
+          skip=false
+          skip_reason=""
+          if gh release view "$tag" >/dev/null 2>&1; then
+            skip=true
+            skip_reason="GitHub release ${tag} already exists"
+          fi
+
+          echo "mod_version=${mod_version}" >> "$GITHUB_OUTPUT"
+          echo "mc_version=${mc_version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+          echo "release_type=${release_type}" >> "$GITHUB_OUTPUT"
+          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=${skip_reason}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip duplicate release
+        if: steps.meta.outputs.skip == 'true'
+        run: |
+          echo "Skipping release: ${{ steps.meta.outputs.skip_reason }}"
+
+      - name: Build distributable jars
+        if: steps.meta.outputs.skip != 'true'
+        run: ./scripts/build-dist.sh
+
+      - name: Generate checksums
+        if: steps.meta.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_jars=(
+            "dist/chatmc-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/chatmc-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/chatmcae-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/chatmcae-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/chatmcmatrix-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/chatmcmatrix-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+          )
+
+          missing=()
+          for jar in "${expected_jars[@]}"; do
+            if [ ! -f "$jar" ]; then
+              missing+=("$jar")
+            fi
+          done
+
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf 'Missing expected release artifacts:\n' >&2
+            printf '  %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          sha256sum "${expected_jars[@]}" > dist/SHA256SUMS.txt
+
+      - name: Upload release bundle artifact
+        if: steps.meta.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.meta.outputs.tag }}
+          path: |
+            dist/*.jar
+            dist/SHA256SUMS.txt
+
+      - name: Publish GitHub release
+        if: steps.meta.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prerelease_flag=()
+          if [ "${{ steps.meta.outputs.prerelease }}" = "true" ]; then
+            prerelease_flag+=(--prerelease)
+          fi
+
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            dist/*.jar \
+            dist/SHA256SUMS.txt \
+            --title "${{ steps.meta.outputs.tag }}" \
+            --generate-notes \
+            "${prerelease_flag[@]}"

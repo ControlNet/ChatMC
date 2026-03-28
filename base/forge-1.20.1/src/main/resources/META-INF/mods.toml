@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="AGPL-3.0"
+
+[[mods]]
+modId="chatmc"
+version="${version}"
+displayName="ChatMC"
+description='''Minecraft AI assistant base mod'''
+
+[[dependencies.chatmc]]
+modId="minecraft"
+mandatory=true
+versionRange="[${minecraft_version}]"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.chatmc]]
+modId="architectury"
+mandatory=true
+versionRange="[9.2,)"
+ordering="NONE"
+side="BOTH"

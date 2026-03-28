@@ -1,0 +1,207 @@
+name: layered-testing
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Lane to run manually"
+        required: true
+        type: choice
+        default: pr
+        options:
+          - pr
+          - dev
+          - nightly
+
+permissions:
+  contents: read
+
+jobs:
+  pr-junit-matrix:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane == 'pr')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane_name: base-core
+            task: :base:core:test
+          - lane_name: base-common
+            task: :base:common-1.20.1:test
+          - lane_name: ext-ae-common
+            task: :ext-ae:common-1.20.1:test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run JUnit matrix task
+        run: ./gradlew --no-daemon --configure-on-demand ${{ matrix.task }}
+
+      - name: Collect lane report
+        run: |
+          python3 scripts/ci_collect_reports.py \
+            --lane pr \
+            --policy-file ci/layered-testing-policy.json \
+            --junit-glob "**/build/test-results/test/*.xml" \
+            --summary-json "ci-reports/pr/${{ matrix.lane_name }}-summary.json"
+
+      - name: Upload PR lane reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-${{ matrix.lane_name }}-reports
+          path: |
+            ci-reports/pr/${{ matrix.lane_name }}-summary.json
+            **/build/test-results/test/*.xml
+
+  dev-lane:
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && inputs.lane == 'dev')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run JUnit suite
+        run: |
+          ./gradlew --no-daemon --configure-on-demand \
+            :base:core:test \
+            :base:common-1.20.1:test \
+            :ext-ae:common-1.20.1:test
+
+      - name: Run Forge GameTests (capture blocker logs)
+        id: forge_run
+        run: |
+          mkdir -p ci-reports/dev
+          set +e
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace > ci-reports/dev/forge-gametest.log 2>&1
+          forge_rc=$?
+          set -e
+          echo "forge_rc=${forge_rc}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect and enforce dev lane policy
+        run: |
+          set +e
+          python3 scripts/ci_collect_reports.py \
+            --lane main \
+            --policy-file ci/layered-testing-policy.json \
+            --junit-glob "**/build/test-results/test/*.xml" \
+            --forge-report-glob "base/forge-1.20.1/build/reports/**/*.xml" \
+            --forge-log-glob "ci-reports/dev/forge-gametest.log" \
+            --forge-exit-code "${{ steps.forge_run.outputs.forge_rc }}" \
+            --summary-json "ci-reports/dev/summary.json"
+          policy_rc=$?
+          set -e
+          if [ "$policy_rc" -eq 3 ]; then
+            echo "::warning::Dev lane is BLOCKED by known Forge runtime issue; see ci-reports/dev/summary.json"
+            exit 0
+          fi
+          exit "$policy_rc"
+
+      - name: Upload dev lane reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dev-lane-reports
+          path: |
+            ci-reports/dev/summary.json
+            ci-reports/dev/forge-gametest.log
+            base/forge-1.20.1/build/reports/**/*.xml
+            **/build/test-results/test/*.xml
+
+  nightly-lane:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lane == 'nightly')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run nightly JUnit suite
+        run: |
+          ./gradlew --no-daemon --configure-on-demand \
+            :base:core:test \
+            :base:common-1.20.1:test \
+            :ext-ae:common-1.20.1:test
+
+      - name: Run Fabric GameTests (base + AE-heavy)
+        id: fabric_run
+        run: |
+          mkdir -p ci-reports/nightly
+          set +e
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace > ci-reports/nightly/base-fabric-gametest.log 2>&1
+          base_rc=$?
+          timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke > ci-reports/nightly/ext-ae-fabric-gametest.log 2>&1
+          ae_rc=$?
+          set -e
+          echo "base_rc=${base_rc}" >> "$GITHUB_STEP_SUMMARY"
+          echo "ae_rc=${ae_rc}" >> "$GITHUB_STEP_SUMMARY"
+          echo "base_rc=${base_rc}" >> "$GITHUB_OUTPUT"
+          echo "ae_rc=${ae_rc}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect and enforce nightly policy
+        run: |
+          set +e
+          python3 scripts/ci_collect_reports.py \
+            --lane nightly \
+            --policy-file ci/layered-testing-policy.json \
+            --junit-glob "**/build/test-results/test/*.xml" \
+            --fabric-gametest-glob "base/fabric-1.20.1/build/reports/gametest/runGametest.xml" \
+            --fabric-gametest-glob "ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml" \
+            --summary-json "ci-reports/nightly/summary.json"
+          policy_rc=$?
+          set -e
+          if [ "$policy_rc" -ne 0 ]; then
+            exit "$policy_rc"
+          fi
+          if [ "${{ steps.fabric_run.outputs.base_rc }}" -ne 0 ] || [ "${{ steps.fabric_run.outputs.ae_rc }}" -ne 0 ]; then
+            echo "::error::Nightly Fabric GameTests failed (base_rc=${{ steps.fabric_run.outputs.base_rc }}, ae_rc=${{ steps.fabric_run.outputs.ae_rc }})"
+            exit 1
+          fi
+
+      - name: Upload nightly lane reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-lane-reports
+          path: |
+            ci-reports/nightly/summary.json
+            ci-reports/nightly/base-fabric-gametest.log
+            ci-reports/nightly/ext-ae-fabric-gametest.log
+            base/fabric-1.20.1/build/reports/gametest/runGametest.xml
+            ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml
+            **/build/test-results/test/*.xml

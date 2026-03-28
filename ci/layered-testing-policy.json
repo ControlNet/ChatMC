@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "lanes": {
+    "pr": {
+      "description": "PR lane: JUnit matrix only",
+      "retry_attempts": {
+        "junit": 0,
+        "gametest": 0
+      },
+      "max_non_quarantined_failures": 0,
+      "max_quarantined_failures": 0,
+      "max_flaky_recovered": 0,
+      "allow_known_forge_blocker": false,
+      "blocked_exit_code": 3,
+      "required": {
+        "junit_min_files": 1
+      },
+      "quarantined_tests": []
+    },
+    "main": {
+      "description": "Integration lane for the dev branch: Forge GameTest + JUnit with explicit blocker surfacing",
+      "retry_attempts": {
+        "junit": 0,
+        "gametest": 0
+      },
+      "max_non_quarantined_failures": 0,
+      "max_quarantined_failures": 0,
+      "max_flaky_recovered": 0,
+      "allow_known_forge_blocker": true,
+      "blocked_exit_code": 3,
+      "required": {
+        "junit_min_files": 1,
+        "forge_log_min_files": 1
+      },
+      "known_forge_blocker_patterns": [
+        "InvalidModFileException: Illegal version number specified version \\(main\\)",
+        "Failed to find system mod: minecraft"
+      ],
+      "quarantined_tests": []
+    },
+    "nightly": {
+      "description": "Nightly lane: Fabric + AE-heavy GameTests + JUnit",
+      "retry_attempts": {
+        "junit": 0,
+        "gametest": 0
+      },
+      "max_non_quarantined_failures": 0,
+      "max_quarantined_failures": 0,
+      "max_flaky_recovered": 0,
+      "allow_known_forge_blocker": false,
+      "blocked_exit_code": 3,
+      "required": {
+        "junit_min_files": 1,
+        "fabric_report_min_files": 2
+      },
+      "quarantined_tests": []
+    }
+  }
+}

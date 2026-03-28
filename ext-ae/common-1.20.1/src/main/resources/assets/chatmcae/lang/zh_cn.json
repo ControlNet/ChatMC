@@ -1,0 +1,10 @@
+{
+  "itemGroup.chatmcae": "ChatMC AE",
+  "item.chatmcae.ai_terminal": "AI 终端",
+  "ui.chatmc.tool.ae.list_items": "我正在查询 ME 网络中的 %s",
+  "ui.chatmc.tool.ae.list_craftables": "我正在列出可合成物品%s",
+  "ui.chatmc.tool.ae.simulate_craft": "我正在模拟合成 %s",
+  "ui.chatmc.tool.ae.request_craft": "我正在请求合成 %s",
+  "ui.chatmc.tool.ae.job_status": "我正在查询作业 %s 的状态",
+  "ui.chatmc.tool.ae.job_cancel": "我正在取消作业 %s"
+}

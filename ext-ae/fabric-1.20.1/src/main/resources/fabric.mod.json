@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "chatmcae",
+  "version": "${version}",
+  "name": "ChatMC AE",
+  "description": "AE2 tools and AI Terminal for ChatMC",
+  "authors": ["controlnet"],
+  "license": "AGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["space.controlnet.chatmc.ae.fabric.ChatMCAeFabric"],
+    "client": ["space.controlnet.chatmc.ae.fabric.ChatMCAeFabricClient"],
+    "fabric-gametest": ["space.controlnet.chatmc.ae.fabric.gametest.ChatMCAeFabricGameTestEntrypoint"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.20.1",
+    "architectury": ">=9.2.0",
+    "fabric-api": "*",
+    "chatmc": "*",
+    "ae2": "*",
+    "team_reborn_energy": "*"
+  }
+}

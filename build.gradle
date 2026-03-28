@@ -1,0 +1,107 @@
+plugins {
+    id "architectury-plugin" version "3.4.162"
+    id "dev.architectury.loom" version "1.7.435" apply false
+    id "com.github.johnrengelman.shadow" version "8.1.1" apply false
+}
+
+ext {
+    agentLibs = [
+            [coord: "dev.langchain4j:langchain4j-core:${rootProject.langchain4j_version}", excludeLogback: false],
+            [coord: "dev.langchain4j:langchain4j-open-ai:${rootProject.langchain4j_version}", excludeLogback: true],
+            [coord: "org.bsc.langgraph4j:langgraph4j-core:${rootProject.langgraph4j_version}", excludeLogback: false],
+            [coord: "org.bsc.langgraph4j:langgraph4j-langchain4j:${rootProject.langgraph4j_version}", excludeLogback: false],
+    ]
+
+    addAgentDeps = { DependencyHandler deps, String configuration ->
+        agentLibs.each { lib ->
+            deps.add(configuration, lib.coord) {
+                exclude group: "org.slf4j"
+                if (lib.excludeLogback) {
+                    exclude group: "ch.qos.logback"
+                }
+            }
+        }
+    }
+}
+
+subprojects {
+    apply plugin: "java"
+
+    def path = project.path
+    def isAe = path.startsWith(":ext-ae:")
+    def isMatrix = path.startsWith(":ext-matrix:")
+    def moduleGroup
+    def moduleBase
+
+    if (isAe) {
+        moduleGroup = "space.controlnet.chatmc.ae"
+        moduleBase = "chatmcae"
+    } else if (isMatrix) {
+        moduleGroup = "space.controlnet.chatmc.matrix"
+        moduleBase = "chatmcmatrix"
+    } else {
+        moduleGroup = project.findProperty("maven_group") ?: rootProject.maven_group
+        moduleBase = project.findProperty("archives_base_name") ?: rootProject.archives_base_name
+    }
+
+    group = moduleGroup
+    project.ext.archives_base_name = moduleBase
+    version = rootProject.mod_version
+
+    def javaProp = project.findProperty("java_version") ?: rootProject.findProperty("java_version")
+    if (javaProp == null) {
+        throw new GradleException("Missing required property: java_version (set in gradle.properties or module properties)")
+    }
+    def javaVer = javaProp.toInteger()
+
+    repositories {
+        maven { url "https://maven.architectury.dev/" }
+        maven { url "https://maven.fabricmc.net/" }
+        maven { url "https://maven.minecraftforge.net/" }
+        maven { url "https://modmaven.dev" }
+        mavenCentral()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = javaVer
+        options.compilerArgs += ["-parameters"]
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(javaVer)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(javaVer)
+        }
+    }
+}
+
+// Common shadow/remap configuration for platform modules
+configure(subprojects.findAll { it.name.contains("forge") || it.name.contains("fabric") }) {
+    afterEvaluate {
+        shadowJar {
+            exclude "architectury.common.json"
+            exclude "com/google/gson/**"
+            configurations = [project.configurations.shadowCommon]
+            archiveClassifier = "dev-shadow"
+        }
+
+        remapJar {
+            inputFile.set(shadowJar.archiveFile)
+            dependsOn shadowJar
+            archiveClassifier = null
+            def loader = project.name.contains("forge") ? "forge" : "fabric"
+            def baseName = project.findProperty("archives_base_name") ?: rootProject.archives_base_name
+            archiveFileName = "${baseName}-${rootProject.mod_version}-${loader}-${rootProject.minecraft_version}.jar"
+        }
+
+        jar {
+            archiveClassifier = "dev"
+        }
+    }
+}

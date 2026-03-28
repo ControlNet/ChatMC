@@ -17,6 +17,10 @@
 # Java
 *.class
 out/
+dist/
+/appeng/
+/META-INF/
+bin/
 
 # Logs
 *.log
@@ -31,3 +35,9 @@ run/
 
 # Node
 node_modules/
+
+.project
+.settings
+.classpath
+.factorypath
+

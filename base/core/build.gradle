@@ -1,0 +1,24 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    // Pure domain module: no Minecraft/AE2/Architectury deps.
+    // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
+    rootProject.ext.addAgentDeps(dependencies, "compileOnly")
+    
+    // Gson is provided by the Minecraft runtime; don't package it.
+    compileOnly "com.google.code.gson:gson:2.10.1"
+
+    // NightConfig TOML (Forge provides at runtime; compile-only here)
+    compileOnly "com.electronwill.night-config:toml:3.6.4"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+}
+
+tasks.named("test", Test).configure {
+    useJUnitPlatform()
+    systemProperty "chatmc.maxMessagesPerSession", "3"
+    systemProperty "chatmc.maxDecisionsPerSession", "2"
+    systemProperty "chatmc.maxMessageLength", "16"
+}

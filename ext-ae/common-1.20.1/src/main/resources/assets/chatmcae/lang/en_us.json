@@ -1,0 +1,10 @@
+{
+  "itemGroup.chatmcae": "ChatMC AE",
+  "item.chatmcae.ai_terminal": "AI Terminal",
+  "ui.chatmc.tool.ae.list_items": "I'm checking the ME network for %s",
+  "ui.chatmc.tool.ae.list_craftables": "I'm listing craftable items%s",
+  "ui.chatmc.tool.ae.simulate_craft": "I'm simulating crafting %s",
+  "ui.chatmc.tool.ae.request_craft": "I'm requesting crafting %s",
+  "ui.chatmc.tool.ae.job_status": "I'm checking status for job %s",
+  "ui.chatmc.tool.ae.job_cancel": "I'm cancelling job %s"
+}
