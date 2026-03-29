@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import space.controlnet.chatmc.common.client.render.ToolOutputRendererRegistry;
+import space.controlnet.chatmc.common.tools.mcp.McpFallbackRenderer;
 import space.controlnet.chatmc.core.tools.ToolPayload;
 
 import java.util.ArrayList;
@@ -77,6 +78,11 @@ public final class ToolOutputFormatter {
             List<String> rendererResult = ToolOutputRendererRegistry.tryRender(obj);
             if (rendererResult != null) {
                 return rendererResult;
+            }
+
+            List<String> mcpFallbackLines = McpFallbackRenderer.renderLines(obj);
+            if (mcpFallbackLines != null) {
+                return mcpFallbackLines;
             }
 
             if (obj.has("status") || obj.has("error")) {
