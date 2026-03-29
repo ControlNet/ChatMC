@@ -106,7 +106,7 @@ public final class ToolExecutionAffinityRegressionTest {
 
     private static Object newMcSessionContext(UUID playerId) {
         try {
-            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.AgentRunner$McSessionContext");
+            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.McSessionContext");
             Constructor<?> constructor = contextClass.getDeclaredConstructor(UUID.class);
             constructor.setAccessible(true);
             return constructor.newInstance(playerId);

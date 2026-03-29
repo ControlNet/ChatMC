@@ -9,6 +9,7 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.common.tools.ToolProvider;
 import space.controlnet.chatmc.common.tools.ToolRegistry;
 import space.controlnet.chatmc.core.session.PersistedSessions;
@@ -51,7 +52,12 @@ public final class ServerThreadConfinementGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc")
     public static void asyncToolInvocationMarshalsToServerThread(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> asyncToolInvocationMarshalsToServerThreadInternal(helper));
+    }
+
+    private static void asyncToolInvocationMarshalsToServerThreadInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
 
         MinecraftServer server = requireNonNull("task9/server-thread/setup/server", helper.getLevel().getServer());
         ChatMCNetwork.setServer(server);
@@ -101,7 +107,7 @@ public final class ServerThreadConfinementGameTest {
                 assertOutcomeSuccess("task9/server-thread/outcome", outcomeRef.get());
                 helper.succeed();
             } finally {
-                resetSharedNetworkState();
+                resetSharedNetworkState(true);
             }
         });
     }
@@ -109,7 +115,12 @@ public final class ServerThreadConfinementGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc_task9_timeout", timeoutTicks = 2400)
     public static void timeoutAndFailureContractsRemainStableUnderForcedDelay(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> timeoutAndFailureContractsRemainStableUnderForcedDelayInternal(helper));
+    }
+
+    private static void timeoutAndFailureContractsRemainStableUnderForcedDelayInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
 
         MinecraftServer server = requireNonNull("task9/timeout/setup/server", helper.getLevel().getServer());
         ChatMCNetwork.setServer(server);
@@ -212,11 +223,11 @@ public final class ServerThreadConfinementGameTest {
 
                         helper.succeed();
                     } finally {
-                        resetSharedNetworkState();
+                        resetSharedNetworkState(true);
                     }
                 });
             } catch (Throwable throwable) {
-                resetSharedNetworkState();
+                resetSharedNetworkState(true);
                 throw throwable;
             }
         });
@@ -324,7 +335,7 @@ public final class ServerThreadConfinementGameTest {
 
     private static Object newMcSessionContext(UUID playerId) {
         try {
-            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.AgentRunner$McSessionContext");
+            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.McSessionContext");
             Constructor<?> constructor = contextClass.getDeclaredConstructor(UUID.class);
             constructor.setAccessible(true);
             return constructor.newInstance(playerId);
@@ -348,9 +359,12 @@ public final class ServerThreadConfinementGameTest {
         }
     }
 
-    private static void resetSharedNetworkState() {
+    private static void resetSharedNetworkState(boolean releaseLease) {
         ChatMCNetwork.SESSIONS.loadFromSave(new PersistedSessions(1, List.of(), Map.of()));
         clearSessionLocale();
+        if (releaseLease) {
+            GameTestRuntimeLease.release();
+        }
     }
 
     private static void clearSessionLocale() {

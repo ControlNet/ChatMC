@@ -8,6 +8,7 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.common.terminal.TerminalContextRegistry;
 import space.controlnet.chatmc.common.terminal.TerminalContextResolver;
 import space.controlnet.chatmc.core.agent.AgentLoopResult;
@@ -46,7 +47,12 @@ public final class ProposalBindingUnavailableGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc")
     public static void proposalBindingUnavailableApprovalFailsDeterministically(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> proposalBindingUnavailableApprovalFailsDeterministicallyInternal(helper));
+    }
+
+    private static void proposalBindingUnavailableApprovalFailsDeterministicallyInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
 
         ServerPlayer player = FakePlayerFactory.get(
                 helper.getLevel(),
@@ -142,7 +148,7 @@ public final class ProposalBindingUnavailableGameTest {
             helper.succeed();
         } finally {
             resolverRef.set(previousResolver);
-            resetSharedNetworkState();
+            resetSharedNetworkState(true);
         }
     }
 
@@ -209,9 +215,12 @@ public final class ProposalBindingUnavailableGameTest {
         }
     }
 
-    private static void resetSharedNetworkState() {
+    private static void resetSharedNetworkState(boolean releaseLease) {
         ChatMCNetwork.SESSIONS.loadFromSave(new PersistedSessions(1, List.of(), Map.of()));
         clearSessionLocale();
+        if (releaseLease) {
+            GameTestRuntimeLease.release();
+        }
     }
 
     private static void clearSessionLocale() {

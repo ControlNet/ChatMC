@@ -12,6 +12,7 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.chatmc.common.ChatMC;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.common.recipes.RecipeIndexReloadListener;
 import space.controlnet.chatmc.core.recipes.RecipeIndexManager;
 import space.controlnet.chatmc.core.recipes.RecipeIndexSnapshot;
@@ -41,7 +42,12 @@ public final class IndexingGateRecoveryGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc")
     public static void indexingGateRecoveryAcrossReload(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> indexingGateRecoveryAcrossReloadInternal(helper));
+    }
+
+    private static void indexingGateRecoveryAcrossReloadInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
         RecipeIndexManager recipeIndexManager = recipeIndexManager();
 
         try {
@@ -131,7 +137,7 @@ public final class IndexingGateRecoveryGameTest {
             helper.succeed();
         } finally {
             rebuildReadySnapshot(recipeIndexManager, "task7/cleanup/index-ready-reset");
-            resetSharedNetworkState();
+            resetSharedNetworkState(true);
         }
     }
 
@@ -176,9 +182,12 @@ public final class IndexingGateRecoveryGameTest {
         }
     }
 
-    private static void resetSharedNetworkState() {
+    private static void resetSharedNetworkState(boolean releaseLease) {
         ChatMCNetwork.SESSIONS.loadFromSave(new PersistedSessions(1, List.of(), Map.of()));
         clearSessionLocale();
+        if (releaseLease) {
+            GameTestRuntimeLease.release();
+        }
     }
 
     private static void clearSessionLocale() {

@@ -19,13 +19,13 @@ import space.controlnet.chatmc.core.tools.ToolCall;
 import space.controlnet.chatmc.core.tools.ToolOutcome;
 import space.controlnet.chatmc.core.tools.ToolMessagePayload;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,20 +41,23 @@ public final class AgentLoop {
     private static final long DEFAULT_COOLDOWN_MS = 1500;
 
     // State keys
-    private static final String KEY_PLAYER = "player";
     private static final String KEY_SESSION_ID = "sessionId";
     private static final String KEY_LOCALE = "locale";
     private static final String KEY_ITERATION = "iteration";
-    private static final String KEY_DECISION = "decision";
-    private static final String KEY_RESULT = "result";
-    private static final String KEY_CONTEXT = "context";
-
+    private static final String KEY_DECISION_ACTION = "decisionAction";
+    private static final String KEY_RESULT_PROPOSAL = "resultProposal";
+    private static final String KEY_RESULT_RESPONSE = "resultResponse";
+    private static final String KEY_RESULT_ERROR = "resultError";
     private final CompiledGraph<LoopState> graph;
     private final AgentReasoningService reasoningService;
     private final LlmRateLimiter rateLimiter;
     private final ExecutorService llmExecutor;
     private final AtomicLong timeoutMs;
     private final java.util.concurrent.atomic.AtomicInteger maxIterations;
+    private final ConcurrentHashMap<UUID, AgentSessionContext> activeContexts;
+    private final ConcurrentHashMap<UUID, AgentPlayerContext> activePlayers;
+    private final ConcurrentHashMap<UUID, AgentDecision> activeDecisions;
+    private final ConcurrentHashMap<UUID, space.controlnet.chatmc.core.proposal.Proposal> activeProposals;
 
     /**
      * Creates a new agent loop with the given audit logger.
@@ -71,6 +74,10 @@ public final class AgentLoop {
         });
         this.timeoutMs = new AtomicLong(DEFAULT_TIMEOUT_MS);
         this.maxIterations = new java.util.concurrent.atomic.AtomicInteger(DEFAULT_MAX_ITERATIONS);
+        this.activeContexts = new ConcurrentHashMap<>();
+        this.activePlayers = new ConcurrentHashMap<>();
+        this.activeDecisions = new ConcurrentHashMap<>();
+        this.activeProposals = new ConcurrentHashMap<>();
         this.reasoningService = new AgentReasoningService(
                 logWarning,
                 rateLimiter,
@@ -158,34 +165,58 @@ public final class AgentLoop {
     public AgentLoopResult runLoop(AgentPlayerContext player, UUID sessionId, TerminalBinding binding,
                                     String effectiveLocale, AgentSessionContext sessionContext) {
         Map<String, Object> init = new HashMap<>();
-        init.put(KEY_PLAYER, player);
         init.put(KEY_SESSION_ID, sessionId);
         init.put(KEY_LOCALE, effectiveLocale);
         init.put(KEY_ITERATION, 0);
-        init.put(KEY_DECISION, null);
-        init.put(KEY_RESULT, null);
-        init.put(KEY_CONTEXT, sessionContext);
+        init.put(KEY_DECISION_ACTION, null);
+        init.put(KEY_RESULT_PROPOSAL, null);
+        init.put(KEY_RESULT_RESPONSE, null);
+        init.put(KEY_RESULT_ERROR, null);
 
         try {
+            activePlayers.put(sessionId, player);
+            activeContexts.put(sessionId, sessionContext);
             Optional<LoopState> finalState = graph.invoke(init);
             if (finalState.isEmpty()) {
                 return AgentLoopResult.withError("Agent state is empty", 0);
             }
 
             LoopState state = finalState.get();
-            ResultState resultState = state.value(KEY_RESULT)
-                    .map(ResultState.class::cast)
-                    .orElse(null);
-
-            if (resultState != null) {
-                return resultState.toResult();
+            int iterations = state.value(KEY_ITERATION).map(Integer.class::cast).orElse(0);
+            boolean hasProposal = state.value(KEY_RESULT_PROPOSAL)
+                    .map(Boolean.class::cast)
+                    .orElse(Boolean.FALSE);
+            if (hasProposal) {
+                space.controlnet.chatmc.core.proposal.Proposal proposal = activeProposals.remove(sessionId);
+                if (proposal != null) {
+                    return AgentLoopResult.withProposal(proposal, iterations);
+                }
+                return AgentLoopResult.withError("No proposal from agent loop", iterations);
             }
 
-            int iterations = state.value(KEY_ITERATION).map(Integer.class::cast).orElse(0);
+            String response = state.value(KEY_RESULT_RESPONSE)
+                    .map(String.class::cast)
+                    .orElse(null);
+            if (response != null && !response.isBlank()) {
+                return AgentLoopResult.withResponse(response, iterations);
+            }
+
+            String error = state.value(KEY_RESULT_ERROR)
+                    .map(String.class::cast)
+                    .orElse(null);
+            if (error != null && !error.isBlank()) {
+                return AgentLoopResult.withError(error, iterations);
+            }
+
             return AgentLoopResult.withError("No result from agent loop", iterations);
         } catch (Exception e) {
             sessionContext.logError("Agent loop failed", e);
             return AgentLoopResult.withError("Agent loop failed: " + e.getMessage(), 0);
+        } finally {
+            activeDecisions.remove(sessionId);
+            activeProposals.remove(sessionId);
+            activePlayers.remove(sessionId);
+            activeContexts.remove(sessionId);
         }
     }
 
@@ -193,19 +224,19 @@ public final class AgentLoop {
      * Reason node: Ask the LLM to decide the next action.
      */
     private Map<String, Object> reasonNode(LoopState state) {
-        AgentPlayerContext player = state.value(KEY_PLAYER).map(AgentPlayerContext.class::cast).orElse(null);
         UUID sessionId = state.value(KEY_SESSION_ID).map(UUID.class::cast).orElse(null);
         String locale = state.value(KEY_LOCALE).map(String.class::cast).orElse("en_us");
         int iteration = state.value(KEY_ITERATION).map(Integer.class::cast).orElse(0);
-        AgentSessionContext ctx = state.value(KEY_CONTEXT).map(AgentSessionContext.class::cast).orElse(null);
+        AgentPlayerContext player = sessionId == null ? null : activePlayers.get(sessionId);
+        AgentSessionContext ctx = sessionId == null ? null : activeContexts.get(sessionId);
 
         if (player == null || sessionId == null || ctx == null) {
-            return Map.of(KEY_RESULT, ResultState.error("Missing player, session, or context", iteration));
+            return errorResult("Missing player, session, or context", iteration);
         }
 
         // Check iteration limit
         if (iteration >= maxIterations.get()) {
-            return Map.of(KEY_RESULT, ResultState.error("Max iterations reached", iteration));
+            return errorResult("Max iterations reached", iteration);
         }
 
         // Build conversation history from session
@@ -230,16 +261,14 @@ public final class AgentLoop {
         // Call LLM with player ID for rate limiting, locale and iteration for audit
         Optional<AgentDecision> decision = reasoningService.reason(player.getPlayerId(), prompt, locale, iteration);
         if (decision.isEmpty()) {
-            return Map.of(KEY_RESULT, ResultState.error("LLM failed to produce a decision", iteration));
+            return errorResult("LLM failed to produce a decision", iteration);
         }
 
         AgentDecision d = decision.get();
         d.thinking().ifPresent(t -> ctx.logDebug("Agent thinking: {}", t));
+        activeDecisions.put(sessionId, d);
 
-        return Map.of(
-                KEY_DECISION, DecisionState.fromDecision(d),
-                KEY_ITERATION, iteration + 1
-        );
+        return decisionUpdate(d.action(), iteration + 1);
     }
 
     private static ToolPrompt buildToolPrompt(List<AgentTool> tools) {
@@ -349,21 +378,21 @@ public final class AgentLoop {
      */
     private String routeAfterReason(LoopState state) {
         // Check if we have a result (error case)
-        if (state.value(KEY_RESULT).isPresent()) {
+        if (hasTerminalResult(state)) {
             return "end";
         }
 
-        DecisionState decision = state.value(KEY_DECISION)
-                .map(DecisionState.class::cast)
+        String action = state.value(KEY_DECISION_ACTION)
+                .map(String.class::cast)
                 .orElse(null);
 
-        if (decision == null) {
+        if (action == null || action.isBlank()) {
             return "end";
         }
 
-        if (decision.isToolCall()) {
+        if (AgentDecision.AgentAction.TOOL_CALL.name().equals(action)) {
             return "execute";
-        } else if (decision.isRespond()) {
+        } else if (AgentDecision.AgentAction.RESPOND.name().equals(action)) {
             return "respond";
         }
 
@@ -374,24 +403,24 @@ public final class AgentLoop {
      * Execute node: Execute the tool call.
      */
     private Map<String, Object> executeNode(LoopState state) {
-        AgentPlayerContext player = state.value(KEY_PLAYER).map(AgentPlayerContext.class::cast).orElse(null);
         UUID sessionId = state.value(KEY_SESSION_ID).map(UUID.class::cast).orElse(null);
         int iteration = state.value(KEY_ITERATION).map(Integer.class::cast).orElse(0);
-        AgentSessionContext ctx = state.value(KEY_CONTEXT).map(AgentSessionContext.class::cast).orElse(null);
+        AgentPlayerContext player = sessionId == null ? null : activePlayers.get(sessionId);
+        AgentSessionContext ctx = sessionId == null ? null : activeContexts.get(sessionId);
+        AgentDecision decision = sessionId == null ? null : activeDecisions.get(sessionId);
 
-        DecisionState decision = state.value(KEY_DECISION)
-                .map(DecisionState.class::cast)
-                .orElse(null);
+        List<ToolCall> toolCalls = decision == null ? List.of() : decision.toolCalls();
+        String thinking = decision == null ? null : decision.thinking().orElse(null);
 
-        if (player == null || decision == null || decision.toolCalls == null || decision.toolCalls.isEmpty() || ctx == null) {
-            return Map.of(KEY_RESULT, ResultState.error("Invalid state for execution", iteration));
+        if (player == null || toolCalls.isEmpty() || ctx == null) {
+            return errorResult("Invalid state for execution", iteration);
         }
 
         // Get terminal context from player
         Optional<TerminalContext> terminal = ctx.getTerminal(player);
 
         boolean firstCall = true;
-        for (ToolCall call : decision.toolCalls) {
+        for (ToolCall call : toolCalls) {
             ctx.logDebug("Agent executing tool: {} args: {}", call.toolName(), call.argsJson());
 
             // Execute tool
@@ -400,13 +429,13 @@ public final class AgentLoop {
             // If proposal is needed, return it and exit the loop
             if (outcome.hasProposal()) {
                 ctx.logDebug("Agent produced proposal: {}", outcome.proposal().id());
-                return Map.of(KEY_RESULT, ResultState.proposal(outcome.proposal(), iteration));
+                activeProposals.put(sessionId, outcome.proposal());
+                return proposalResult();
             }
 
             // Append tool result to session
             if (outcome.result() != null) {
-                String thinking = firstCall ? decision.thinking : null;
-                String payload = ToolMessagePayload.wrap(call, outcome.result(), thinking);
+                String payload = ToolMessagePayload.wrap(call, outcome.result(), firstCall ? thinking : null);
                 if (payload != null && !payload.isBlank()) {
                     ctx.appendMessage(sessionId, new ChatMessage(ChatRole.TOOL, payload, System.currentTimeMillis()));
                 }
@@ -423,7 +452,7 @@ public final class AgentLoop {
      */
     private String routeAfterExecute(LoopState state) {
         // Check if we have a result (proposal case)
-        if (state.value(KEY_RESULT).isPresent()) {
+        if (hasTerminalResult(state)) {
             return "end";
         }
 
@@ -437,24 +466,49 @@ public final class AgentLoop {
     private Map<String, Object> respondNode(LoopState state) {
         UUID sessionId = state.value(KEY_SESSION_ID).map(UUID.class::cast).orElse(null);
         int iteration = state.value(KEY_ITERATION).map(Integer.class::cast).orElse(0);
-        AgentSessionContext ctx = state.value(KEY_CONTEXT).map(AgentSessionContext.class::cast).orElse(null);
+        AgentSessionContext ctx = sessionId == null ? null : activeContexts.get(sessionId);
+        AgentDecision decision = sessionId == null ? null : activeDecisions.get(sessionId);
 
-        DecisionState decision = state.value(KEY_DECISION)
-                .map(DecisionState.class::cast)
-                .orElse(null);
+        String response = decision == null ? null : decision.response().orElse(null);
 
-        if (decision == null || decision.response == null || decision.response.isBlank()) {
-            return Map.of(KEY_RESULT, ResultState.error("No response in decision", iteration));
+        if (response == null || response.isBlank()) {
+            return errorResult("No response in decision", iteration);
         }
-
-        String response = decision.response;
 
         // Append response to session
         if (sessionId != null && ctx != null) {
             ctx.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, response, System.currentTimeMillis()));
         }
 
-        return Map.of(KEY_RESULT, ResultState.response(response, iteration));
+        return responseResult(response);
+    }
+
+    private static boolean hasTerminalResult(LoopState state) {
+        return state.value(KEY_RESULT_PROPOSAL).isPresent()
+                || state.value(KEY_RESULT_RESPONSE).isPresent()
+                || state.value(KEY_RESULT_ERROR).isPresent();
+    }
+
+    private static Map<String, Object> errorResult(String error, int iterations) {
+        return Map.of(
+                KEY_RESULT_ERROR, error,
+                KEY_ITERATION, iterations
+        );
+    }
+
+    private static Map<String, Object> decisionUpdate(AgentDecision.AgentAction action, int iteration) {
+        Map<String, Object> update = new HashMap<>();
+        update.put(KEY_DECISION_ACTION, action.name());
+        update.put(KEY_ITERATION, iteration);
+        return update;
+    }
+
+    private static Map<String, Object> proposalResult() {
+        return Map.of(KEY_RESULT_PROPOSAL, Boolean.TRUE);
+    }
+
+    private static Map<String, Object> responseResult(String response) {
+        return Map.of(KEY_RESULT_RESPONSE, response);
     }
 
     /**
@@ -463,78 +517,6 @@ public final class AgentLoop {
     private static final class LoopState extends AgentState {
         public LoopState(Map<String, Object> data) {
             super(data);
-        }
-    }
-
-    private static final class DecisionState implements Serializable {
-        private final AgentDecision.AgentAction action;
-        private final String thinking;
-        private final java.util.List<ToolCall> toolCalls;
-        private final String response;
-
-        private DecisionState(AgentDecision.AgentAction action, String thinking, java.util.List<ToolCall> toolCalls, String response) {
-            this.action = action;
-            this.thinking = thinking;
-            this.toolCalls = toolCalls == null ? java.util.List.of() : java.util.List.copyOf(toolCalls);
-            this.response = response;
-        }
-
-        static DecisionState fromDecision(AgentDecision decision) {
-            return new DecisionState(
-                    decision.action(),
-                    decision.thinking().orElse(null),
-                    decision.toolCalls(),
-                    decision.response().orElse(null)
-            );
-        }
-
-        boolean isToolCall() {
-            return action == AgentDecision.AgentAction.TOOL_CALL;
-        }
-
-        boolean isRespond() {
-            return action == AgentDecision.AgentAction.RESPOND;
-        }
-    }
-
-    private static final class ResultState implements Serializable {
-        private final boolean success;
-        private final space.controlnet.chatmc.core.proposal.Proposal proposal;
-        private final String response;
-        private final String error;
-        private final int iterationsUsed;
-
-        private ResultState(boolean success, space.controlnet.chatmc.core.proposal.Proposal proposal, String response, String error, int iterationsUsed) {
-            this.success = success;
-            this.proposal = proposal;
-            this.response = response;
-            this.error = error;
-            this.iterationsUsed = iterationsUsed;
-        }
-
-        static ResultState proposal(space.controlnet.chatmc.core.proposal.Proposal proposal, int iterations) {
-            return new ResultState(true, proposal, null, null, iterations);
-        }
-
-        static ResultState response(String response, int iterations) {
-            return new ResultState(true, null, response, null, iterations);
-        }
-
-        static ResultState error(String error, int iterations) {
-            return new ResultState(false, null, null, error, iterations);
-        }
-
-        AgentLoopResult toResult() {
-            if (proposal != null) {
-                return AgentLoopResult.withProposal(proposal, iterationsUsed);
-            }
-            if (response != null) {
-                return AgentLoopResult.withResponse(response, iterationsUsed);
-            }
-            if (error != null) {
-                return AgentLoopResult.withError(error, iterationsUsed);
-            }
-            return AgentLoopResult.withError("No result from agent loop", iterationsUsed);
         }
     }
 }

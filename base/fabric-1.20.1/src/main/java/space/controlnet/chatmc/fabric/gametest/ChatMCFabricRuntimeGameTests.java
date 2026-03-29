@@ -1,5 +1,9 @@
 package space.controlnet.chatmc.fabric.gametest;
 
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import io.netty.buffer.Unpooled;
@@ -85,6 +89,12 @@ public final class ChatMCFabricRuntimeGameTests {
     private static final UUID TIMEOUT_PLAYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000092");
     private static final String THREAD_PLAYER_NAME = "thread_confine";
     private static final String TIMEOUT_PLAYER_NAME = "timeout_confine";
+    private static final UUID AGENT_RESPONSE_PLAYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000181");
+    private static final UUID AGENT_TOOL_PLAYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000182");
+    private static final UUID AGENT_PARSE_ERROR_PLAYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000183");
+    private static final String AGENT_RESPONSE_PLAYER_NAME = "agent_response";
+    private static final String AGENT_TOOL_PLAYER_NAME = "agent_tool";
+    private static final String AGENT_PARSE_ERROR_PLAYER_NAME = "agent_parse_error";
     private static final long FORCED_TIMEOUT_DELAY_MS = 31_000L;
     private static final long FORCED_FAILURE_DELAY_MS = 200L;
     private static final int TIMEOUT_WORKER_START_DELAY_TICKS = 40;
@@ -226,6 +236,305 @@ public final class ChatMCFabricRuntimeGameTests {
                 ChatMCFabricGameTestSupport.resetRuntime();
             }
         });
+    }
+
+    public static void agentSystemReliabilityAcrossRealLoopPaths(GameTestHelper helper) {
+        runDirectResponseReliabilityStage(helper);
+    }
+
+    public static void chatPacketDirectResponseExecutesRealAgentLoop(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/direct/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_RESPONSE_PLAYER_ID,
+                AGENT_RESPONSE_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/direct/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/direct/setup/index-ready"
+        );
+
+        ScriptedChatModel model = new ScriptedChatModel(
+                "{\"thinking\":\"Answer directly\",\"tool\":\"response\",\"args\":{\"message\":\"Use eight planks around the perimeter.\"}}"
+        );
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/direct/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(
+                    player,
+                    "How do I craft a chest?",
+                    "en_us",
+                    ""
+            );
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/direct/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/final-state",
+                            SessionState.DONE,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/message-count",
+                            2,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/user-role",
+                            ChatRole.USER,
+                            snapshot.messages().get(0).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/user-message",
+                            "How do I craft a chest?",
+                            snapshot.messages().get(0).text()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/assistant-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/assistant-message",
+                            "Use eight planks around the perimeter.",
+                            snapshot.messages().get(1).text()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/model-request-count",
+                            1,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireContains(
+                            "task18/direct/prompt-includes-user-message",
+                            model.firstPrompt(),
+                            "How do I craft a chest?"
+                    );
+                    helper.succeed();
+                } finally {
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                }
+            });
+        } catch (Throwable throwable) {
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
+    }
+
+    public static void chatPacketToolLoopExecutesToolAndResponds(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/tool/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_TOOL_PLAYER_ID,
+                AGENT_TOOL_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/tool/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/tool/setup/index-ready"
+        );
+
+        String providerId = uniqueName("task18-tool-provider");
+        String toolName = uniqueName("task18-tool");
+        ControlledToolProvider provider = new ControlledToolProvider(toolName, ToolExecutionMode.IMMEDIATE_SUCCESS);
+        ToolRegistry.register(providerId, provider);
+
+        ScriptedChatModel model = new ScriptedChatModel(
+                "{\"thinking\":\"Need to inspect inventory\",\"tool\":\"" + toolName + "\",\"args\":{\"slot\":2}}",
+                "{\"tool\":\"response\",\"args\":{\"message\":\"Inventory lookup finished.\"}}"
+        );
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/tool/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(
+                    player,
+                    "Check my inventory",
+                    "en_us",
+                    ""
+            );
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/tool/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/final-state",
+                            SessionState.DONE,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/model-request-count",
+                            2,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/provider-execute-count",
+                            1,
+                            provider.executeCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/message-count",
+                            3,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/user-role",
+                            ChatRole.USER,
+                            snapshot.messages().get(0).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/tool-role",
+                            ChatRole.TOOL,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireContains(
+                            "task18/tool/tool-payload-has-tool-name",
+                            snapshot.messages().get(1).text(),
+                            toolName
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/assistant-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(2).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/assistant-message",
+                            "Inventory lookup finished.",
+                            snapshot.messages().get(2).text()
+                    );
+                    helper.succeed();
+                } finally {
+                    ToolRegistry.unregister(providerId);
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                }
+            });
+        } catch (Throwable throwable) {
+            ToolRegistry.unregister(providerId);
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
+    }
+
+    public static void chatPacketInvalidModelOutputFailsGracefully(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/error/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_PARSE_ERROR_PLAYER_ID,
+                AGENT_PARSE_ERROR_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/error/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/error/setup/index-ready"
+        );
+
+        ScriptedChatModel model = new ScriptedChatModel("not-json-at-all");
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/error/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(
+                    player,
+                    "Do something unreliable",
+                    "en_us",
+                    ""
+            );
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/error/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/final-state",
+                            SessionState.FAILED,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/model-request-count",
+                            1,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/last-error",
+                            Optional.of("LLM failed to produce a decision"),
+                            snapshot.lastError()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/message-count",
+                            2,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/error-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/error-message",
+                            "Error: LLM failed to produce a decision",
+                            snapshot.messages().get(1).text()
+                    );
+                    helper.succeed();
+                } finally {
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                }
+            });
+        } catch (Throwable throwable) {
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
     }
 
     public static void proposalBindingUnavailableApprovalFailsDeterministically(GameTestHelper helper) {
@@ -1111,6 +1420,295 @@ public final class ChatMCFabricRuntimeGameTests {
         }
     }
 
+    private static void runDirectResponseReliabilityStage(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/direct/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_RESPONSE_PLAYER_ID,
+                AGENT_RESPONSE_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/direct/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/direct/setup/index-ready"
+        );
+
+        ScriptedChatModel model = new ScriptedChatModel(
+                "{\"thinking\":\"Answer directly\",\"tool\":\"response\",\"args\":{\"message\":\"Use eight planks around the perimeter.\"}}"
+        );
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/direct/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(player, "How do I craft a chest?", "en_us", "");
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/direct/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/final-state",
+                            SessionState.DONE,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/message-count",
+                            2,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/user-role",
+                            ChatRole.USER,
+                            snapshot.messages().get(0).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/user-message",
+                            "How do I craft a chest?",
+                            snapshot.messages().get(0).text()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/assistant-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/assistant-message",
+                            "Use eight planks around the perimeter.",
+                            snapshot.messages().get(1).text()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/direct/model-request-count",
+                            1,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireContains(
+                            "task18/direct/prompt-includes-user-message",
+                            model.firstPrompt(),
+                            "How do I craft a chest?"
+                    );
+
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                    runToolLoopReliabilityStage(helper);
+                } catch (Throwable throwable) {
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                    throw throwable;
+                }
+            });
+        } catch (Throwable throwable) {
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
+    }
+
+    private static void runToolLoopReliabilityStage(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/tool/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_TOOL_PLAYER_ID,
+                AGENT_TOOL_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/tool/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/tool/setup/index-ready"
+        );
+
+        String providerId = uniqueName("task18-tool-provider");
+        String toolName = uniqueName("task18-tool");
+        ControlledToolProvider provider = new ControlledToolProvider(toolName, ToolExecutionMode.IMMEDIATE_SUCCESS);
+        ToolRegistry.register(providerId, provider);
+
+        ScriptedChatModel model = new ScriptedChatModel(
+                "{\"thinking\":\"Need to inspect inventory\",\"tool\":\"" + toolName + "\",\"args\":{\"slot\":2}}",
+                "{\"tool\":\"response\",\"args\":{\"message\":\"Inventory lookup finished.\"}}"
+        );
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/tool/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(player, "Check my inventory", "en_us", "");
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/tool/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/final-state",
+                            SessionState.DONE,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/model-request-count",
+                            2,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/provider-execute-count",
+                            1,
+                            provider.executeCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/message-count",
+                            3,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/user-role",
+                            ChatRole.USER,
+                            snapshot.messages().get(0).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/tool-role",
+                            ChatRole.TOOL,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireContains(
+                            "task18/tool/tool-payload-has-tool-name",
+                            snapshot.messages().get(1).text(),
+                            toolName
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/assistant-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(2).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/tool/assistant-message",
+                            "Inventory lookup finished.",
+                            snapshot.messages().get(2).text()
+                    );
+
+                    ToolRegistry.unregister(providerId);
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                    runInvalidModelReliabilityStage(helper);
+                } catch (Throwable throwable) {
+                    ToolRegistry.unregister(providerId);
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                    throw throwable;
+                }
+            });
+        } catch (Throwable throwable) {
+            ToolRegistry.unregister(providerId);
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
+    }
+
+    private static void runInvalidModelReliabilityStage(GameTestHelper helper) {
+        ChatMCFabricGameTestSupport.initializeRuntime(helper);
+
+        MinecraftServer server = ChatMCFabricGameTestSupport.requireNonNull(
+                "task18/error/setup/server",
+                helper.getLevel().getServer()
+        );
+        ServerPlayer player = ChatMCFabricGameTestSupport.createServerPlayer(
+                helper,
+                AGENT_PARSE_ERROR_PLAYER_ID,
+                AGENT_PARSE_ERROR_PLAYER_NAME
+        );
+        ChatMCFabricGameTestSupport.ensurePlayerResolvableByChatNetwork(
+                "task18/error/setup/player",
+                server,
+                player
+        );
+        ChatMCFabricGameTestSupport.rebuildReadySnapshot(
+                ChatMCFabricGameTestSupport.recipeIndexManager(),
+                "task18/error/setup/index-ready"
+        );
+
+        ScriptedChatModel model = new ScriptedChatModel("not-json-at-all");
+        ChatModel previousModel = ChatMCFabricGameTestSupport.installChatModel(model);
+
+        try {
+            ChatMCNetwork.onTerminalOpened(player);
+            UUID sessionId = ChatMCNetwork.SESSIONS.getActiveSessionId(player.getUUID())
+                    .orElseThrow(() -> new AssertionError("task18/error/setup/active-session -> missing active session"));
+
+            ChatMCFabricGameTestSupport.invokeHandleChatPacket(player, "Do something unreliable", "en_us", "");
+
+            helper.runAfterDelay(20, () -> {
+                try {
+                    SessionSnapshot snapshot = ChatMCFabricGameTestSupport.requireSnapshot(
+                            "task18/error/final-snapshot",
+                            sessionId
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/final-state",
+                            SessionState.FAILED,
+                            snapshot.state()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/model-request-count",
+                            1,
+                            model.requestCount()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/last-error",
+                            Optional.of("LLM failed to produce a decision"),
+                            snapshot.lastError()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/message-count",
+                            2,
+                            snapshot.messages().size()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/error-role",
+                            ChatRole.ASSISTANT,
+                            snapshot.messages().get(1).role()
+                    );
+                    ChatMCFabricGameTestSupport.requireEquals(
+                            "task18/error/error-message",
+                            "Error: LLM failed to produce a decision",
+                            snapshot.messages().get(1).text()
+                    );
+                    helper.succeed();
+                } finally {
+                    ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+                    ChatMCFabricGameTestSupport.resetRuntime();
+                }
+            });
+        } catch (Throwable throwable) {
+            ChatMCFabricGameTestSupport.restoreChatModel(previousModel);
+            ChatMCFabricGameTestSupport.resetRuntime();
+            throw throwable;
+        }
+    }
+
     private static void recordBroadcastStep(
             String assertionPrefix,
             UUID sessionId,
@@ -1718,6 +2316,39 @@ public final class ChatMCFabricRuntimeGameTests {
         @Override
         public ToolRender render(ToolPayload payload) {
             return null;
+        }
+    }
+
+    private static final class ScriptedChatModel implements ChatModel {
+        private final Queue<String> scriptedResponses = new java.util.concurrent.ConcurrentLinkedQueue<>();
+        private final List<String> prompts = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final AtomicInteger requestCount = new AtomicInteger();
+
+        private ScriptedChatModel(String... scriptedResponses) {
+            this.scriptedResponses.addAll(List.of(scriptedResponses));
+        }
+
+        private int requestCount() {
+            return requestCount.get();
+        }
+
+        private String firstPrompt() {
+            return prompts.isEmpty() ? "" : prompts.get(0);
+        }
+
+        @Override
+        public ChatResponse doChat(ChatRequest chatRequest) {
+            requestCount.incrementAndGet();
+            prompts.add(chatRequest.messages().toString());
+
+            String response = scriptedResponses.poll();
+            if (response == null) {
+                throw new IllegalStateException("task18/scripted-model/no-scripted-response");
+            }
+
+            return ChatResponse.builder()
+                    .aiMessage(new AiMessage(response))
+                    .build();
         }
     }
 

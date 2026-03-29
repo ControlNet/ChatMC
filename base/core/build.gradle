@@ -7,8 +7,8 @@ dependencies {
     // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
     rootProject.ext.addAgentDeps(dependencies, "compileOnly")
     
-    // Gson is used by core runtime code (JSON parsing/writing) and must be available to tests.
-    implementation "com.google.code.gson:gson:2.10.1"
+    compileOnly "com.google.code.gson:gson:2.10.1"
+    testImplementation "com.google.code.gson:gson:2.10.1"
 
     // NightConfig TOML (Forge provides at runtime; compile-only here)
     compileOnly "com.electronwill.night-config:toml:3.6.4"

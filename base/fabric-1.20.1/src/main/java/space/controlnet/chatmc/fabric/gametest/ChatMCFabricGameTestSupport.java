@@ -5,11 +5,14 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import dev.langchain4j.model.chat.ChatModel;
 import space.controlnet.chatmc.common.ChatMC;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.common.recipes.RecipeIndexReloadListener;
 import space.controlnet.chatmc.common.terminal.TerminalContextRegistry;
 import space.controlnet.chatmc.common.terminal.TerminalContextResolver;
+import space.controlnet.chatmc.core.agent.LlmRuntime;
 import space.controlnet.chatmc.core.agent.AgentLoopResult;
 import space.controlnet.chatmc.core.net.c2s.C2SApprovalDecisionPacket;
 import space.controlnet.chatmc.core.recipes.RecipeIndexManager;
@@ -54,6 +57,7 @@ public final class ChatMCFabricGameTestSupport {
         clearViewerState();
         ChatMCNetwork.setServer(null);
         clearSessionLocale();
+        GameTestRuntimeLease.release();
     }
 
     public static ServerPlayer createServerPlayer(GameTestHelper helper, UUID playerId, String playerName) {
@@ -211,9 +215,46 @@ public final class ChatMCFabricGameTestSupport {
         }
     }
 
+    public static void invokeHandleChatPacket(
+            ServerPlayer player,
+            String text,
+            String clientLocale,
+            String aiLocaleOverride
+    ) {
+        try {
+            Method method = ChatMCNetwork.class.getDeclaredMethod(
+                    "handleChatPacket",
+                    ServerPlayer.class,
+                    String.class,
+                    String.class,
+                    String.class
+            );
+            method.setAccessible(true);
+            method.invoke(null, player, text, clientLocale, aiLocaleOverride);
+        } catch (Exception exception) {
+            throw new AssertionError("runtime/invoke-handle-chat-packet", rootCause(exception));
+        }
+    }
+
+    public static ChatModel installChatModel(ChatModel model) {
+        try {
+            return llmModelRef().getAndSet(model);
+        } catch (Exception exception) {
+            throw new AssertionError("runtime/install-chat-model", rootCause(exception));
+        }
+    }
+
+    public static void restoreChatModel(ChatModel previousModel) {
+        try {
+            llmModelRef().set(previousModel);
+        } catch (Exception exception) {
+            throw new AssertionError("runtime/restore-chat-model", rootCause(exception));
+        }
+    }
+
     public static Object newMcSessionContext(UUID playerId) {
         try {
-            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.AgentRunner$McSessionContext");
+            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.McSessionContext");
             Constructor<?> constructor = contextClass.getDeclaredConstructor(UUID.class);
             constructor.setAccessible(true);
             return constructor.newInstance(playerId);
@@ -392,6 +433,17 @@ public final class ChatMCFabricGameTestSupport {
         throw new AssertionError(
                 assertionName + " -> expected substring '" + expectedSubstring + "' in value: " + value
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static AtomicReference<ChatModel> llmModelRef() {
+        try {
+            Field field = LlmRuntime.class.getDeclaredField("MODEL");
+            field.setAccessible(true);
+            return (AtomicReference<ChatModel>) field.get(null);
+        } catch (Exception exception) {
+            throw new AssertionError("runtime/read-llm-model-ref", rootCause(exception));
+        }
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

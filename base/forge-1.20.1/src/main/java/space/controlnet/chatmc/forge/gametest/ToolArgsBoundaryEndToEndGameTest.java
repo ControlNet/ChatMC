@@ -8,6 +8,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.common.session.ChatMCSessionsSavedData;
 import space.controlnet.chatmc.core.policy.RiskLevel;
 import space.controlnet.chatmc.core.proposal.Proposal;
@@ -38,7 +39,12 @@ public final class ToolArgsBoundaryEndToEndGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc", timeoutTicks = 400)
     public static void toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpusInternal(helper));
+    }
+
+    private static void toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpusInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
 
         try {
             String ascii65535 = repeat('a', MAX_TOOL_ARGS_JSON_LENGTH - 1);
@@ -106,7 +112,7 @@ public final class ToolArgsBoundaryEndToEndGameTest {
 
             helper.succeed();
         } finally {
-            resetSharedNetworkState();
+            resetSharedNetworkState(true);
         }
     }
 
@@ -340,9 +346,12 @@ public final class ToolArgsBoundaryEndToEndGameTest {
         return current;
     }
 
-    private static void resetSharedNetworkState() {
+    private static void resetSharedNetworkState(boolean releaseLease) {
         ChatMCNetwork.SESSIONS.loadFromSave(new PersistedSessions(1, List.of(), Map.of()));
         clearSessionLocale();
+        if (releaseLease) {
+            GameTestRuntimeLease.release();
+        }
     }
 
     private static void clearSessionLocale() {

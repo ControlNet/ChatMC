@@ -10,6 +10,7 @@ import java.util.List;
 @Mod.EventBusSubscriber(modid = ChatMC.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ChatMCGameTestBootstrap {
     private static final List<Class<?>> GAME_TEST_CLASSES = List.of(
+            AgentSystemReliabilityGameTest.class,
             ProposalBindingUnavailableGameTest.class,
             IndexingGateRecoveryGameTest.class,
             ViewerChurnConsistencyGameTest.class,

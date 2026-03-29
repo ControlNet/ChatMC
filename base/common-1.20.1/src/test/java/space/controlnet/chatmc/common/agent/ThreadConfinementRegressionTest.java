@@ -102,7 +102,7 @@ public final class ThreadConfinementRegressionTest {
     @Test
     void task14_timeoutFailureContract_presentInAgentRunnerSource() {
         String source = readSource(
-                "base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/agent/AgentRunner.java");
+                "base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/agent/McSessionContext.java");
 
         assertContains("task14/base/timeout-contract/timeout-constant", source,
                 "TOOL_EXECUTION_TIMEOUT_MS = 30_000L");
@@ -196,7 +196,7 @@ public final class ThreadConfinementRegressionTest {
 
     private static Object newMcSessionContext(UUID playerId) {
         try {
-            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.AgentRunner$McSessionContext");
+            Class<?> contextClass = Class.forName("space.controlnet.chatmc.common.agent.McSessionContext");
             Constructor<?> constructor = contextClass.getDeclaredConstructor(UUID.class);
             constructor.setAccessible(true);
             return constructor.newInstance(playerId);

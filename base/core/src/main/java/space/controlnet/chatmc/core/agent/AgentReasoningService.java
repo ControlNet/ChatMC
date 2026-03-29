@@ -89,8 +89,7 @@ public final class AgentReasoningService {
         long startTime = System.currentTimeMillis();
         String playerIdStr = playerId != null ? playerId.toString() : "unknown";
 
-        // Check rate limit
-        if (rateLimiter != null && playerId != null && !rateLimiter.allow(playerId)) {
+        if (iteration <= 0 && rateLimiter != null && playerId != null && !rateLimiter.allow(playerId)) {
             logger.warn("Rate limit exceeded for player " + playerId, null);
             logLlmAudit(playerIdStr, locale, iteration, 0, LlmAuditOutcome.RATE_LIMITED, "Rate limit exceeded");
             return Optional.empty();

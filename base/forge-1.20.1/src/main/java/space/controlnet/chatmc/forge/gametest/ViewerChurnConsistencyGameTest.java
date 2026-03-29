@@ -9,6 +9,7 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.chatmc.common.ChatMCNetwork;
+import space.controlnet.chatmc.common.gametest.GameTestRuntimeLease;
 import space.controlnet.chatmc.core.session.ChatMessage;
 import space.controlnet.chatmc.core.session.ChatRole;
 import space.controlnet.chatmc.core.session.PersistedSessions;
@@ -41,7 +42,12 @@ public final class ViewerChurnConsistencyGameTest {
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "chatmc_task8_viewer")
     public static void multiViewerSnapshotConsistencyUnderChurn(GameTestHelper helper) {
-        resetSharedNetworkState();
+        GameTestRuntimeLease.runWhenAvailable(helper,
+                () -> multiViewerSnapshotConsistencyUnderChurnInternal(helper));
+    }
+
+    private static void multiViewerSnapshotConsistencyUnderChurnInternal(GameTestHelper helper) {
+        resetSharedNetworkState(false);
 
         ServerPlayer owner = FakePlayerFactory.get(helper.getLevel(), new GameProfile(OWNER_ID, OWNER_NAME));
         ServerPlayer viewerA = FakePlayerFactory.get(helper.getLevel(), new GameProfile(VIEWER_A_ID, VIEWER_A_NAME));
@@ -187,7 +193,7 @@ public final class ViewerChurnConsistencyGameTest {
 
             helper.succeed();
         } finally {
-            resetSharedNetworkState();
+            resetSharedNetworkState(true);
         }
     }
 
@@ -289,10 +295,13 @@ public final class ViewerChurnConsistencyGameTest {
         }
     }
 
-    private static void resetSharedNetworkState() {
+    private static void resetSharedNetworkState(boolean releaseLease) {
         ChatMCNetwork.SESSIONS.loadFromSave(new PersistedSessions(1, List.of(), Map.of()));
         clearSessionLocale();
         clearViewerState();
+        if (releaseLease) {
+            GameTestRuntimeLease.release();
+        }
     }
 
     private static void clearViewerState() {
