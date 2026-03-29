@@ -12,6 +12,7 @@ import space.controlnet.chatmc.common.recipes.RecipeIndexReloadListener;
 import space.controlnet.chatmc.common.recipes.RecipeIndexService;
 import space.controlnet.chatmc.common.tools.McToolProvider;
 import space.controlnet.chatmc.common.tools.ToolRegistry;
+import space.controlnet.chatmc.common.tools.mcp.McpRuntimeManager;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -40,6 +41,7 @@ public final class ChatMC {
             ChatMCNetwork.setServer(server);
             space.controlnet.chatmc.common.llm.PromptRuntime.reload(server);
             space.controlnet.chatmc.common.llm.McRuntimeManager.reload(server);
+            McpRuntimeManager.reload(server);
             RECIPE_INDEX.rebuildAsync(server);
         });
 
@@ -47,6 +49,7 @@ public final class ChatMC {
             ChatMCNetwork.setServer(null);
             SERVER.set(null);
             space.controlnet.chatmc.common.llm.McRuntimeManager.clear();
+            McpRuntimeManager.clear();
             RECIPE_INDEX.shutdown();
             ChatMCNetwork.shutdown();
         });

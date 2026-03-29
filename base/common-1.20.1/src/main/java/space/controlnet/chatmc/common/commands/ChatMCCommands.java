@@ -15,6 +15,7 @@ import space.controlnet.chatmc.common.ChatMCNetwork;
 import space.controlnet.chatmc.common.menu.AiTerminalMenu;
 import space.controlnet.chatmc.common.llm.McRuntimeManager;
 import space.controlnet.chatmc.common.llm.PromptRuntime;
+import space.controlnet.chatmc.common.tools.mcp.McpRuntimeManager;
 
 public final class ChatMCCommands {
     private ChatMCCommands() {
@@ -57,6 +58,7 @@ public final class ChatMCCommands {
                             MinecraftServer server = ctx.getSource().getServer();
                             PromptRuntime.reload(server);
                             McRuntimeManager.reload(server);
+                            McpRuntimeManager.reload(server);
                             ChatMC.RECIPE_INDEX.rebuildAsync(server);
                             ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("ChatMC reloaded"), true);
                             return 1;
