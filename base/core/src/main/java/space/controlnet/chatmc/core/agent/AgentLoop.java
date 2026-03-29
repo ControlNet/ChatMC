@@ -253,7 +253,8 @@ public final class AgentLoop {
                 .orElse("");
 
         String argsSchema = tools.stream()
-                .map(tool -> "- " + tool.name() + ": " + tool.argsSchema())
+                .map(AgentLoop::buildArgsSchemaLine)
+                .filter(line -> !line.isBlank())
                 .reduce((a, b) -> a + "\n" + b)
                 .orElse("");
 
@@ -266,7 +267,16 @@ public final class AgentLoop {
         return new ToolPrompt(toolList, argsSchema, toolsSection);
     }
 
-    private static String buildSection(String toolName, String header, List<String> lines) {
+    private static String buildArgsSchemaLine(AgentTool tool) {
+        if (tool == null) {
+            return "";
+        }
+        return tool.argsSchemaOptional()
+                .map(schema -> "- " + tool.name() + ": " + schema)
+                .orElse("");
+    }
+
+    private static String buildSection(String header, List<String> lines) {
         if (lines == null || lines.isEmpty()) {
             return "";
         }
@@ -285,21 +295,18 @@ public final class AgentLoop {
         if (tool == null) {
             return "";
         }
-        String schema = tool.resultSchema();
-        List<String> details = tool.resultDescription();
-        if ((schema == null || schema.isBlank()) && (details == null || details.isEmpty())) {
+        Optional<String> schema = tool.resultSchemaOptional();
+        List<String> details = tool.resultDescriptionOptional();
+        if (schema.isEmpty() && details.isEmpty()) {
             return "";
         }
         StringBuilder builder = new StringBuilder();
         builder.append("Return Details:");
-        if (schema != null && !schema.isBlank()) {
-            builder.append("\n  - ").append(schema);
+        if (schema.isPresent()) {
+            builder.append("\n  - ").append(schema.get());
         }
-        if (details != null && !details.isEmpty()) {
+        if (!details.isEmpty()) {
             for (String line : details) {
-                if (line == null || line.isBlank()) {
-                    continue;
-                }
                 builder.append("\n  - ").append(line);
             }
         }
@@ -317,31 +324,24 @@ public final class AgentLoop {
         if (tool == null) {
             return "";
         }
-        StringBuilder builder = new StringBuilder();
-        builder.append("### ").append(tool.name()).append("\n\n");
-        builder.append("Description:\n");
-        builder.append(tool.description() == null ? "" : tool.description()).append("\n\n");
-        builder.append("Arguments Schema:\n");
-        builder.append(tool.argsSchema() == null ? "" : tool.argsSchema()).append("\n\n");
-        String argsDetails = buildSection(tool.name(), "Arguments Details:", tool.argsDescription());
+        List<String> sections = new java.util.ArrayList<>();
+        sections.add("### " + tool.name());
+        tool.descriptionOptional().ifPresent(description -> sections.add("Description:\n" + description));
+        tool.argsSchemaOptional().ifPresent(schema -> sections.add("Arguments Schema:\n" + schema));
+
+        String argsDetails = buildSection("Arguments Details:", tool.argsDescriptionOptional());
         if (!argsDetails.isBlank()) {
-            builder.append(argsDetails).append("\n\n");
-        } else {
-            builder.append("Arguments Details:\n  - (none)\n\n");
+            sections.add(argsDetails);
         }
         String returns = buildReturnSection(tool);
         if (!returns.isBlank()) {
-            builder.append(returns).append("\n\n");
-        } else {
-            builder.append("Return Details:\n  - (none)\n\n");
+            sections.add(returns);
         }
-        String examples = buildSection(tool.name(), "Examples:", tool.examples());
+        String examples = buildSection("Examples:", tool.examplesOptional());
         if (!examples.isBlank()) {
-            builder.append(examples);
-        } else {
-            builder.append("Examples:\n  - (none)");
+            sections.add(examples);
         }
-        return builder.toString().trim();
+        return String.join("\n\n", sections).trim();
     }
 
     /**
