@@ -7,6 +7,7 @@ import space.controlnet.chatmc.common.ChatMCNetwork;
 import space.controlnet.chatmc.common.audit.AuditLogger;
 import space.controlnet.chatmc.common.llm.PromptRuntime;
 import space.controlnet.chatmc.common.terminal.TerminalContextRegistry;
+import space.controlnet.chatmc.common.tools.ToolProvider;
 import space.controlnet.chatmc.common.tools.ToolRegistry;
 import space.controlnet.chatmc.core.agent.AgentLoop;
 import space.controlnet.chatmc.core.agent.AgentLoopResult;
@@ -150,6 +151,12 @@ public final class AgentRunner {
 
         @Override
         public ToolOutcome executeTool(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
+            ToolProvider.ExecutionAffinity affinity = ToolRegistry.getExecutionAffinity(
+                    call == null ? null : call.toolName());
+            if (affinity == ToolProvider.ExecutionAffinity.CALLING_THREAD) {
+                return ToolRegistry.executeTool(terminal, call, approved);
+            }
+
             MinecraftServer server = ChatMCNetwork.findPlayer(playerId)
                     .map(ServerPlayer::getServer)
                     .orElse(null);

@@ -1,9 +1,8 @@
-package space.controlnet.chatmc.common.agent;
+package space.controlnet.chatmc.common.tools.mcp;
 
 import org.junit.jupiter.api.Test;
 
 import space.controlnet.chatmc.common.ChatMCNetwork;
-import space.controlnet.chatmc.common.testing.DeterministicBarrier;
 import space.controlnet.chatmc.common.testing.ThreadConfinementAssertions;
 import space.controlnet.chatmc.common.testing.TimeoutUtility;
 import space.controlnet.chatmc.common.tools.ToolProvider;
@@ -15,103 +14,16 @@ import space.controlnet.chatmc.core.tools.ToolCall;
 import space.controlnet.chatmc.core.tools.ToolOutcome;
 import space.controlnet.chatmc.core.tools.ToolResult;
 
-import java.time.Duration;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class ThreadConfinementRegressionTest {
-    @Test
-    void task14_mcSessionContext_serverUnavailable_returnsDeterministicFailure() {
-        ensureMinecraftBootstrap();
-        ChatMCNetwork.setServer(null);
-        Object context = newMcSessionContext(UUID.fromString("00000000-0000-0000-0000-000000001401"));
-        Object call = newToolCall(uniqueName("tool"), "{}");
-
-        Object first = invokeMcSessionExecuteTool(context, call, true);
-        Object second = invokeMcSessionExecuteTool(context, call, true);
-
-        assertOutcomeErrorCode("task14/base/server-missing/first", first, "tool_execution_failed");
-        assertOutcomeErrorCode("task14/base/server-missing/second", second, "tool_execution_failed");
-    }
-
-    @Test
-    void task14_mcSessionContext_serverUnavailable_preemptsToolRegistryUnknownTool() {
-        ensureMinecraftBootstrap();
-        ChatMCNetwork.setServer(null);
-        Object context = newMcSessionContext(UUID.fromString("00000000-0000-0000-0000-000000001402"));
-        Object call = newToolCall(uniqueName("unknown"), "{}");
-
-        Object directRegistry = invokeToolRegistryExecuteTool(call, true);
-        Object throughSessionContext = invokeMcSessionExecuteTool(context, call, true);
-
-        assertOutcomeErrorCode("task14/base/direct-registry", directRegistry, "unknown_tool");
-        assertOutcomeErrorCode("task14/base/server-missing-preempts-registry", throughSessionContext,
-                "tool_execution_failed");
-    }
-
-    @Test
-    void task14_toolRegistry_dispatch_executesOnCallingThread() {
-        String toolName = uniqueName("dispatch-tool");
-        String providerId = uniqueName("provider");
-        AtomicReference<Thread> providerThread = new AtomicReference<>();
-        AtomicInteger executeCount = new AtomicInteger();
-        DeterministicBarrier dispatchBarrier = new DeterministicBarrier("task14/base/registry-dispatch/provider-entered");
-
-        registerThreadCapturingProvider(providerId, toolName, providerThread, executeCount, dispatchBarrier);
-
-        try {
-            AtomicReference<Object> outcomeRef = new AtomicReference<>();
-            AtomicReference<Throwable> errorRef = new AtomicReference<>();
-            Thread worker = new Thread(() -> {
-                try {
-                    Object call = newToolCall(toolName, "{}");
-                    outcomeRef.set(invokeToolRegistryExecuteTool(call, true));
-                } catch (Throwable throwable) {
-                    errorRef.set(throwable);
-                }
-            }, uniqueName("worker"));
-
-            worker.start();
-            dispatchBarrier.awaitArrivals(1, Duration.ofSeconds(1));
-            assertTrue("task14/base/registry-dispatch/outcome-before-release", outcomeRef.get() == null);
-            dispatchBarrier.release();
-            TimeoutUtility.awaitThreadCompletion("task14/base/registry-dispatch", worker, Duration.ofSeconds(2));
-            if (errorRef.get() != null) {
-                throw new AssertionError("task14/base/registry-dispatch/unexpected-error", errorRef.get());
-            }
-
-            assertEquals("task14/base/registry-dispatch/execute-count", 1, executeCount.get());
-            ThreadConfinementAssertions.assertSameThread(
-                    "task14/base/registry-dispatch/provider-thread",
-                    worker,
-                    requireNonNull("task14/base/registry-dispatch/provider-thread-present", providerThread.get())
-            );
-            assertOutcomeSuccess("task14/base/registry-dispatch/outcome", outcomeRef.get());
-        } finally {
-            ToolRegistry.unregister(providerId);
-        }
-    }
-
-    @Test
-    void task14_timeoutFailureContract_presentInAgentRunnerSource() {
-        String source = readSource(
-                "base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/agent/AgentRunner.java");
-
-        assertContains("task14/base/timeout-contract/timeout-constant", source,
-                "TOOL_EXECUTION_TIMEOUT_MS = 30_000L");
-        assertContains("task14/base/timeout-contract/timeout-branch", source,
-                "ToolResult.error(\"tool_timeout\", \"tool execution timeout\")");
-        assertContains("task14/base/timeout-contract/failure-branch", source,
-                "ToolResult.error(\"tool_execution_failed\", \"tool execution failed\")");
-    }
-
+public final class ToolExecutionAffinityRegressionTest {
     @Test
     void task17_callingThreadAffinity_allowsExecutionWithoutServerThread() {
         ensureMinecraftBootstrap();
@@ -125,8 +37,7 @@ public final class ThreadConfinementRegressionTest {
                 toolName,
                 ToolProvider.ExecutionAffinity.CALLING_THREAD,
                 providerThread,
-                executeCount,
-                null
+                executeCount
         ));
 
         try {
@@ -142,21 +53,21 @@ public final class ThreadConfinementRegressionTest {
             }, uniqueName("caller-worker"));
 
             worker.start();
-            TimeoutUtility.awaitThreadCompletion("task17/base/calling-thread-affinity", worker, Duration.ofSeconds(2));
+            TimeoutUtility.awaitThreadCompletion("task17/mcp/calling-thread-affinity", worker, Duration.ofSeconds(2));
             if (errorRef.get() != null) {
-                throw new AssertionError("task17/base/calling-thread-affinity/unexpected-error", errorRef.get());
+                throw new AssertionError("task17/mcp/calling-thread-affinity/unexpected-error", errorRef.get());
             }
 
-            assertEquals("task17/base/calling-thread-affinity/execute-count", 1, executeCount.get());
-            assertEquals("task17/base/calling-thread-affinity/registry-affinity",
+            assertEquals("task17/mcp/calling-thread-affinity/execute-count", 1, executeCount.get());
+            assertEquals("task17/mcp/calling-thread-affinity/registry-affinity",
                     ToolProvider.ExecutionAffinity.CALLING_THREAD,
                     ToolRegistry.getExecutionAffinity(toolName));
             ThreadConfinementAssertions.assertSameThread(
-                    "task17/base/calling-thread-affinity/provider-thread",
+                    "task17/mcp/calling-thread-affinity/provider-thread",
                     worker,
-                    requireNonNull("task17/base/calling-thread-affinity/provider-thread-present", providerThread.get())
+                    requireNonNull("task17/mcp/calling-thread-affinity/provider-thread-present", providerThread.get())
             );
-            assertOutcomeSuccess("task17/base/calling-thread-affinity/outcome", outcomeRef.get());
+            assertOutcomeSuccess("task17/mcp/calling-thread-affinity/outcome", outcomeRef.get());
         } finally {
             ToolRegistry.unregister(providerId);
         }
@@ -175,20 +86,19 @@ public final class ThreadConfinementRegressionTest {
                 toolName,
                 ToolProvider.ExecutionAffinity.SERVER_THREAD,
                 providerThread,
-                executeCount,
-                null
+                executeCount
         ));
 
         try {
             Object context = newMcSessionContext(UUID.fromString("00000000-0000-0000-0000-000000001702"));
             Object outcome = invokeMcSessionExecuteTool(context, newToolCall(toolName, "{}"), true);
 
-            assertEquals("task17/base/default-affinity/registry-affinity",
+            assertEquals("task17/mcp/default-affinity/registry-affinity",
                     ToolProvider.ExecutionAffinity.SERVER_THREAD,
                     ToolRegistry.getExecutionAffinity(toolName));
-            assertOutcomeErrorCode("task17/base/default-affinity/outcome", outcome, "tool_execution_failed");
-            assertEquals("task17/base/default-affinity/execute-count", 0, executeCount.get());
-            assertTrue("task17/base/default-affinity/provider-thread-absent", providerThread.get() == null);
+            assertOutcomeErrorCode("task17/mcp/default-affinity/outcome", outcome, "tool_execution_failed");
+            assertEquals("task17/mcp/default-affinity/execute-count", 0, executeCount.get());
+            assertTrue("task17/mcp/default-affinity/provider-thread-absent", providerThread.get() == null);
         } finally {
             ToolRegistry.unregister(providerId);
         }
@@ -201,7 +111,7 @@ public final class ThreadConfinementRegressionTest {
             constructor.setAccessible(true);
             return constructor.newInstance(playerId);
         } catch (Exception exception) {
-            throw new AssertionError("task14/base/new-session-context", exception);
+            throw new AssertionError("task17/mcp/new-session-context", exception);
         }
     }
 
@@ -212,7 +122,7 @@ public final class ThreadConfinementRegressionTest {
             constructor.setAccessible(true);
             return constructor.newInstance(toolName, argsJson);
         } catch (Exception exception) {
-            throw new AssertionError("task14/base/new-tool-call", exception);
+            throw new AssertionError("task17/mcp/new-tool-call", exception);
         }
     }
 
@@ -224,34 +134,8 @@ public final class ThreadConfinementRegressionTest {
             method.setAccessible(true);
             return method.invoke(context, Optional.empty(), call, approved);
         } catch (Exception exception) {
-            throw new AssertionError("task14/base/invoke-session-execute", exception);
+            throw new AssertionError("task17/mcp/invoke-session-execute", exception);
         }
-    }
-
-    private static Object invokeToolRegistryExecuteTool(Object call, boolean approved) {
-        try {
-            Class<?> toolCallClass = Class.forName("space.controlnet.chatmc.core.tools.ToolCall");
-            Method method = ToolRegistry.class.getMethod("executeTool", Optional.class, toolCallClass, boolean.class);
-            return method.invoke(null, Optional.empty(), call, approved);
-        } catch (Exception exception) {
-            throw new AssertionError("task14/base/invoke-registry-execute", exception);
-        }
-    }
-
-    private static void registerThreadCapturingProvider(
-            String providerId,
-            String toolName,
-            AtomicReference<Thread> providerThread,
-            AtomicInteger executeCount,
-            DeterministicBarrier dispatchBarrier
-    ) {
-        ToolRegistry.register(providerId, new ThreadCapturingToolProvider(
-                toolName,
-                ToolProvider.ExecutionAffinity.SERVER_THREAD,
-                providerThread,
-                executeCount,
-                dispatchBarrier
-        ));
     }
 
     private static void assertOutcomeSuccess(String assertionName, Object outcome) {
@@ -281,30 +165,6 @@ public final class ThreadConfinementRegressionTest {
         }
     }
 
-    private static void assertContains(String assertionName, String haystack, String needle) {
-        if (!haystack.contains(needle)) {
-            throw new AssertionError(assertionName + " -> expected to find: " + needle);
-        }
-    }
-
-    private static String readSource(String path) {
-        try {
-            Path direct = Path.of(path);
-            if (Files.exists(direct)) {
-                return Files.readString(direct);
-            }
-
-            Path fromModule = Path.of("..").resolve("..").resolve(path).normalize();
-            if (Files.exists(fromModule)) {
-                return Files.readString(fromModule);
-            }
-
-            throw new AssertionError("read-source missing: " + path + " (checked " + direct + " and " + fromModule + ")");
-        } catch (Exception exception) {
-            throw new AssertionError("read-source failed: " + path, exception);
-        }
-    }
-
     private static void ensureMinecraftBootstrap() {
         try {
             Class<?> sharedConstants = Class.forName("net.minecraft.SharedConstants");
@@ -313,12 +173,12 @@ public final class ThreadConfinementRegressionTest {
             Class<?> bootstrap = Class.forName("net.minecraft.server.Bootstrap");
             bootstrap.getMethod("bootStrap").invoke(null);
         } catch (Exception exception) {
-            throw new AssertionError("task14/base/bootstrap", exception);
+            throw new AssertionError("task17/mcp/bootstrap", exception);
         }
     }
 
     private static String uniqueName(String prefix) {
-        return prefix + "-task14-" + UUID.randomUUID();
+        return prefix + "-task17-" + UUID.randomUUID();
     }
 
     private static <T> T requireNonNull(String assertionName, T value) {
@@ -346,20 +206,17 @@ public final class ThreadConfinementRegressionTest {
         private final ToolProvider.ExecutionAffinity affinity;
         private final AtomicReference<Thread> providerThread;
         private final AtomicInteger executeCount;
-        private final DeterministicBarrier dispatchBarrier;
 
         private ThreadCapturingToolProvider(
                 String toolName,
                 ToolProvider.ExecutionAffinity affinity,
                 AtomicReference<Thread> providerThread,
-                AtomicInteger executeCount,
-                DeterministicBarrier dispatchBarrier
+                AtomicInteger executeCount
         ) {
             this.toolSpec = AgentToolSpec.metadataOnly(toolName, "", "{}", List.of(), "", List.of(), List.of());
             this.affinity = affinity;
             this.providerThread = providerThread;
             this.executeCount = executeCount;
-            this.dispatchBarrier = dispatchBarrier;
         }
 
         @Override
@@ -376,9 +233,6 @@ public final class ThreadConfinementRegressionTest {
         public ToolOutcome execute(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
             executeCount.incrementAndGet();
             providerThread.set(Thread.currentThread());
-            if (dispatchBarrier != null) {
-                dispatchBarrier.arriveAndAwaitRelease("provider-execute", Duration.ofSeconds(1));
-            }
             return ToolOutcome.result(ToolResult.ok("{\"ok\":true}"));
         }
     }

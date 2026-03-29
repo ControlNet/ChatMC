@@ -12,7 +12,16 @@ import java.util.Optional;
  * Tool provider for registering tool specs and executing tool calls.
  */
 public interface ToolProvider {
+    enum ExecutionAffinity {
+        SERVER_THREAD,
+        CALLING_THREAD
+    }
+
     List<AgentTool> specs();
+
+    default ExecutionAffinity executionAffinity() {
+        return ExecutionAffinity.SERVER_THREAD;
+    }
 
     ToolOutcome execute(Optional<TerminalContext> terminal, ToolCall call, boolean approved);
 }
