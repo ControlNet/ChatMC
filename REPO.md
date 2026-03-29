@@ -193,7 +193,7 @@ Notes:
 - max iterations (configurable via `maxIterations`)
 - max actions per iteration (configurable via `maxToolCalls`)
 - max craft quantity per action
-- rate limit LLM calls per player/session
+- rate limit player-submitted queries per player/session (applied on the initial reasoning step, not every internal agent iteration)
 - timeouts for LLM and for long-running jobs
 - size limits for persisted session data (messages/decisions/sessions/message length)
 
@@ -406,7 +406,7 @@ No disk caching for MVP.
 - **Parsing pipeline extracted to `core`**: `ReflectiveToolCallParser` and `ToolCallParsingService` now live in `core`; `ChatAENetwork` delegates parsing/rate-limit/timeout behavior to them.
 - **LLM config + hot reload:** server reads `config/chatae/llm.toml`, reloads models on `/chatae reload`, and applies rate-limit cooldown at runtime.
 - **Prompt resolution:** prompts are sourced from `assets/chatae/lang/*.json`, rendered with variables, and emitted to `config/chatae/prompts/*.default.prompt` for override.
-- **Rate limiting:** `AgentReasoningService` enforces per-player rate limiting via `LlmRateLimiter`; `AgentRunner` manages the rate limiter with configurable cooldown (default 1500ms) via `setRateLimitCooldown()`.
+- **Rate limiting:** `AgentReasoningService` enforces per-player top-level query throttling via `LlmRateLimiter`; the cooldown is applied on the initial reasoning step for a player query, while follow-up iterations inside the same agent loop bypass that cooldown. `AgentRunner` manages the cooldown (default 1500ms) via `setRateLimitCooldown()`.
 - **LLM timeout:** LLM call timeout is configurable via `timeoutSeconds` and updated on `/chatae reload` (no stale cached timeout).
 - **LLM retries:** transient failures (timeout/connection/rate limit) retry up to `maxRetries` with backoff.
 - **LLM raw output logging:** when `logResponses = true`, raw LLM responses are logged at debug.
@@ -484,22 +484,34 @@ No disk caching for MVP.
   User Message �?REASON �?(tool_call �?EXECUTE �?loop back) OR (respond �?END)
   ```
 - **Key components (in `core`):**
+  - `AgentLoop`: LangGraph4j-based multi-node graph with `reason`, `execute`, and `respond` nodes plus per-request iteration/state handling.
   - `AgentDecision`: Record representing LLM's decision (`TOOL_CALL` or `RESPOND`) with optional thinking, tool call, or response.
   - `AgentReasoningService`: Service that calls LLM with `agent.reason` prompt and parses the JSON response into `AgentDecision`.
   - `AgentLoopResult`: Result of running the agent loop (success with proposal/response, or error).
   - `ConversationHistoryBuilder`: Formats session messages for inclusion in the prompt.
 - **Key components (in `common-1.20.1`):**
-  - `AgentRunner`: LangGraph4j-based multi-node graph with `reason`, `execute`, and `respond` nodes.
+  - `AgentRunner`: MC-specific wrapper that adapts `ServerPlayer`, terminal binding, and session context into the core `AgentLoop`.
+  - `McSessionContext`: MC-facing `AgentSessionContext` implementation for session history, prompt rendering, tool execution affinity, and server-thread marshaling.
 - **LLM output format:** tool-only JSON objects; direct responses via `response` tool; multiple tool calls per step supported (JSON array).
 - **Iteration limit:** Max iterations per agent loop is configurable (`maxIterations`).
 - **Multi-tool calls:** JSON arrays are supported; tool calls are capped by `maxToolCalls`.
-- **Context preservation:** `ServerPlayer`, `TerminalBinding`, `sessionId`, and `effectiveLocale` are passed through the entire loop.
+- **Context preservation:** `sessionId`, `effectiveLocale`, and agent control state are carried through the graph; MC runtime objects are kept outside serialized graph state and rebound per active session during loop execution.
 - **Proposal handling:** When a tool requires approval (e.g., `ae.request_craft`), the loop pauses with a proposal; after approval, the loop resumes with the tool result in session history.
 - **Dead code removed:** `handleParsedOutcome`, `applyToolResult`, `parseCommandAsync`, `buildToolParserPrompt`, `buildAssistantPrompt`, `LLM_PARSER`, `ASSISTANT_RESPONDER`, `TOOL_LIST`, `ARGS_SCHEMA` removed from `ChatAENetwork`.
-- **Rate limiting:** `AgentReasoningService` enforces per-player rate limiting via `LlmRateLimiter`; managed by `AgentRunner` with configurable cooldown via `setRateLimitCooldown()`.
+- **Rate limiting:** `AgentReasoningService` uses `LlmRateLimiter` as a per-player query throttle on iteration `0`; internal follow-up iterations for the same user ask are not blocked by the cooldown.
 - **LLM timeout:** LLM timeout is configurable and updated on `/chatae reload`; retry uses `maxRetries`.
 - **Locale preservation on approval resume:** `SESSION_LOCALE` map in `ChatAENetwork` stores the effective locale when a request starts; retrieved when resuming after approval to ensure consistent language.
 - **LLM audit logging:** New `LlmAuditEvent` record and `LlmAuditOutcome` enum track all LLM calls with player, prompt ID, locale, iteration, duration, and outcome (SUCCESS/TIMEOUT/RATE_LIMITED/ERROR/PARSE_ERROR).
+
+### 13.13 MCP Tool Runtime (Implemented on 2026-03-29)
+- **Remote MCP tool support:** base/common now supports MCP-backed tools discovered at runtime and registered into `ToolRegistry` as normal agent tools.
+- **Transports:** MCP client sessions support both `stdio` and public streamable HTTP transports.
+- **Runtime lifecycle:** `McpRuntimeManager` loads MCP config on server start, reloads on `/chatmc reload`, unregisters stale runtimes, and keeps the previous healthy runtime when a reload falls back to defaults or a specific server fails discovery.
+- **Provider-scoped replacement:** `ToolRegistry.registerOrReplace(...)` supports deterministic replacement of one provider's owned tool set without disturbing unrelated providers.
+- **Schema projection:** remote MCP tool schemas are mapped into local `AgentTool` definitions, including execution-affinity metadata.
+- **Execution affinity:** MCP tools currently run with `CALLING_THREAD` affinity so the remote invocation stays on the MCP runtime path instead of being forced through server-thread marshaling.
+- **Invocation/result handling:** `McpToolProvider` validates JSON-object arguments, namespaces projected tool names by server alias, normalizes MCP result envelopes, preserves structured/text content, and returns fallback errors for unsupported or malformed remote responses.
+- **Readonly/runtime regression coverage:** the MCP runtime now has focused regression coverage for config parsing, schema mapping, stdio lifecycle, streamable HTTP lifecycle, reload isolation, provider invocation, fallback rendering, and readonly integration paths.
 
 ### 13.14 AI Terminal Visual Identity (Implemented)
 - **Custom textures:** AI Terminal now has unique textures distinguishing it from standard AE2 terminals.
@@ -791,9 +803,32 @@ The following three commits were not yet reflected in this document and are now 
    - Added comprehensive regression coverage across `base/core`, `base/common-1.20.1`, and `ext-ae/common-1.20.1` for state machine, indexing, thread confinement, and boundary contracts.
 - Updated `.gitignore` for repository-local workflow artifacts (`.sisyphus/`, IDE metadata paths).
 
+### 15.8 Commit Sync Update (added on 2026-03-29)
+
+The following recent commits were not yet reflected in this document and are now recorded explicitly:
+
+1) **`86e74f5`, `a3e7aed`, `0e1d2ae`, `2cc06d5`, `ba8b020`, `bef506a`, `d6eb1e3` (2026-03-29)**
+   - Added MCP runtime support in base/common with provider-scoped tool registration/replacement.
+   - Added MCP schema mapping, execution-affinity handling, stdio transport, and public streamable HTTP transport.
+   - Wired MCP runtime load/reload into server startup and `/chatmc reload`.
+   - Added provider invocation normalization, fallback render behavior, and readonly/runtime regression coverage.
+
+2) **`c71ed6f` (2026-03-29)**
+   - Hardened runtime test isolation with a shared session/runtime lock for Fabric GameTest coverage.
+   - Strengthened runtime regression coverage around shared session state and loader-safe GameTest execution ordering.
+
+3) **`82373eb` (2026-03-29)**
+   - Added shared whole-agent reliability GameTest scenarios in `base/common-1.20.1` with thin Fabric/Forge adapters.
+   - Covered direct response, tool-loop, invalid model output, and model-exception failure paths through the real chat-packet-to-agent-loop request path.
+   - Clarified/fixed query throttling semantics so `LlmRateLimiter` applies to top-level player asks, not every internal iteration.
+   - Refactored `AgentLoop` graph state to keep serialized state deserialization-safe under Forge while moving live runtime objects to per-session in-memory maps.
+
+4) **`e6eb9f9`, `b84aaf2`, `e34efc5` (2026-03-29)**
+   - These commits were repository-workflow/documentation/gitignore maintenance only and did not change product runtime behavior.
+
 ---
 
-## 16) Test Strategy Notes (synced on 2026-02-21)
+## 16) Test Strategy Notes (synced on 2026-03-29)
 
 ### 16.1 Layered pyramid, current implemented state
 1. **Unit JUnit (core-first):**
@@ -804,8 +839,8 @@ The following three commits were not yet reflected in this document and are now 
    - Focus: network/serialization boundaries, lifecycle/state transitions, regression contracts.
 3. **GameTest (runtime invariants):**
    - Harness is active on both loaders.
-   - Fabric path is green in this workspace and emits XML reports.
-   - Forge path is wired and executed, but currently blocked at runtime startup in this workspace (see 16.4).
+   - Shared whole-agent reliability scenarios now live in `base/common-1.20.1` and run through thin Fabric/Forge adapters.
+   - Fabric and Forge base runtime paths are both green in this workspace, including the shared agent reliability scenario.
 
 ### 16.2 Canonical execution commands
 **JUnit matrix commands (PR lane style):**
@@ -819,9 +854,10 @@ The following three commits were not yet reflected in this document and are now 
 ```bash
 timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace
 timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke
+timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=baseAgentSystemReliability
 ```
 
-**Forge GameTest commands (dev-lane path, currently blocked in this workspace):**
+**Forge GameTest commands (dev-lane path):**
 ```bash
 timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace
 timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
@@ -840,12 +876,11 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - Parity report: `ci-reports/parity/gametest-parity-report.md`
 - Evidence archive: `.sisyphus/evidence/*`
 
-### 16.4 Known Forge blocker (explicit workspace caveat)
-In this workspace, Forge GameTest startup is still blocked before scenario execution by the known signatures:
-- `InvalidModFileException: Illegal version number specified version (main)`
-- `Failed to find system mod: minecraft`
-
-Main-lane CI still runs the Forge command, captures logs, and reports this state explicitly as `blocked` (policy exit code `3`) instead of silently treating it as pass.
+### 16.4 Cross-loader runtime status (updated 2026-03-29)
+- **Shared agent reliability coverage:** base runtime now includes a shared cross-loader reliability scenario that exercises the real chat packet → session transition → agent loop → tool execution / failure path.
+- **Shared scenario coverage:** direct response, tool loop, invalid model output, and model-exception failure are all covered from common code.
+- **Loader adapters:** Fabric exposes `baseAgentSystemReliability`; Forge exposes `agentSystemReliability`; both are thin wrappers over `AgentReliabilityGameTestScenarios.run(...)`.
+- **Current workspace status:** both base Fabric and base Forge GameTest runs pass in this workspace, and the previous Forge runtime blocker no longer applies to the current branch state.
 
 ### 16.5 CI lane mapping
 - **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:common-1.20.1:test`).

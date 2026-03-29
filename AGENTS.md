@@ -154,6 +154,7 @@ Follow this file before making changes.
 - Short Javadoc on public records/factories is common and acceptable.
 - Do not add noisy “what this line does” comments.
 - Keep docs aligned with current branch model (`dev` / `master`) and current artifact names.
+- Any program design or runtime behavior update MUST also be recorded in `REPO.md` as part of the same change.
 
 ## Testing expectations
 
@@ -181,4 +182,5 @@ Follow this file before making changes.
 - Run the narrowest relevant test command first.
 - If you changed packaging or release logic, run `./scripts/build-dist.sh`.
 - If you changed CI commands, make sure the command examples in docs still match the workflow files.
+- Every code or documentation modification in this repository MUST be captured in a git commit as part of the same task.
 - Do not commit local-only files such as `.claude/` or ad hoc planning notes unless the user explicitly asks.
