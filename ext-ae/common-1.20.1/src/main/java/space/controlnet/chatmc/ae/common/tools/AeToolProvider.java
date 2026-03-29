@@ -163,22 +163,27 @@ public final class AeToolProvider implements ToolProvider {
                 .map(t -> (AeTerminalContext) t)
                 .orElse(null);
 
-        ToolResult result = switch (call.toolName()) {
-            case "ae.list_items" -> handleAeListItems(ctx, call);
-            case "ae.list_craftables" -> handleAeListCraftables(ctx, call);
-            case "ae.simulate_craft" -> handleAeSimulate(ctx, call);
-            case "ae.request_craft" -> handleAeRequest(ctx, call);
-            case "ae.job_status" -> handleAeJobStatus(ctx, call);
-            case "ae.job_cancel" -> handleAeJobCancel(ctx, call);
-            default -> ToolResult.error("unknown_tool", "Unknown tool: " + call.toolName());
-        };
-        return ToolOutcome.result(result);
+        try {
+            ToolResult result = switch (call.toolName()) {
+                case "ae.list_items" -> handleAeListItems(ctx, call);
+                case "ae.list_craftables" -> handleAeListCraftables(ctx, call);
+                case "ae.simulate_craft" -> handleAeSimulate(ctx, call);
+                case "ae.request_craft" -> handleAeRequest(ctx, call);
+                case "ae.job_status" -> handleAeJobStatus(ctx, call);
+                case "ae.job_cancel" -> handleAeJobCancel(ctx, call);
+                default -> ToolResult.error("unknown_tool", "Unknown tool: " + call.toolName());
+            };
+            return ToolOutcome.result(result);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            return ToolOutcome.result(ToolResult.error("invalid_args",
+                    requireMessage(illegalArgumentException, "Missing arguments")));
+        }
     }
 
     private static ToolResult handleAeListItems(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeListArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeListArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
         }
         if (terminal == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
@@ -188,9 +193,9 @@ public final class AeToolProvider implements ToolProvider {
     }
 
     private static ToolResult handleAeListCraftables(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeListArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeListArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
         }
         if (terminal == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
@@ -200,9 +205,12 @@ public final class AeToolProvider implements ToolProvider {
     }
 
     private static ToolResult handleAeSimulate(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeCraftArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeCraftArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
+        }
+        if (args.itemId() == null || args.itemId().isBlank()) {
+            throw new IllegalArgumentException("itemId is required");
         }
         if (!AeToolPolicy.isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + AeToolPolicy.getMaxCraftCount());
@@ -215,9 +223,12 @@ public final class AeToolProvider implements ToolProvider {
     }
 
     private static ToolResult handleAeRequest(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeCraftArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeCraftArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
+        }
+        if (args.itemId() == null || args.itemId().isBlank()) {
+            throw new IllegalArgumentException("itemId is required");
         }
         if (!AeToolPolicy.isValidCraftCount(args.count())) {
             return ToolResult.error("invalid_count", "Count must be between 1 and " + AeToolPolicy.getMaxCraftCount());
@@ -230,9 +241,12 @@ public final class AeToolProvider implements ToolProvider {
     }
 
     private static ToolResult handleAeJobStatus(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeJobArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeJobArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
+        }
+        if (args.jobId() == null || args.jobId().isBlank()) {
+            throw new IllegalArgumentException("jobId is required");
         }
         if (terminal == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
@@ -242,15 +256,36 @@ public final class AeToolProvider implements ToolProvider {
     }
 
     private static ToolResult handleAeJobCancel(AeTerminalContext terminal, ToolCall call) {
-        var args = GSON.fromJson(call.argsJson(), AeToolArgs.AeJobArgs.class);
+        var args = parseArgs(call.argsJson(), AeToolArgs.AeJobArgs.class);
         if (args == null) {
-            return ToolResult.error("invalid_args", "Missing arguments");
+            throw new IllegalArgumentException("Missing arguments");
+        }
+        if (args.jobId() == null || args.jobId().isBlank()) {
+            throw new IllegalArgumentException("jobId is required");
         }
         if (terminal == null) {
             return ToolResult.error("no_terminal", "No AI Terminal is open");
         }
         var result = terminal.cancelJob(args.jobId());
         return ToolResult.ok(GSON.toJson(result));
+    }
+
+    private static <T> T parseArgs(String argsJson, Class<T> type) {
+        if (argsJson == null || argsJson.isBlank()) {
+            return null;
+        }
+        try {
+            return GSON.fromJson(argsJson, type);
+        } catch (RuntimeException runtimeException) {
+            throw new IllegalArgumentException("Malformed JSON arguments", runtimeException);
+        }
+    }
+
+    private static String requireMessage(Throwable throwable, String fallback) {
+        if (throwable == null || throwable.getMessage() == null || throwable.getMessage().isBlank()) {
+            return fallback;
+        }
+        return throwable.getMessage();
     }
 
     private interface Renderer {

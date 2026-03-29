@@ -21,7 +21,8 @@ public final class AeToolPolicy {
     public static PolicyDecision policyFor(RiskLevel risk) {
         return switch (risk) {
             case READ_ONLY -> PolicyDecision.AUTO_APPROVE;
-            case SAFE_MUTATION, DANGEROUS_MUTATION -> PolicyDecision.REQUIRE_APPROVAL;
+            case SAFE_MUTATION -> PolicyDecision.REQUIRE_APPROVAL;
+            case DANGEROUS_MUTATION -> PolicyDecision.DENY;
         };
     }
 

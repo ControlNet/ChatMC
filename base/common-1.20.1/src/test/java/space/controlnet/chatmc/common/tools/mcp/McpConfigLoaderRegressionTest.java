@@ -32,6 +32,45 @@ public final class McpConfigLoaderRegressionTest {
         assertContains("task1/mcp-loader/defaults-shape", json, "\"mcpServers\"");
     }
 
+    @Test
+    void task1_mcpConfigLoader_invalidJson_fallsBackToDefaultsWithoutTreatingDiskAsLoaded() throws Exception {
+        Path tempRoot = Files.createTempDirectory("chatmc-mcp-loader-invalid-");
+        Path configRoot = tempRoot.resolve("config");
+        Path configPath = McpConfigLoader.resolveConfigPath(configRoot);
+        Files.createDirectories(configPath.getParent());
+        Files.writeString(configPath, "{not-valid-json", StandardCharsets.UTF_8);
+
+        McpConfigLoader.LoadResult result = McpConfigLoader.loadResult(configRoot);
+
+        assertEquals("task1/mcp-loader/invalid-json-defaults", McpConfig.defaults(), result.config());
+        assertEquals("task1/mcp-loader/invalid-json-path", configPath, result.path());
+        assertTrue("task1/mcp-loader/invalid-json-not-loaded", !result.loadedFromDisk());
+    }
+
+    @Test
+    void task1_mcpConfigLoader_invalidConfig_fallsBackToDefaultsAndKeepsOriginalFile() throws Exception {
+        Path tempRoot = Files.createTempDirectory("chatmc-mcp-loader-invalid-config-");
+        Path configRoot = tempRoot.resolve("config");
+        Path configPath = McpConfigLoader.resolveConfigPath(configRoot);
+        Files.createDirectories(configPath.getParent());
+        Files.writeString(configPath, """
+                {
+                  "mcpServers": {
+                    "Bad Alias": {
+                      "type": "stdio"
+                    }
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        McpConfigLoader.LoadResult result = McpConfigLoader.loadResult(configRoot);
+
+        assertEquals("task1/mcp-loader/invalid-config-defaults", McpConfig.defaults(), result.config());
+        assertTrue("task1/mcp-loader/invalid-config-not-loaded", !result.loadedFromDisk());
+        assertContains("task1/mcp-loader/invalid-config-file-preserved",
+                Files.readString(configPath, StandardCharsets.UTF_8), "Bad Alias");
+    }
+
     private static void assertTrue(String assertionName, boolean value) {
         if (value) {
             return;

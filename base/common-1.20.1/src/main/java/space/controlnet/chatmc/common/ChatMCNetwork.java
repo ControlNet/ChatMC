@@ -63,7 +63,7 @@ public final class ChatMCNetwork {
     private static final int MAX_TOOL_ARGS_JSON_LENGTH = 65_536;
     private static final String NETWORK_BOUNDARY_SIGNAL = "NETWORK_BOUNDARY_TOOL_ARGS_TOO_LARGE";
     private static final NetworkChannel CHANNEL = NetworkChannel.create(ChatMCRegistries.id("main"));
-    private static final int PROTOCOL_VERSION = 3;
+    private static final int PROTOCOL_VERSION = 4;
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
@@ -406,6 +406,9 @@ public final class ChatMCNetwork {
                 unsubscribeViewer(viewerId);
                 continue;
             }
+            if (!hasPacketListener(viewer)) {
+                continue;
+            }
             CHANNEL.sendToPlayer(viewer, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
         }
     }
@@ -464,12 +467,18 @@ public final class ChatMCNetwork {
         if (sessionId == null || message == null) {
             return;
         }
+        if (SESSIONS.get(sessionId).isEmpty()) {
+            return;
+        }
         MinecraftServer server = SERVER.get();
         if (server == null) {
             SESSIONS.appendMessage(sessionId, message);
             return;
         }
         server.execute(() -> {
+            if (SESSIONS.get(sessionId).isEmpty()) {
+                return;
+            }
             SESSIONS.appendMessage(sessionId, message);
             persistSessions();
             broadcastSessionSnapshot(sessionId);
@@ -544,6 +553,9 @@ public final class ChatMCNetwork {
     }
 
     public static void sendSessionSnapshot(ServerPlayer player) {
+        if (!hasPacketListener(player)) {
+            return;
+        }
         SessionSnapshot snapshot = SESSIONS.getActive(player.getUUID(), player.getGameProfile().getName());
         if (!canView(player, snapshot)) {
             snapshot = SESSIONS.create(player.getUUID(), player.getGameProfile().getName());
@@ -682,6 +694,20 @@ public final class ChatMCNetwork {
                 binding.side().ifPresent(side -> buf.writeUtf(side, 16));
             }
         }
+
+        List<DecisionLogEntry> decisions = snapshot.decisions();
+        buf.writeVarInt(decisions.size());
+        for (DecisionLogEntry decision : decisions) {
+            buf.writeLong(decision.timestampMillis());
+            buf.writeBoolean(decision.playerId().isPresent());
+            decision.playerId().ifPresent(buf::writeUUID);
+            buf.writeBoolean(decision.playerName().isPresent());
+            decision.playerName().ifPresent(name -> buf.writeUtf(name, 64));
+            buf.writeUtf(decision.proposalId(), 64);
+            buf.writeBoolean(decision.toolName().isPresent());
+            decision.toolName().ifPresent(name -> buf.writeUtf(name, 128));
+            buf.writeVarInt(decision.decision().ordinal());
+        }
     }
 
     private static SessionSnapshot readSnapshot(FriendlyByteBuf buf) {
@@ -712,6 +738,7 @@ public final class ChatMCNetwork {
         }
 
         Proposal proposal = null;
+        TerminalBinding binding = null;
         if (buf.readBoolean()) {
             String id = buf.readUtf(64);
             RiskLevel risk = RiskLevel.values()[buf.readVarInt()];
@@ -730,7 +757,6 @@ public final class ChatMCNetwork {
             }
             String note = buf.readUtf(512);
 
-            TerminalBinding binding = null;
             if (buf.readBoolean()) {
                 String dimensionId = buf.readUtf(128);
                 int x = buf.readInt();
@@ -742,10 +768,29 @@ public final class ChatMCNetwork {
 
             ProposalDetails details = new ProposalDetails(action, itemId, count, missingItems, note);
             proposal = new Proposal(id, risk, summary, new ToolCall(toolName, argsJson), proposalCreatedAt, details);
-            return new SessionSnapshot(metadata, messages, state, Optional.of(proposal), Optional.ofNullable(binding), List.of(), error);
         }
 
-        return new SessionSnapshot(metadata, messages, state, Optional.empty(), Optional.empty(), List.of(), error);
+        int decisionCount = buf.readVarInt();
+        List<DecisionLogEntry> decisions = new ArrayList<>(decisionCount);
+        for (int i = 0; i < decisionCount; i++) {
+            long timestamp = buf.readLong();
+            Optional<UUID> playerId = buf.readBoolean() ? Optional.of(buf.readUUID()) : Optional.empty();
+            Optional<String> playerName = buf.readBoolean() ? Optional.of(buf.readUtf(64)) : Optional.empty();
+            String proposalId = buf.readUtf(64);
+            Optional<String> toolName = buf.readBoolean() ? Optional.of(buf.readUtf(128)) : Optional.empty();
+            ApprovalDecision decision = ApprovalDecision.values()[buf.readVarInt()];
+            decisions.add(new DecisionLogEntry(timestamp, playerId, playerName, proposalId, toolName, decision));
+        }
+
+        return new SessionSnapshot(
+                metadata,
+                messages,
+                state,
+                Optional.ofNullable(proposal),
+                Optional.ofNullable(binding),
+                decisions,
+                error
+        );
     }
 
     private static void validateToolArgsBoundary(String toolName, String argsJson, String phase) {
@@ -771,6 +816,11 @@ public final class ChatMCNetwork {
 
     private static void handleAgentLoopResult(ServerPlayer player,
             space.controlnet.chatmc.core.agent.AgentLoopResult result, UUID sessionId, TerminalBinding binding, String effectiveLocale) {
+        if (SESSIONS.get(sessionId).isEmpty()) {
+            SESSION_LOCALE.remove(sessionId);
+            return;
+        }
+
         if (result == null) {
             applyAgentError(sessionId, "Agent returned null result");
             return;
@@ -807,6 +857,10 @@ public final class ChatMCNetwork {
     }
 
     private static void applyAgentError(UUID sessionId, String message) {
+        if (SESSIONS.get(sessionId).isEmpty()) {
+            SESSION_LOCALE.remove(sessionId);
+            return;
+        }
         SESSIONS.appendMessage(sessionId, new ChatMessage(ChatRole.ASSISTANT, "Error: " + message, System.currentTimeMillis()));
         SESSIONS.setError(sessionId, message);
         persistSessions();
@@ -840,12 +894,28 @@ public final class ChatMCNetwork {
     }
 
     private static void sendSessionList(ServerPlayer player, SessionListScope scope) {
+        if (!hasPacketListener(player)) {
+            return;
+        }
         List<SessionSummary> sessions = SESSIONS.listAll().stream()
                 .filter(snapshot -> filterByScope(player, snapshot, scope))
                 .map(ChatMCNetwork::toSummary)
                 .sorted(Comparator.comparing(SessionSummary::lastActiveMillis).reversed())
                 .toList();
         CHANNEL.sendToPlayer(player, new S2CSessionListPacket(PROTOCOL_VERSION, sessions));
+    }
+
+    private static boolean hasPacketListener(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        try {
+            java.lang.reflect.Field field = ServerPlayer.class.getDeclaredField("connection");
+            field.setAccessible(true);
+            return field.get(player) != null;
+        } catch (Exception exception) {
+            return true;
+        }
     }
 
     private static boolean filterByScope(ServerPlayer player, SessionSnapshot snapshot, SessionListScope scope) {
@@ -900,6 +970,7 @@ public final class ChatMCNetwork {
                 .map(id -> id.equals(sessionId))
                 .orElse(false);
         SESSIONS.delete(sessionId);
+        SESSION_LOCALE.remove(sessionId);
         persistSessions();
 
         // First select the next session (if the deleted session is active), to avoid onTerminalOpened automatically creating a new session.

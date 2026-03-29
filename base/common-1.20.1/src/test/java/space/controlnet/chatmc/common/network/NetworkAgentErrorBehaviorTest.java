@@ -84,6 +84,21 @@ public final class NetworkAgentErrorBehaviorTest {
                 failed.messages().get(failed.messages().size() - 1).text());
     }
 
+    @Test
+    void task7_agentErrorBehavior_emptySuccessfulResultFallsBackToIdleAndClearsLocale() {
+        UUID sessionId = newSession();
+        setSessionLocale(sessionId, "fr_fr");
+        assertTrue("task7/agent-error-behavior/empty-result-start-thinking",
+                ChatMCNetwork.SESSIONS.tryStartThinking(sessionId));
+
+        invokeHandleAgentLoopResult(new AgentLoopResult(true, Optional.empty(), Optional.empty(), Optional.empty(), 3),
+                sessionId, null, "fr_fr");
+
+        SessionSnapshot idle = requireSnapshot("task7/agent-error-behavior/empty-result", sessionId);
+        assertEquals("task7/agent-error-behavior/empty-result-state", SessionState.IDLE, idle.state());
+        assertTrue("task7/agent-error-behavior/empty-result-locale-cleared", !hasSessionLocale(sessionId));
+    }
+
     private static UUID newSession() {
         return ChatMCNetwork.SESSIONS.create(PLAYER_ID, PLAYER_NAME).metadata().sessionId();
     }

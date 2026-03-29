@@ -292,6 +292,91 @@ public final class ServerSessionManagerStateMachineRegressionTest {
                 executingProposal.id(), loadedExecutingWithProposal.pendingProposal().orElseThrow().id());
     }
 
+    @Test
+    void task12_activeLifecycle_deleteClearsOwnerMappingAndGetActiveRecreatesSession() {
+        ServerSessionManager manager = new ServerSessionManager();
+        SessionSnapshot created = manager.create(PLAYER_ID, PLAYER_NAME);
+        UUID deletedSessionId = created.metadata().sessionId();
+
+        assertEquals("task12/active-lifecycle/active-before-delete",
+                Optional.of(deletedSessionId), manager.getActiveSessionId(PLAYER_ID));
+
+        manager.delete(deletedSessionId);
+
+        assertTrue("task12/active-lifecycle/deleted-session-removed", manager.get(deletedSessionId).isEmpty());
+        assertEquals("task12/active-lifecycle/active-cleared-after-delete",
+                Optional.empty(), manager.getActiveSessionId(PLAYER_ID));
+
+        SessionSnapshot recreated = manager.getActive(PLAYER_ID, PLAYER_NAME);
+        assertTrue("task12/active-lifecycle/recreated-session-new-id",
+                !recreated.metadata().sessionId().equals(deletedSessionId));
+        assertEquals("task12/active-lifecycle/recreated-active-id",
+                Optional.of(recreated.metadata().sessionId()), manager.getActiveSessionId(PLAYER_ID));
+    }
+
+    @Test
+    void task12_missingSessionMutators_returnFalseWithoutCreatingSyntheticSessions() {
+        ServerSessionManager manager = new ServerSessionManager();
+        UUID missingSessionId = UUID.fromString("00000000-0000-0000-0000-000000001299");
+        Proposal proposal = proposal("proposal-missing-session", "mc.craft", "{\"item\":\"minecraft:stick\"}");
+
+        assertFalse("task12/missing-session/start-thinking", manager.tryStartThinking(missingSessionId));
+        assertFalse("task12/missing-session/set-proposal", manager.trySetProposal(missingSessionId, proposal, binding("north")));
+        assertFalse("task12/missing-session/start-executing", manager.tryStartExecuting(missingSessionId, proposal.id()));
+        assertFalse("task12/missing-session/fail-proposal", manager.tryFailProposal(missingSessionId, proposal.id(), "boom"));
+        assertFalse("task12/missing-session/resolve-execution",
+                manager.tryResolveExecution(missingSessionId, proposal.id(), "done", SessionState.DONE));
+        assertTrue("task12/missing-session/no-synthetic-session-created", manager.get(missingSessionId).isEmpty());
+
+        manager.appendMessage(missingSessionId, new ChatMessage(ChatRole.USER, "hello", 1L));
+        manager.appendDecision(missingSessionId, decision(proposal.id(), ApprovalDecision.DENY, 2L));
+        manager.setState(missingSessionId, SessionState.DONE);
+        manager.setProposal(missingSessionId, proposal, binding("north"));
+        manager.clearProposal(missingSessionId);
+        manager.clearProposalPreserveState(missingSessionId);
+        manager.setError(missingSessionId, "boom");
+        manager.rename(missingSessionId, "Renamed");
+        manager.setVisibility(missingSessionId, SessionVisibility.PUBLIC, Optional.empty());
+
+        assertTrue("task12/missing-session/no-synthetic-session-created-after-direct-mutators",
+                manager.get(missingSessionId).isEmpty());
+    }
+
+    @Test
+    void task12_loadNormalization_filtersStaleAndMismatchedActiveMappings() {
+        ServerSessionManager manager = new ServerSessionManager();
+        UUID validOwner = UUID.fromString("00000000-0000-0000-0000-000000000221");
+        UUID staleOwner = UUID.fromString("00000000-0000-0000-0000-000000000222");
+        UUID mismatchedOwner = UUID.fromString("00000000-0000-0000-0000-000000000223");
+        UUID snapshotOwner = UUID.fromString("00000000-0000-0000-0000-000000000224");
+        UUID validSessionId = UUID.fromString("00000000-0000-0000-0000-000000001221");
+        UUID mismatchedSessionId = UUID.fromString("00000000-0000-0000-0000-000000001222");
+
+        PersistedSessions persisted = new PersistedSessions(
+                1,
+                List.of(
+                        snapshot(validSessionId, validOwner, SessionState.IDLE, Optional.empty(), Optional.empty(),
+                                List.of(), List.of(), Optional.empty()),
+                        snapshot(mismatchedSessionId, snapshotOwner, SessionState.IDLE, Optional.empty(), Optional.empty(),
+                                List.of(), List.of(), Optional.empty())
+                ),
+                Map.of(
+                        validOwner, validSessionId,
+                        staleOwner, UUID.fromString("00000000-0000-0000-0000-000000001223"),
+                        mismatchedOwner, mismatchedSessionId
+                )
+        );
+
+        manager.loadFromSave(persisted);
+
+        assertEquals("task12/load-normalization/valid-active-mapping-kept",
+                Optional.of(validSessionId), manager.getActiveSessionId(validOwner));
+        assertEquals("task12/load-normalization/stale-active-mapping-dropped",
+                Optional.empty(), manager.getActiveSessionId(staleOwner));
+        assertEquals("task12/load-normalization/mismatched-active-mapping-dropped",
+                Optional.empty(), manager.getActiveSessionId(mismatchedOwner));
+    }
+
     private SessionContext newSessionContext() {
         ServerSessionManager manager = new ServerSessionManager();
         SessionSnapshot snapshot = manager.create(PLAYER_ID, PLAYER_NAME);

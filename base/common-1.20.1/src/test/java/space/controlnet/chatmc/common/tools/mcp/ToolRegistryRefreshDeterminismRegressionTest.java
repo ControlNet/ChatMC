@@ -14,6 +14,7 @@ import space.controlnet.chatmc.core.tools.ToolPayload;
 import space.controlnet.chatmc.core.tools.ToolRender;
 import space.controlnet.chatmc.core.tools.ToolResult;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,13 +106,81 @@ public final class ToolRegistryRefreshDeterminismRegressionTest {
         assertOwnedToolNames(List.of(secondTool), ToolRegistry.getToolSpecs());
     }
 
+    @Test
+    void task17_missingProviderPath_returnsNoProviderErrorForKnownTool() {
+        String lonelyTool = TOOL_PREFIX + "lonely";
+        ToolRegistry.registerOrReplace(PROVIDER_ALPHA, new StaticToolProvider("alpha", lonelyTool));
+        removeProviderOnly(PROVIDER_ALPHA);
+
+        ToolOutcome outcome = ToolRegistry.executeTool(Optional.empty(), new ToolCall(lonelyTool, "{}"), true);
+
+        assertNotNull(outcome.result());
+        assertTrue(!outcome.result().success());
+        assertEquals("unknown_tool", outcome.result().error().code());
+        assertEquals("No provider for tool: " + lonelyTool, outcome.result().error().message());
+        assertEquals(ToolProvider.ExecutionAffinity.SERVER_THREAD, ToolRegistry.getExecutionAffinity(lonelyTool));
+    }
+
+    @Test
+    void task17_affinityFallback_blankAndNullAffinityDefaultToServerThread() {
+        String nullAffinityTool = TOOL_PREFIX + "null-affinity";
+        ToolRegistry.registerOrReplace(PROVIDER_ALPHA, new NullAffinityProvider(nullAffinityTool));
+
+        assertEquals(ToolProvider.ExecutionAffinity.SERVER_THREAD, ToolRegistry.getExecutionAffinity(null));
+        assertEquals(ToolProvider.ExecutionAffinity.SERVER_THREAD, ToolRegistry.getExecutionAffinity(" "));
+        assertEquals(ToolProvider.ExecutionAffinity.SERVER_THREAD, ToolRegistry.getExecutionAffinity(nullAffinityTool));
+    }
+
+    @Test
+    void task17_blankProviderRegistration_isNoOp() {
+        ToolRegistry.registerOrReplace(PROVIDER_ALPHA, new StaticToolProvider("alpha", TOOL_PREFIX + "seed"));
+        List<String> before = ownedToolNames(ToolRegistry.getToolSpecs());
+
+        ToolRegistry.register(null, new StaticToolProvider("ignored", TOOL_PREFIX + "ignored-null"));
+        ToolRegistry.register(" ", new StaticToolProvider("ignored", TOOL_PREFIX + "ignored-blank"));
+        ToolRegistry.registerOrReplace("", new StaticToolProvider("ignored", TOOL_PREFIX + "ignored-empty"));
+        ToolRegistry.unregister(" ");
+
+        assertEquals(before, ownedToolNames(ToolRegistry.getToolSpecs()));
+    }
+
+    @Test
+    void task17_prefixUnregister_removesOnlyMatchingToolsAndCleansOwnership() {
+        String prefixedOne = TOOL_PREFIX + "prefixed.one";
+        String prefixedTwo = TOOL_PREFIX + "prefixed.two";
+        String survivor = TOOL_PREFIX + "survivor";
+        ToolRegistry.registerOrReplace(PROVIDER_ALPHA, new StaticToolProvider("alpha", prefixedOne, prefixedTwo, survivor));
+
+        ToolRegistry.unregisterByPrefix(TOOL_PREFIX + "prefixed.");
+
+        assertOwnedToolNames(List.of(survivor), ToolRegistry.getToolSpecs());
+        assertNull(ToolRegistry.getToolSpec(prefixedOne));
+        assertNull(ToolRegistry.getToolSpec(prefixedTwo));
+        assertNotNull(ToolRegistry.getToolSpec(survivor));
+
+        ToolOutcome outcome = ToolRegistry.executeTool(Optional.empty(), new ToolCall(survivor, "{}"), true);
+        assertSuccessPayload("task17/prefix-unregister/survivor", outcome, "alpha", survivor);
+    }
+
     private static void cleanupRegistry() {
         ToolRegistry.unregisterByPrefix(TOOL_PREFIX);
         ToolRegistry.unregister(PROVIDER_ALPHA);
         ToolRegistry.unregister(PROVIDER_BETA);
     }
 
-    private static void assertOwnedToolNames(List<String> expectedNames, List<AgentTool> tools) {
+    private static void removeProviderOnly(String providerId) {
+        try {
+            Field field = ToolRegistry.class.getDeclaredField("PROVIDERS");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, ToolProvider> providers = (Map<String, ToolProvider>) field.get(null);
+            providers.remove(providerId);
+        } catch (Exception exception) {
+            throw new AssertionError("task17/missing-provider/remove-provider-only", exception);
+        }
+    }
+
+    private static List<String> ownedToolNames(List<AgentTool> tools) {
         List<String> actualNames = new ArrayList<>();
         for (AgentTool tool : tools) {
             if (tool == null || tool.name() == null || !tool.name().startsWith(TOOL_PREFIX)) {
@@ -119,7 +188,11 @@ public final class ToolRegistryRefreshDeterminismRegressionTest {
             }
             actualNames.add(tool.name());
         }
-        assertEquals(expectedNames, actualNames);
+        return actualNames;
+    }
+
+    private static void assertOwnedToolNames(List<String> expectedNames, List<AgentTool> tools) {
+        assertEquals(expectedNames, ownedToolNames(tools));
     }
 
     private static void assertSuccessPayload(String assertionName, ToolOutcome outcome, String expectedProvider,
@@ -210,6 +283,29 @@ public final class ToolRegistryRefreshDeterminismRegressionTest {
             String payload = "{\"provider\":\"" + providerLabel + "\",\"tool\":\""
                     + call.toolName() + "\"}";
             return ToolOutcome.result(ToolResult.ok(payload));
+        }
+    }
+
+    private static final class NullAffinityProvider implements ToolProvider {
+        private final StaticToolProvider delegate;
+
+        private NullAffinityProvider(String toolName) {
+            this.delegate = new StaticToolProvider("null-affinity", toolName);
+        }
+
+        @Override
+        public List<AgentTool> specs() {
+            return delegate.specs();
+        }
+
+        @Override
+        public ExecutionAffinity executionAffinity() {
+            return null;
+        }
+
+        @Override
+        public ToolOutcome execute(Optional<TerminalContext> terminal, ToolCall call, boolean approved) {
+            return delegate.execute(terminal, call, approved);
         }
     }
 }

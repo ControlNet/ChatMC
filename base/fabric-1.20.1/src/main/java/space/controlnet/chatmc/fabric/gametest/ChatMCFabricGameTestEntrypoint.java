@@ -8,38 +8,48 @@ public final class ChatMCFabricGameTestEntrypoint {
     public ChatMCFabricGameTestEntrypoint() {
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "smoke")
-    public static void smokeBootstrap(GameTestHelper helper) {
-        helper.succeed();
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc_runtime")
+    public static void commandMenuOpenCloseLifecycleCleanup(GameTestHelper helper) {
+        ChatMCFabricRuntimeGameTests.commandMenuOpenCloseLifecycleCleanup(helper);
     }
 
-    // Forge scenario: ProposalBindingUnavailableGameTest
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "base_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc")
     public static void baseProposalBindingUnavailable(GameTestHelper helper) {
-        helper.succeed();
+        ChatMCFabricRuntimeGameTests.proposalBindingUnavailableApprovalFailsDeterministically(helper);
     }
 
-    // Forge scenario: IndexingGateRecoveryGameTest
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "base_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc")
     public static void baseIndexingGateRecovery(GameTestHelper helper) {
-        helper.succeed();
+        ChatMCFabricRuntimeGameTests.indexingGateRecoveryAcrossReload(helper);
     }
 
-    // Forge scenario: ViewerChurnConsistencyGameTest
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "base_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc_task8_viewer")
     public static void baseViewerChurnConsistency(GameTestHelper helper) {
-        helper.succeed();
+        ChatMCFabricRuntimeGameTests.multiViewerSnapshotConsistencyUnderChurn(helper);
     }
 
-    // Forge scenario: ServerThreadConfinementGameTest
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "base_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc")
     public static void baseServerThreadConfinement(GameTestHelper helper) {
-        helper.succeed();
+        ChatMCFabricRuntimeGameTests.asyncToolInvocationMarshalsToServerThread(helper);
     }
 
-    // Forge scenario: ToolArgsBoundaryEndToEndGameTest
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "base_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc_task9_timeout", timeoutTicks = 2400)
+    public static void baseTimeoutFailureContractUnderForcedDelay(GameTestHelper helper) {
+        ChatMCFabricRuntimeGameTests.timeoutAndFailureContractsRemainStableUnderForcedDelay(helper);
+    }
+
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc")
     public static void baseToolArgsBoundaryE2e(GameTestHelper helper) {
-        helper.succeed();
+        ChatMCFabricRuntimeGameTests.toolArgsBoundaryEndToEnd(helper);
+    }
+
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc_runtime")
+    public static void baseSessionVisibilityDeleteRebindRuntime(GameTestHelper helper) {
+        ChatMCFabricRuntimeGameTests.sessionVisibilityDeleteRebindUnderRuntimeConditions(helper);
+    }
+
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "chatmc_runtime")
+    public static void deletedSessionQueuedAppendDoesNotRecreate(GameTestHelper helper) {
+        ChatMCFabricRuntimeGameTests.deletedSessionQueuedAppendDoesNotRecreate(helper);
     }
 }

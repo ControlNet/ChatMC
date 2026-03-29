@@ -141,6 +141,84 @@ public final class McpToolProviderInvocationRenderRegressionTest {
         assertEquals("task17/mcp/transport/message", "tool execution timeout", result.error().message());
     }
 
+    @Test
+    void task17_invalidArgs_nonObjectAndMalformedJsonReturnInvalidArgs() {
+        McpToolProvider provider = new McpToolProvider("docs", new RecordingSession(successCallResult()),
+                List.of(projectedSearchTool()));
+
+        ToolOutcome nonObject = provider.execute(java.util.Optional.empty(), new ToolCall(
+                "mcp.docs.search",
+                "\"query\""
+        ), true);
+        ToolOutcome malformed = provider.execute(java.util.Optional.empty(), new ToolCall(
+                "mcp.docs.search",
+                "{bad-json"
+        ), true);
+
+        assertError("task17/mcp/invalid-args/non-object", nonObject, "invalid_args",
+                "MCP tool arguments must be a JSON object.");
+        assertError("task17/mcp/invalid-args/malformed", malformed, "invalid_args",
+                "MCP tool arguments must be valid JSON.");
+    }
+
+    @Test
+    void task17_runtimeException_returnsStableToolExecutionFailedContract() {
+        McpToolProvider provider = new McpToolProvider("docs",
+                new RuntimeFailingSession(new IllegalStateException("boom")),
+                List.of(projectedSearchTool()));
+
+        ToolOutcome outcome = provider.execute(java.util.Optional.empty(), new ToolCall(
+                "mcp.docs.search",
+                "{\"query\":\"boom\"}"
+        ), true);
+
+        assertError("task17/mcp/runtime-exception", outcome, "tool_execution_failed", "tool execution failed");
+    }
+
+    @Test
+    void task17_remoteError_textMessageTakesPrecedenceOverStructuredFallback() {
+        McpToolProvider provider = new McpToolProvider("docs",
+                new RecordingSession(requireJsonObject("task17/mcp/error-precedence/fixture", """
+                        {
+                          "content":[{"type":"text","text":"Text wins"}],
+                          "structuredContent":{"message":"Structured fallback"},
+                          "isError":true
+                        }
+                        """)),
+                List.of(projectedSearchTool()));
+
+        ToolOutcome outcome = provider.execute(java.util.Optional.empty(), new ToolCall(
+                "mcp.docs.search",
+                "{\"query\":\"priority\"}"
+        ), true);
+
+        assertError("task17/mcp/error-precedence", outcome, "tool_execution_failed", "Text wins");
+    }
+
+    @Test
+    void task17_remoteError_unsupportedContentOnlyUsesStableFallbackMessage() {
+        McpToolProvider provider = new McpToolProvider("docs",
+                new RecordingSession(requireJsonObject("task17/mcp/unsupported-only/fixture", """
+                        {
+                          "content":[{"type":"image","uri":"https://example.invalid/diagram.png"}],
+                          "isError":true
+                        }
+                        """)),
+                List.of(projectedSearchTool()));
+
+        ToolOutcome outcome = provider.execute(java.util.Optional.empty(), new ToolCall(
+                "mcp.docs.search",
+                "{\"query\":\"image\"}"
+        ), true);
+
+        assertError("task17/mcp/unsupported-only", outcome, "tool_execution_failed",
+                "MCP tool reported only unsupported content.");
+        JsonObject payload = requireJsonObject("task17/mcp/unsupported-only/payload",
+                requireNonNull("task17/mcp/unsupported-only/result", outcome.result()).payloadJson());
+        assertEquals("task17/mcp/unsupported-only/type", "image",
+                payload.getAsJsonArray("unsupportedContentTypes").get(0).getAsString());
+    }
+
     private static McpSchemaMapper.McpProjectedTool projectedSearchTool() {
         JsonObject inputSchema = new JsonObject();
         inputSchema.addProperty("type", "object");
@@ -199,6 +277,13 @@ public final class McpToolProviderInvocationRenderRegressionTest {
             return;
         }
         throw new AssertionError(assertionName + " -> expected to find: " + needle + " in: " + haystack);
+    }
+
+    private static void assertError(String assertionName, ToolOutcome outcome, String expectedCode, String expectedMessage) {
+        ToolResult result = requireNonNull(assertionName + "/result", requireNonNull(assertionName + "/outcome", outcome).result());
+        assertFalse(assertionName + "/failure", result.success());
+        assertEquals(assertionName + "/code", expectedCode, requireNonNull(assertionName + "/error", result.error()).code());
+        assertEquals(assertionName + "/message", expectedMessage, result.error().message());
     }
 
     private static void assertEquals(String assertionName, Object expected, Object actual) {
@@ -277,6 +362,28 @@ public final class McpToolProviderInvocationRenderRegressionTest {
 
         private String lastArgumentsJson() {
             return lastArgumentsJson;
+        }
+    }
+
+    private static final class RuntimeFailingSession implements McpClientSession {
+        private final RuntimeException failure;
+
+        private RuntimeFailingSession(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public List<McpSchemaMapper.McpRemoteTool> listTools() {
+            return List.of();
+        }
+
+        @Override
+        public JsonObject callTool(String remoteToolName, String argumentsJson) {
+            throw failure;
+        }
+
+        @Override
+        public void close() {
         }
     }
 }

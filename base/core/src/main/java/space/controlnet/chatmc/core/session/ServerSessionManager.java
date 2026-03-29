@@ -203,14 +203,28 @@ public final class ServerSessionManager {
             SessionSnapshot normalized = normalizeOnLoad(snapshot);
             sessions.put(normalized.metadata().sessionId(), normalized);
         }
-        activeSessionByPlayer.putAll(persisted.activeSessionByPlayer());
+        for (var entry : persisted.activeSessionByPlayer().entrySet()) {
+            UUID playerId = entry.getKey();
+            UUID sessionId = entry.getValue();
+            SessionSnapshot snapshot = sessions.get(sessionId);
+            if (snapshot == null) {
+                continue;
+            }
+            if (!snapshot.metadata().ownerId().equals(playerId)) {
+                continue;
+            }
+            activeSessionByPlayer.put(playerId, sessionId);
+        }
         evictIfNeeded();
     }
 
     public boolean tryStartThinking(UUID sessionId) {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
-            SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (prev == null) {
+                return null;
+            }
+            SessionSnapshot snapshot = prev;
             if (!isIdleLike(snapshot.state()) || snapshot.pendingProposal().isPresent()) {
                 return snapshot;
             }
@@ -231,7 +245,10 @@ public final class ServerSessionManager {
     public boolean trySetProposal(UUID sessionId, Proposal proposal, TerminalBinding binding) {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
-            SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (prev == null) {
+                return null;
+            }
+            SessionSnapshot snapshot = prev;
             if (proposal == null) {
                 return snapshot;
             }
@@ -256,7 +273,10 @@ public final class ServerSessionManager {
     public boolean tryStartExecuting(UUID sessionId, String proposalId) {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
-            SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (prev == null) {
+                return null;
+            }
+            SessionSnapshot snapshot = prev;
             if (snapshot.state() != SessionState.WAIT_APPROVAL) {
                 return snapshot;
             }
@@ -281,7 +301,10 @@ public final class ServerSessionManager {
     public boolean tryFailProposal(UUID sessionId, String proposalId, String errorMessage) {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
-            SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (prev == null) {
+                return null;
+            }
+            SessionSnapshot snapshot = prev;
             if (snapshot.state() != SessionState.EXECUTING) {
                 return snapshot;
             }
@@ -306,7 +329,13 @@ public final class ServerSessionManager {
     public boolean tryResolveExecution(UUID sessionId, String proposalId, String resultMessage, SessionState finalState) {
         AtomicBoolean ok = new AtomicBoolean(false);
         sessions.compute(sessionId, (id, prev) -> {
-            SessionSnapshot snapshot = prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev;
+            if (prev == null) {
+                return null;
+            }
+            SessionSnapshot snapshot = prev;
+            if (snapshot.state() != SessionState.EXECUTING) {
+                return snapshot;
+            }
             Optional<Proposal> proposal = snapshot.pendingProposal();
             if (proposal.isEmpty() || !proposal.get().id().equals(proposalId)) {
                 return snapshot;
@@ -337,7 +366,7 @@ public final class ServerSessionManager {
     }
 
     private SessionSnapshot update(UUID sessionId, java.util.function.UnaryOperator<SessionSnapshot> fn) {
-        return sessions.compute(sessionId, (id, prev) -> fn.apply(prev == null ? SessionSnapshot.empty(UUID.randomUUID(), "Unknown") : prev));
+        return sessions.compute(sessionId, (id, prev) -> prev == null ? null : fn.apply(prev));
     }
 
     private void evictIfNeeded() {

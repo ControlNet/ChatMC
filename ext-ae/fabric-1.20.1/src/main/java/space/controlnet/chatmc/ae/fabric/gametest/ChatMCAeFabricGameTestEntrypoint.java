@@ -11,15 +11,24 @@ public final class ChatMCAeFabricGameTestEntrypoint {
     public ChatMCAeFabricGameTestEntrypoint() {
     }
 
-    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "ae_smoke")
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "ae_smoke", timeoutTicks = 600)
     public static void craftLifecycleIsolation(GameTestHelper helper) {
         if (!isAeRuntimeAvailable()) {
             helper.fail("ae_runtime_missing -> Applied Energistics 2 runtime is required; test blocked");
             return;
         }
 
-        // Mirrors AeCraftLifecycleIsolationGameTest from the ext-ae Forge module so both loaders cover the same lifecycle scenario.
-        helper.succeed();
+        ChatMCAeFabricRuntimeGameTests.craftLifecycleIsolation(helper);
+    }
+
+    @GameTest(template = FabricGameTest.EMPTY_STRUCTURE, batch = "ae_smoke")
+    public static void aeBoundTerminalApprovalBindingFailure(GameTestHelper helper) {
+        if (!isAeRuntimeAvailable()) {
+            helper.fail("ae_runtime_missing -> Applied Energistics 2 runtime is required; test blocked");
+            return;
+        }
+
+        ChatMCAeFabricRuntimeGameTests.boundTerminalApprovalFailsWhenAeBindingUnavailable(helper);
     }
 
     private static boolean isAeRuntimeAvailable() {

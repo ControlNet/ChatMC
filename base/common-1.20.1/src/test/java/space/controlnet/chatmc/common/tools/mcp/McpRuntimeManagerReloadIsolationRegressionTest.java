@@ -30,6 +30,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -164,6 +168,42 @@ public final class McpRuntimeManagerReloadIsolationRegressionTest {
             assertOwnedToolNames(List.of("mcp." + DOCS_ALIAS + ".search"));
             assertTrue(Files.exists(configPath), "task17/missing-reload-defaults-written -> expected defaults file");
         }
+    }
+
+    @Test
+    void task17_reload_staleGeneration_discardsOlderDiscoveryAndClosesItBeforeRegisteringNewest() throws Exception {
+        Path configRoot = tempDir.resolve("config-stale-generation");
+        writeConfig(configRoot, orderedServers(DOCS_ALIAS, McpServerConfig.http("http://127.0.0.1:1/mcp")));
+
+        CountDownLatch firstDiscoveryStarted = new CountDownLatch(1);
+        CountDownLatch allowFirstDiscovery = new CountDownLatch(1);
+        AtomicBoolean firstClosed = new AtomicBoolean(false);
+        AtomicBoolean secondClosed = new AtomicBoolean(false);
+        AtomicInteger openCount = new AtomicInteger();
+
+        McpRuntimeManager.SessionFactory sessionFactory = (serverAlias, serverConfig) -> {
+            int attempt = openCount.incrementAndGet();
+            if (attempt == 1) {
+                return new LatchControlledSession("search", firstDiscoveryStarted, allowFirstDiscovery, firstClosed);
+            }
+            return new LatchControlledSession("browse", null, null, secondClosed);
+        };
+
+        McpRuntimeManager.reload(configRoot, sessionFactory);
+        assertTrue(firstDiscoveryStarted.await(5, TimeUnit.SECONDS),
+                "task17/stale-generation/first-discovery-started -> timed out waiting for first discovery");
+
+        McpRuntimeManager.reload(configRoot, sessionFactory);
+        allowFirstDiscovery.countDown();
+        McpRuntimeManager.awaitIdle(RELOAD_TIMEOUT);
+
+        assertEquals(2, openCount.get());
+        assertTrue(firstClosed.get(), "task17/stale-generation/first-session-closed -> expected stale discovery to close");
+        assertTrue(!secondClosed.get(), "task17/stale-generation/second-session-open -> newest runtime should remain active");
+        assertEquals(List.of(DOCS_ALIAS), McpRuntimeManager.activeAliases());
+        assertNull(ToolRegistry.getToolSpec("mcp." + DOCS_ALIAS + ".search"));
+        assertNotNull(ToolRegistry.getToolSpec("mcp." + DOCS_ALIAS + ".browse"));
+        assertOwnedToolNames(List.of("mcp." + DOCS_ALIAS + ".browse"));
     }
 
     private static void cleanupRuntime() {
@@ -418,6 +458,58 @@ public final class McpRuntimeManagerReloadIsolationRegressionTest {
         @Override
         public void close() {
             server.stop(0);
+        }
+    }
+
+    private static final class LatchControlledSession implements McpClientSession {
+        private final String toolName;
+        private final CountDownLatch started;
+        private final CountDownLatch allowContinue;
+        private final AtomicBoolean closed;
+
+        private LatchControlledSession(String toolName, CountDownLatch started, CountDownLatch allowContinue,
+                                       AtomicBoolean closed) {
+            this.toolName = toolName;
+            this.started = started;
+            this.allowContinue = allowContinue;
+            this.closed = closed;
+        }
+
+        @Override
+        public List<McpSchemaMapper.McpRemoteTool> listTools() {
+            if (started != null) {
+                started.countDown();
+            }
+            if (allowContinue != null) {
+                try {
+                    if (!allowContinue.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("task17/stale-generation/list-tools-timeout -> timed out waiting to continue");
+                    }
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("task17/stale-generation/list-tools-interrupted", interruptedException);
+                }
+            }
+
+            JsonObject schema = new JsonObject();
+            schema.addProperty("type", "object");
+            JsonObject properties = new JsonObject();
+            JsonObject query = new JsonObject();
+            query.addProperty("type", "string");
+            properties.add("query", query);
+            schema.add("properties", properties);
+            return List.of(new McpSchemaMapper.McpRemoteTool(toolName, Optional.of("fixture-" + toolName),
+                    schema, Optional.of(true)));
+        }
+
+        @Override
+        public JsonObject callTool(String remoteToolName, String argumentsJson) {
+            throw new AssertionError("task17/stale-generation/call-tool -> not expected during reload test");
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
         }
     }
 }

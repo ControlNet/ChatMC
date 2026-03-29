@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class McpSchemaMappingRegistrationRegressionTest {
@@ -122,6 +123,68 @@ public final class McpSchemaMappingRegistrationRegressionTest {
         assertNotNull(fetchPage);
         assertNotNull(listPages);
         assertEquals(List.of("mcp.docs.fetch_page", "mcp.docs.list_pages"), registeredDocsToolNames());
+    }
+
+    @Test
+    void task17_schemaEdges_inferTypesTrimDescriptionsAndIgnoreNonObjectSchemas() {
+        JsonObject schema = new JsonObject();
+        schema.addProperty("type", "object");
+
+        JsonObject properties = new JsonObject();
+        JsonObject nullable = new JsonObject();
+        JsonArray nullableTypes = new JsonArray();
+        nullableTypes.add("string");
+        nullableTypes.add("null");
+        nullable.add("type", nullableTypes);
+        nullable.addProperty("description", "  Nullable query  ");
+        properties.add("query", nullable);
+
+        JsonObject nestedObject = new JsonObject();
+        nestedObject.add("properties", new JsonObject());
+        properties.add("filters", nestedObject);
+
+        JsonObject enumProperty = new JsonObject();
+        enumProperty.add("enum", new JsonArray());
+        properties.add("mode", enumProperty);
+
+        JsonObject arrayProperty = new JsonObject();
+        arrayProperty.add("items", new JsonObject());
+        properties.add("paths", arrayProperty);
+
+        schema.add("properties", properties);
+        JsonArray required = new JsonArray();
+        required.add("query");
+        schema.add("required", required);
+
+        McpProjectedTool projection = McpSchemaMapper.project(
+                "docs",
+                new McpRemoteTool("search_edges", Optional.empty(), schema, Optional.empty())
+        );
+
+        assertEquals(List.of(
+                "query: required string|null - Nullable query",
+                "filters: optional object",
+                "mode: optional enum",
+                "paths: optional array"
+        ), projection.toolSpec().argsDescription());
+
+        McpProjectedTool nonObjectSchema = McpSchemaMapper.project(
+                "docs",
+                new McpRemoteTool("raw_schema", Optional.empty(), new JsonArray(), Optional.empty())
+        );
+        assertEquals(PRETTY_GSON.toJson(new JsonArray()), nonObjectSchema.toolSpec().argsSchema());
+        assertEquals(List.of(), nonObjectSchema.toolSpec().argsDescription());
+    }
+
+    @Test
+    void task17_qualifiedToolName_blankAliasOrRemoteName_areRejectedDeterministically() {
+        IllegalArgumentException alias = assertThrows(IllegalArgumentException.class,
+                () -> McpSchemaMapper.qualifiedToolName(" ", "search"));
+        IllegalArgumentException name = assertThrows(IllegalArgumentException.class,
+                () -> McpSchemaMapper.qualifiedToolName("docs", " "));
+
+        assertEquals("MCP server alias is required.", alias.getMessage());
+        assertEquals("MCP remote tool name is required.", name.getMessage());
     }
 
     private static JsonObject singlePropertySchema(String name, boolean required, String type, String description) {

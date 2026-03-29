@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import space.controlnet.chatmc.common.tools.ToolProvider;
 import space.controlnet.chatmc.common.tools.mcp.McpSchemaMapper.McpProjectedTool;
 import space.controlnet.chatmc.core.util.JsonSupport;
@@ -89,7 +90,8 @@ final class McpToolProvider implements ToolProvider, AutoCloseable {
         }
 
         try {
-            JsonObject remoteResult = session.callTool(projectedTool.remoteToolName(), call.argsJson());
+            String argumentsJson = requireObjectArguments(call.argsJson());
+            JsonObject remoteResult = session.callTool(projectedTool.remoteToolName(), argumentsJson);
             JsonObject normalizedResult = normalizeResultEnvelope(projectedTool, remoteResult);
             String payloadJson = JsonSupport.GSON.toJson(normalizedResult);
             if (isErrorResult(remoteResult)) {
@@ -123,6 +125,24 @@ final class McpToolProvider implements ToolProvider, AutoCloseable {
             throw new IllegalArgumentException(fieldName + " is required.");
         }
         return value;
+    }
+
+    private static String requireObjectArguments(String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.isBlank()) {
+            throw new IllegalArgumentException("MCP tool arguments must be a JSON object.");
+        }
+
+        JsonElement parsedArguments;
+        try {
+            parsedArguments = JsonParser.parseString(argumentsJson);
+        } catch (RuntimeException runtimeException) {
+            throw new IllegalArgumentException("MCP tool arguments must be valid JSON.", runtimeException);
+        }
+
+        if (!parsedArguments.isJsonObject()) {
+            throw new IllegalArgumentException("MCP tool arguments must be a JSON object.");
+        }
+        return argumentsJson;
     }
 
     private static JsonObject normalizeResultEnvelope(McpProjectedTool projectedTool, JsonObject remoteResult) {
