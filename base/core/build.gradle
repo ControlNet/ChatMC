@@ -18,7 +18,7 @@ dependencies {
 
 tasks.named("test", Test).configure {
     useJUnitPlatform()
-    systemProperty "chatmc.maxMessagesPerSession", "3"
-    systemProperty "chatmc.maxDecisionsPerSession", "2"
-    systemProperty "chatmc.maxMessageLength", "16"
+    systemProperty "mineagent.maxMessagesPerSession", "3"
+    systemProperty "mineagent.maxDecisionsPerSession", "2"
+    systemProperty "mineagent.maxMessageLength", "16"
 }

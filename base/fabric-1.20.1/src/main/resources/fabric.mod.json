@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "id": "chatmc",
+  "id": "mineagent",
   "version": "${version}",
-  "name": "ChatMC",
+  "name": "MineAgent",
   "description": "Minecraft AI assistant base mod",
   "authors": ["controlnet"],
   "license": "AGPL-3.0",
   "environment": "*",
   "entrypoints": {
-    "main": ["space.controlnet.chatmc.fabric.ChatMCFabric"],
-    "client": ["space.controlnet.chatmc.fabric.ChatMCFabricClient"],
-    "fabric-gametest": ["space.controlnet.chatmc.fabric.gametest.ChatMCFabricGameTestEntrypoint"]
+    "main": ["space.controlnet.mineagent.fabric.MineAgentFabric"],
+    "client": ["space.controlnet.mineagent.fabric.MineAgentFabricClient"],
+    "fabric-gametest": ["space.controlnet.mineagent.fabric.gametest.MineAgentFabricGameTestEntrypoint"]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
