@@ -7,69 +7,69 @@
   "categories": {
     "matched": [
       {
-        "forge_batch": "chatmc",
+        "forge_batch": "mineagent",
         "forge_scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically",
         "mapped_forge_class": "ProposalBindingUnavailableGameTest",
         "name_similarity": 0.429,
         "wrapper_batch": "base_smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::baseProposalBindingUnavailable",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseProposalBindingUnavailable",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.baseproposalbindingunavailable"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.baseproposalbindingunavailable"
       },
       {
-        "forge_batch": "chatmc",
+        "forge_batch": "mineagent",
         "forge_scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload",
         "mapped_forge_class": "IndexingGateRecoveryGameTest",
         "name_similarity": 0.5,
         "wrapper_batch": "base_smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::baseIndexingGateRecovery",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseIndexingGateRecovery",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.baseindexinggaterecovery"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.baseindexinggaterecovery"
       },
       {
-        "forge_batch": "chatmc",
+        "forge_batch": "mineagent",
         "forge_scenario_id": "ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn",
         "mapped_forge_class": "ViewerChurnConsistencyGameTest",
         "name_similarity": 0.429,
         "wrapper_batch": "base_smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::baseViewerChurnConsistency",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseViewerChurnConsistency",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.baseviewerchurnconsistency"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.baseviewerchurnconsistency"
       },
       {
-        "forge_batch": "chatmc",
+        "forge_batch": "mineagent",
         "forge_scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread",
         "mapped_forge_class": "ServerThreadConfinementGameTest",
         "name_similarity": 0.222,
         "wrapper_batch": "base_smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::baseServerThreadConfinement",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseServerThreadConfinement",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.baseserverthreadconfinement"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.baseserverthreadconfinement"
       },
       {
-        "forge_batch": "chatmc",
+        "forge_batch": "mineagent",
         "forge_scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus",
         "mapped_forge_class": "ToolArgsBoundaryEndToEndGameTest",
         "name_similarity": 0.231,
         "wrapper_batch": "base_smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::baseToolArgsBoundaryE2e",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseToolArgsBoundaryE2e",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.basetoolargsboundarye2e"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basetoolargsboundarye2e"
       },
       {
-        "forge_batch": "chatmcae",
+        "forge_batch": "mineagentae",
         "forge_scenario_id": "AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
         "mapped_forge_class": "AeCraftLifecycleIsolationGameTest",
         "name_similarity": 0.3,
         "wrapper_batch": "ae_smoke",
-        "wrapper_id": "ChatMCAeFabricGameTestEntrypoint::craftLifecycleIsolation",
+        "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::craftLifecycleIsolation",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcaefabricgametestentrypoint.craftlifecycleisolation"
+        "wrapper_testcase": "mineagentaefabricgametestentrypoint.craftlifecycleisolation"
       }
     ],
     "missing": [
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ServerThreadConfinementGameTest",
         "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
         "module": "base-forge",
@@ -78,49 +78,49 @@
     ],
     "runtime_blocked": [
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "IndexingGateRecoveryGameTest",
         "method_name": "indexingGateRecoveryAcrossReload",
         "module": "base-forge",
         "scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload"
       },
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ProposalBindingUnavailableGameTest",
         "method_name": "proposalBindingUnavailableApprovalFailsDeterministically",
         "module": "base-forge",
         "scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically"
       },
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ServerThreadConfinementGameTest",
         "method_name": "asyncToolInvocationMarshalsToServerThread",
         "module": "base-forge",
         "scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread"
       },
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ServerThreadConfinementGameTest",
         "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
         "module": "base-forge",
         "scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay"
       },
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ToolArgsBoundaryEndToEndGameTest",
         "method_name": "toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus",
         "module": "base-forge",
         "scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus"
       },
       {
-        "batch": "chatmc",
+        "batch": "mineagent",
         "class_name": "ViewerChurnConsistencyGameTest",
         "method_name": "multiViewerSnapshotConsistencyUnderChurn",
         "module": "base-forge",
         "scenario_id": "ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn"
       },
       {
-        "batch": "chatmcae",
+        "batch": "mineagentae",
         "class_name": "AeCraftLifecycleIsolationGameTest",
         "method_name": "craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
         "module": "ext-ae-forge",
@@ -131,9 +131,9 @@
       {
         "mapped_forge_class": null,
         "wrapper_batch": "smoke",
-        "wrapper_id": "ChatMCFabricGameTestEntrypoint::smokeBootstrap",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::smokeBootstrap",
         "wrapper_status": "passed",
-        "wrapper_testcase": "chatmcfabricgametestentrypoint.smokebootstrap"
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.smokebootstrap"
       }
     ]
   },
@@ -142,7 +142,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "smokebootstrap",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.smokebootstrap",
+      "name": "mineagentfabricgametestentrypoint.smokebootstrap",
       "status": "passed",
       "time": 0.057
     },
@@ -150,7 +150,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "baseproposalbindingunavailable",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.baseproposalbindingunavailable",
+      "name": "mineagentfabricgametestentrypoint.baseproposalbindingunavailable",
       "status": "passed",
       "time": 0.062
     },
@@ -158,7 +158,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "baseindexinggaterecovery",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.baseindexinggaterecovery",
+      "name": "mineagentfabricgametestentrypoint.baseindexinggaterecovery",
       "status": "passed",
       "time": 0.049
     },
@@ -166,7 +166,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "baseviewerchurnconsistency",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.baseviewerchurnconsistency",
+      "name": "mineagentfabricgametestentrypoint.baseviewerchurnconsistency",
       "status": "passed",
       "time": 0.035
     },
@@ -174,7 +174,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "baseserverthreadconfinement",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.baseserverthreadconfinement",
+      "name": "mineagentfabricgametestentrypoint.baseserverthreadconfinement",
       "status": "passed",
       "time": 0.028
     },
@@ -182,7 +182,7 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "basetoolargsboundarye2e",
       "module": "base-fabric",
-      "name": "chatmcfabricgametestentrypoint.basetoolargsboundarye2e",
+      "name": "mineagentfabricgametestentrypoint.basetoolargsboundarye2e",
       "status": "passed",
       "time": 0.02
     },
@@ -190,56 +190,56 @@
       "classname": "fabric-gametest-api-v1:empty",
       "method_lc": "craftlifecycleisolation",
       "module": "ext-ae-fabric",
-      "name": "chatmcaefabricgametestentrypoint.craftlifecycleisolation",
+      "name": "mineagentaefabricgametestentrypoint.craftlifecycleisolation",
       "status": "passed",
       "time": 0.057
     }
   ],
   "forge_expected_scenarios": [
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "IndexingGateRecoveryGameTest",
       "method_name": "indexingGateRecoveryAcrossReload",
       "module": "base-forge",
       "scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload"
     },
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "ProposalBindingUnavailableGameTest",
       "method_name": "proposalBindingUnavailableApprovalFailsDeterministically",
       "module": "base-forge",
       "scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically"
     },
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "ServerThreadConfinementGameTest",
       "method_name": "asyncToolInvocationMarshalsToServerThread",
       "module": "base-forge",
       "scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread"
     },
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "ServerThreadConfinementGameTest",
       "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
       "module": "base-forge",
       "scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay"
     },
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "ToolArgsBoundaryEndToEndGameTest",
       "method_name": "toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus",
       "module": "base-forge",
       "scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus"
     },
     {
-      "batch": "chatmc",
+      "batch": "mineagent",
       "class_name": "ViewerChurnConsistencyGameTest",
       "method_name": "multiViewerSnapshotConsistencyUnderChurn",
       "module": "base-forge",
       "scenario_id": "ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn"
     },
     {
-      "batch": "chatmcae",
+      "batch": "mineagentae",
       "class_name": "AeCraftLifecycleIsolationGameTest",
       "method_name": "craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
       "module": "ext-ae-forge",

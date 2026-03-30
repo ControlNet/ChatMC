@@ -8,36 +8,36 @@
 - Forge runtime blocked in workspace: **true**
 
 ## Discovered Fabric testcases
-- `chatmcfabricgametestentrypoint.smokebootstrap` (base-fabric, status=passed, time=0.057s)
-- `chatmcfabricgametestentrypoint.baseproposalbindingunavailable` (base-fabric, status=passed, time=0.062s)
-- `chatmcfabricgametestentrypoint.baseindexinggaterecovery` (base-fabric, status=passed, time=0.049s)
-- `chatmcfabricgametestentrypoint.baseviewerchurnconsistency` (base-fabric, status=passed, time=0.035s)
-- `chatmcfabricgametestentrypoint.baseserverthreadconfinement` (base-fabric, status=passed, time=0.028s)
-- `chatmcfabricgametestentrypoint.basetoolargsboundarye2e` (base-fabric, status=passed, time=0.02s)
-- `chatmcaefabricgametestentrypoint.craftlifecycleisolation` (ext-ae-fabric, status=passed, time=0.057s)
+- `mineagentfabricgametestentrypoint.smokebootstrap` (base-fabric, status=passed, time=0.057s)
+- `mineagentfabricgametestentrypoint.baseproposalbindingunavailable` (base-fabric, status=passed, time=0.062s)
+- `mineagentfabricgametestentrypoint.baseindexinggaterecovery` (base-fabric, status=passed, time=0.049s)
+- `mineagentfabricgametestentrypoint.baseviewerchurnconsistency` (base-fabric, status=passed, time=0.035s)
+- `mineagentfabricgametestentrypoint.baseserverthreadconfinement` (base-fabric, status=passed, time=0.028s)
+- `mineagentfabricgametestentrypoint.basetoolargsboundarye2e` (base-fabric, status=passed, time=0.02s)
+- `mineagentaefabricgametestentrypoint.craftlifecycleisolation` (ext-ae-fabric, status=passed, time=0.057s)
 
 ## Expected Forge scenario set
-- `IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload` (base-forge, batch=chatmc)
-- `ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically` (base-forge, batch=chatmc)
-- `ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread` (base-forge, batch=chatmc)
-- `ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay` (base-forge, batch=chatmc)
-- `ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus` (base-forge, batch=chatmc)
-- `ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn` (base-forge, batch=chatmc)
-- `AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage` (ext-ae-forge, batch=chatmcae)
+- `IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload` (base-forge, batch=mineagent)
+- `ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically` (base-forge, batch=mineagent)
+- `ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread` (base-forge, batch=mineagent)
+- `ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay` (base-forge, batch=mineagent)
+- `ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus` (base-forge, batch=mineagent)
+- `ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn` (base-forge, batch=mineagent)
+- `AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage` (ext-ae-forge, batch=mineagentae)
 
 ## Category: matched
-- `ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically` <- `chatmcfabricgametestentrypoint.baseproposalbindingunavailable` (wrapper `ChatMCFabricGameTestEntrypoint::baseProposalBindingUnavailable`, status=passed, similarity=0.429)
-- `IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload` <- `chatmcfabricgametestentrypoint.baseindexinggaterecovery` (wrapper `ChatMCFabricGameTestEntrypoint::baseIndexingGateRecovery`, status=passed, similarity=0.5)
-- `ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn` <- `chatmcfabricgametestentrypoint.baseviewerchurnconsistency` (wrapper `ChatMCFabricGameTestEntrypoint::baseViewerChurnConsistency`, status=passed, similarity=0.429)
-- `ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread` <- `chatmcfabricgametestentrypoint.baseserverthreadconfinement` (wrapper `ChatMCFabricGameTestEntrypoint::baseServerThreadConfinement`, status=passed, similarity=0.222)
-- `ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus` <- `chatmcfabricgametestentrypoint.basetoolargsboundarye2e` (wrapper `ChatMCFabricGameTestEntrypoint::baseToolArgsBoundaryE2e`, status=passed, similarity=0.231)
-- `AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage` <- `chatmcaefabricgametestentrypoint.craftlifecycleisolation` (wrapper `ChatMCAeFabricGameTestEntrypoint::craftLifecycleIsolation`, status=passed, similarity=0.3)
+- `ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically` <- `mineagentfabricgametestentrypoint.baseproposalbindingunavailable` (wrapper `MineAgentFabricGameTestEntrypoint::baseProposalBindingUnavailable`, status=passed, similarity=0.429)
+- `IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload` <- `mineagentfabricgametestentrypoint.baseindexinggaterecovery` (wrapper `MineAgentFabricGameTestEntrypoint::baseIndexingGateRecovery`, status=passed, similarity=0.5)
+- `ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn` <- `mineagentfabricgametestentrypoint.baseviewerchurnconsistency` (wrapper `MineAgentFabricGameTestEntrypoint::baseViewerChurnConsistency`, status=passed, similarity=0.429)
+- `ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread` <- `mineagentfabricgametestentrypoint.baseserverthreadconfinement` (wrapper `MineAgentFabricGameTestEntrypoint::baseServerThreadConfinement`, status=passed, similarity=0.222)
+- `ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus` <- `mineagentfabricgametestentrypoint.basetoolargsboundarye2e` (wrapper `MineAgentFabricGameTestEntrypoint::baseToolArgsBoundaryE2e`, status=passed, similarity=0.231)
+- `AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage` <- `mineagentaefabricgametestentrypoint.craftlifecycleisolation` (wrapper `MineAgentAeFabricGameTestEntrypoint::craftLifecycleIsolation`, status=passed, similarity=0.3)
 
 ## Category: missing
 - `ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay`
 
 ## Category: wrapper-only
-- `ChatMCFabricGameTestEntrypoint::smokeBootstrap` (testcase `chatmcfabricgametestentrypoint.smokebootstrap`, status=passed)
+- `MineAgentFabricGameTestEntrypoint::smokeBootstrap` (testcase `mineagentfabricgametestentrypoint.smokebootstrap`, status=passed)
 
 ## Category: runtime-blocked
 Forge runtime execution is blocked by known signatures in this workspace:

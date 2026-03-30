@@ -2,22 +2,22 @@
 
 ## 2026-02-20 Task 1 findings
 
-- The current transition API in `ServerSessionManager` is more strict than the runtime flow in `ChatMCNetwork`, specifically around first proposal handling.
+- The current transition API in `ServerSessionManager` is more strict than the runtime flow in `MineAgentNetwork`, specifically around first proposal handling.
 - `trySetProposal` currently accepts only `EXECUTING`, but initial ask flow reaches proposal handling from `THINKING`, creating a P0 reliability gap.
 - Approval-resume flow is mostly coherent: `WAIT_APPROVAL -> EXECUTING`, clear proposal while preserving state, then resume loop and settle to `DONE` or back to `WAIT_APPROVAL`.
 - A dedicated transition helper (`tryResolveExecution`) exists but is unused, completion logic is split across several `setState` branches.
-- `SessionOrchestrator` currently has no call sites, so transition behavior is effectively defined by `ChatMCNetwork + ServerSessionManager` only.
+- `SessionOrchestrator` currently has no call sites, so transition behavior is effectively defined by `MineAgentNetwork + ServerSessionManager` only.
 - LSP-based symbol/reference checks are blocked in this environment due to missing `jdtls`; grep and AST-grep were used to establish the usage map.
 
 ## 2026-02-20 Task 1 scope-correction retry
 
 - Scope drift at repo root was corrected before content updates: `.gitignore` restored and untracked `.gitattributes` removed.
-- Transition evidence reconfirmed from live code paths (`ServerSessionManager`, `ChatMCNetwork`, `AgentLoop`, `SessionState`, `AiTerminalScreen`) before appending the corrected contract block.
+- Transition evidence reconfirmed from live code paths (`ServerSessionManager`, `MineAgentNetwork`, `AgentLoop`, `SessionState`, `AiTerminalScreen`) before appending the corrected contract block.
 - The P0-critical mismatch remains the same: first proposal emission path conflicts with `trySetProposal` precondition (`EXECUTING`-only).
 
 ## 2026-02-20 Task 2 indexing policy learnings
 
-- Indexing policy is currently write-only at runtime: code sets `INDEXING` from snapshot paths, but no symmetric clear path is present when readiness flips back true (`ChatMCNetwork.java:417-425`, `:547-550`).
+- Indexing policy is currently write-only at runtime: code sets `INDEXING` from snapshot paths, but no symmetric clear path is present when readiness flips back true (`MineAgentNetwork.java:417-425`, `:547-550`).
 - Ask gating is consistently blocked during `INDEXING` across server and UI (`ServerSessionManager.java:210-216`, `:376-378`; `AiTerminalScreen.java:1207-1213`, `:2079-2083`).
 - Non-sticky requirement is not yet encoded in load normalization, only `THINKING|EXECUTING` are normalized today (`ServerSessionManager.java:348-353`).
 
@@ -29,14 +29,14 @@
 
 ## 2026-02-20 Task 4 args-size contract learnings
 
-- Proposal args currently use a split limit model: general message cap defaults to `65536`, but proposal `ToolCall.argsJson` wire path is still fixed at `2048` (`ChatMCNetwork.java:62`, `:655`, `:714`).
+- Proposal args currently use a split limit model: general message cap defaults to `65536`, but proposal `ToolCall.argsJson` wire path is still fixed at `2048` (`MineAgentNetwork.java:62`, `:655`, `:714`).
 - `ToolCall` creation happens in multiple parser paths without size validation, so one canonical validator is required for deterministic overflow handling (`AgentReasoningService.java:433-434`, `:455-456`; `LangChainToolCallParser.java:46-47`).
-- Persistence and execution boundaries also lack explicit args-size enforcement, which means parse-only checks are insufficient (`ChatMCSessionsSavedData.java:209`, `:234-235`; `AgentLoop.java:407`; `ToolRegistry.java:62-73`).
+- Persistence and execution boundaries also lack explicit args-size enforcement, which means parse-only checks are insufficient (`MineAgentSessionsSavedData.java:209`, `:234-235`; `AgentLoop.java:407`; `ToolRegistry.java:62-73`).
 
 ## 2026-02-20 Task 5 harness-planning learnings
 
 - P0 suite ownership splits cleanly by boundary: state and parser seams in `base:core`, lifecycle/indexing/wire/persistence seams in `base:common-1.20.1`, AE mutation thread seams in `ext-ae:common-1.20.1`.
-- Existing code anchors give direct suite placement signals: transition guards (`ServerSessionManager.java:210-277`), indexing gate (`ChatMCNetwork.java:417-425`), async loop and result apply (`ChatMCNetwork.java:744-764`), AE server-hop pattern (`AiTerminalPartOperations.java:155-176`).
+- Existing code anchors give direct suite placement signals: transition guards (`ServerSessionManager.java:210-277`), indexing gate (`MineAgentNetwork.java:417-425`), async loop and result apply (`MineAgentNetwork.java:744-764`), AE server-hop pattern (`AiTerminalPartOperations.java:155-176`).
 - A shared fixture set can cover T12-T15 without cross-module leakage if args, thread probes, and index toggles are modeled as reusable builders.
 
 ## 2026-02-20 F2 code-quality review learnings
@@ -55,19 +55,19 @@
 
 | File | P0 task mapping | Concern | Classification |
 |---|---|---|---|
-| `base/core/src/main/java/space/controlnet/chatmc/core/session/ServerSessionManager.java` | T6 (+ supports T12) | First-pass proposal/state transition contract | In-scope product change |
-| `base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/ChatMCNetwork.java` | T7 + T8 + T11 | Proposal lifecycle, non-sticky indexing recovery, network args boundary | In-scope product change |
-| `base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/agent/AgentRunner.java` | T9 | Server-thread tool handoff + timeout/failure mapping | In-scope product change |
-| `base/common-1.20.1/src/main/java/space/controlnet/chatmc/common/session/ChatMCSessionsSavedData.java` | T11 | Persistence args boundary enforcement | In-scope product change |
-| `base/core/src/main/java/space/controlnet/chatmc/core/agent/AgentReasoningService.java` | T10 | Parse-boundary validation and deterministic overflow reject | In-scope product change |
-| `base/core/src/main/java/space/controlnet/chatmc/core/agent/LangChainToolCallParser.java` | T10 | Parse-boundary validation on LangChain parser path | In-scope product change |
-| `base/core/src/main/java/space/controlnet/chatmc/core/agent/ToolCallArgsParseBoundary.java` | T10 | Shared parser-side `65536` guard | In-scope product change |
-| `base/core/src/test/java/space/controlnet/chatmc/core/session/ServerSessionManagerStateMachineRegressionTest.java` | T12 | State-machine/proposal lifecycle regression coverage | In-scope regression support |
-| `base/core/src/test/java/space/controlnet/chatmc/core/session/ServerSessionManagerIndexingRecoveryRegressionTest.java` | T13 | INDEXING recovery/non-sticky behavior regression coverage | In-scope regression support |
-| `base/common-1.20.1/src/test/java/space/controlnet/chatmc/common/agent/ThreadConfinementRegressionTest.java` | T14 | Base thread-confinement regression contract | In-scope regression support |
-| `ext-ae/common-1.20.1/src/test/java/space/controlnet/chatmc/ae/common/tools/AeThreadConfinementRegressionTest.java` | T14 | AE thread-confinement regression contract | In-scope regression support |
-| `base/core/src/test/java/space/controlnet/chatmc/core/agent/ToolCallArgsParseBoundaryRegressionTest.java` | T15 | Parser boundary matrix (`65536`, `65537`, UTF edge) | In-scope regression support |
-| `base/common-1.20.1/src/test/java/space/controlnet/chatmc/common/boundary/ToolArgsBoundaryRegressionContractTest.java` | T15 | Network/persistence boundary contract assertions | In-scope regression support |
+| `base/core/src/main/java/space/controlnet/mineagent/core/session/ServerSessionManager.java` | T6 (+ supports T12) | First-pass proposal/state transition contract | In-scope product change |
+| `base/common-1.20.1/src/main/java/space/controlnet/mineagent/common/MineAgentNetwork.java` | T7 + T8 + T11 | Proposal lifecycle, non-sticky indexing recovery, network args boundary | In-scope product change |
+| `base/common-1.20.1/src/main/java/space/controlnet/mineagent/common/agent/AgentRunner.java` | T9 | Server-thread tool handoff + timeout/failure mapping | In-scope product change |
+| `base/common-1.20.1/src/main/java/space/controlnet/mineagent/common/session/MineAgentSessionsSavedData.java` | T11 | Persistence args boundary enforcement | In-scope product change |
+| `base/core/src/main/java/space/controlnet/mineagent/core/agent/AgentReasoningService.java` | T10 | Parse-boundary validation and deterministic overflow reject | In-scope product change |
+| `base/core/src/main/java/space/controlnet/mineagent/core/agent/LangChainToolCallParser.java` | T10 | Parse-boundary validation on LangChain parser path | In-scope product change |
+| `base/core/src/main/java/space/controlnet/mineagent/core/agent/ToolCallArgsParseBoundary.java` | T10 | Shared parser-side `65536` guard | In-scope product change |
+| `base/core/src/test/java/space/controlnet/mineagent/core/session/ServerSessionManagerStateMachineRegressionTest.java` | T12 | State-machine/proposal lifecycle regression coverage | In-scope regression support |
+| `base/core/src/test/java/space/controlnet/mineagent/core/session/ServerSessionManagerIndexingRecoveryRegressionTest.java` | T13 | INDEXING recovery/non-sticky behavior regression coverage | In-scope regression support |
+| `base/common-1.20.1/src/test/java/space/controlnet/mineagent/common/agent/ThreadConfinementRegressionTest.java` | T14 | Base thread-confinement regression contract | In-scope regression support |
+| `ext-ae/common-1.20.1/src/test/java/space/controlnet/mineagent/ae/common/tools/AeThreadConfinementRegressionTest.java` | T14 | AE thread-confinement regression contract | In-scope regression support |
+| `base/core/src/test/java/space/controlnet/mineagent/core/agent/ToolCallArgsParseBoundaryRegressionTest.java` | T15 | Parser boundary matrix (`65536`, `65537`, UTF edge) | In-scope regression support |
+| `base/common-1.20.1/src/test/java/space/controlnet/mineagent/common/boundary/ToolArgsBoundaryRegressionContractTest.java` | T15 | Network/persistence boundary contract assertions | In-scope regression support |
 | `.sisyphus/plans/p0-stability-hardening.md` | F-wave baseline | Plan source for T1-T16/F1-F4 audit checks | Necessary support file (non-product) |
 | `.sisyphus/notepads/p0-stability-hardening/decisions.md` | T1-T5 support | Recorded contract decisions for P0 hardening | Necessary support file (non-product) |
 | `.sisyphus/notepads/p0-stability-hardening/problems.md` | F2 support | Open technical debt/risk tracking tied to P0 wave | Necessary support file (non-product) |
@@ -98,7 +98,7 @@
 ## 2026-02-20 base/common scenario-filter coverage learnings
 
 - Adding targeted source-contract tests in `base/common-1.20.1` with class names aligned to Gradle filter globs (`IndexingGate`, `IndexingNotReady`, `NetworkProposalLifecycle`, `NetworkAgentError`) makes replay commands discoverable without production edits.
-- For this module, focused assertions against `ChatMCNetwork` flow anchors (`ensureIndexingStateIfNeeded`, proposal approval/resume branch, `applyAgentError`) provide deterministic P0 behavior checks while avoiding heavy runtime harness complexity.
+- For this module, focused assertions against `MineAgentNetwork` flow anchors (`ensureIndexingStateIfNeeded`, proposal approval/resume branch, `applyAgentError`) provide deterministic P0 behavior checks while avoiding heavy runtime harness complexity.
 
 ## 2026-02-20 F2 refresh learnings (post-remediation recheck)
 
@@ -111,7 +111,7 @@
 
 - For this repo, the most reliable execution proof is a direct test-task summary hook (`afterSuite`) plus Gradle HTML report counters, not the task success line alone.
 - Latest authoritative counts are `base/core=12`, `base/common-1.20.1=11`, `ext-ae/common-1.20.1=3`; all pass with 0 failures/ignored.
-- `base/common-1.20.1` count inflation versus prior `7` expectation comes from pre-existing active tests in `space.controlnet.chatmc.common.network`, so F2 should gate on actual latest counters rather than inherited assumptions.
+- `base/common-1.20.1` count inflation versus prior `7` expectation comes from pre-existing active tests in `space.controlnet.mineagent.common.network`, so F2 should gate on actual latest counters rather than inherited assumptions.
 - Security/diagnostic caveat remains environment-based: missing `scan_secrets.py` and `jdtls` require fallback secret grep and build/test/manual inspection for this session.
 
 ## 2026-02-20 F4 final scope refresh learnings (post evidence/filter corrections)

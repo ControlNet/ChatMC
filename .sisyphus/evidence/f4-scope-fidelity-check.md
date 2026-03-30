@@ -1,40 +1,36 @@
 # F4 Scope Fidelity Check, deep
 
-Date: 2026-02-21
-
-## Guardrails checked
-
-- Test pyramid and GameTest adoption focused on `base` + `ext-ae`
-- No `ext-matrix` expansion
-- No unrelated product/runtime feature implementation
+Date: 2026-03-30
 
 ## Evidence inputs
 
-- `git status --short`
 - `git diff --stat`
 - `git diff --name-only`
-- `git ls-files --others --exclude-standard`
-- Targeted reads for changed workflow, CI policy, GameTest entrypoints/bootstrap files, test helper additions, and parity artifacts
-- `grep -R` equivalent via tool search for `ext-matrix|chatmcmatrix` to confirm matrix references are pre-existing and not part of changed paths
+- `git diff -- .sisyphus/plans/mineagent-full-rename.md`
+- Targeted reads for `.github/workflows/release.yml`, `base/common-1.20.1/src/main/resources/pack.mcmeta`, and `ext-ae/fabric-1.20.1/build.gradle`
 
-## Major changed areas and classification
+## Current-diff scope review
 
-| Area | Representative paths | Classification | Rationale |
-|---|---|---|---|
-| Common test migrations (regression-contract to behavior/runtime-oriented tests) | `base/common-1.20.1/src/test/java/space/controlnet/chatmc/common/**` | in-scope | Test-only changes and helper abstractions (`DeterministicBarrier`, `TimeoutUtility`, behavior tests) support deterministic scenario validation. |
-| Forge GameTest wiring, base | `base/forge-1.20.1/build.gradle`, `base/forge-1.20.1/src/main/java/.../gametest/**` | in-scope | Directly adds/maintains GameTest registration and run configuration under `chatmc` namespace. |
-| Fabric GameTest wiring, base | `base/fabric-1.20.1/build.gradle`, `base/fabric-1.20.1/src/main/resources/fabric.mod.json`, `.../fabric/gametest/ChatMCFabricGameTestEntrypoint.java` | in-scope | Loader-level test harness configuration and wrapper entrypoint for parity/testing lanes. |
-| Forge/Fabric GameTest wiring, ext-ae | `ext-ae/forge-1.20.1/build.gradle`, `ext-ae/forge-1.20.1/src/main/java/.../gametest/**`, `ext-ae/fabric-1.20.1/**` | in-scope | Explicitly constrained to `ext-ae` test adoption, aligns with guardrail scope. |
-| CI lane policy, collection scripts, parity reports, docs | `.github/workflows/layered-testing.yml`, `ci/layered-testing-policy.json`, `scripts/ci_collect_reports.py`, `scripts/gametest_parity_report.py`, `docs/layered-testing-ci.md`, `ci-reports/parity/**` | in-scope | Testing infrastructure, policy enforcement, and evidence generation only. |
-| Misc workspace notes outside `.sisyphus/notepads` | `learnings/issues/decisions.md` | uncertain | Not runtime/product code and not matrix expansion, but this path is not part of required F4 deliverables and appears as extra collateral. |
+The current working diff remains within the approved clean-cut MineAgent rename plus final-wave verification/evidence scope.
 
-## Out-of-scope check
+Representative checks:
 
-- `ext-matrix`: no changed paths under `ext-matrix/**` detected
-- Runtime/business logic feature code: no changed non-test feature modules detected in changed path set
+- `.sisyphus/plans/mineagent-full-rename.md` — `git diff -- .sisyphus/plans/mineagent-full-rename.md` is empty, so the active rename plan is not part of the current working diff.
+- `.github/workflows/release.yml` — jar expectations were renamed from `chatmc*` to `mineagent*`, which is directly in scope for release/output identity.
+- `base/common-1.20.1/src/main/resources/pack.mcmeta` — resource-pack branding changed from `ChatMC resources` to `MineAgent resources`, which is directly in scope.
+- `ext-ae/fabric-1.20.1/build.gradle` — the added remap-cache cleanup validates current MineAgent metadata (`mineagent` id and `space.controlnet.mineagent.fabric` entrypoint), which is in scope for the final verification path and no longer preserves legacy identifiers in tracked logic.
 
-## Unaccounted changes
+## Out-of-scope / unexplained collateral
 
-1. `learnings/issues/decisions.md`, collateral documentation path outside required F4 artifact/notepad targets, scope relevance is indirect
+None identified in the current diff.
 
-Scope ISSUES | Unaccounted changes: 1 | VERDICT: Mostly within testing infra and scenario scope, with one extra collateral documentation path to review
+The remaining changed-file set is consistent with:
+
+- repo-wide source/resource/package renames from `chatmc*` to `mineagent*`
+- build/release/workflow identity updates
+- tracked documentation and `.sisyphus` artifact cleanup required by the zero-residue rename objective
+- final-wave verification and evidence refreshes
+
+No exact current offending out-of-scope paths remain after rechecking the live diff.
+
+VERDICT: APPROVE

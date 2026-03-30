@@ -4,7 +4,7 @@
 
 - **P0 transition ambiguity:** Should first proposal be modeled as `THINKING -> WAIT_APPROVAL` directly, or must runtime introduce an explicit `THINKING -> EXECUTING` step before proposal emission. Current code does neither consistently, causing fallback to `IDLE` on first proposal failure path.
 - **API drift risk:** `tryResolveExecution` is unused. Either adopt it as canonical completion path in T6/T7 or remove it later after transition contract tests are in place.
-- **Dual orchestrator risk:** `SessionOrchestrator` is currently unreferenced while `ChatMCNetwork` duplicates viewer and indexing-state orchestration. This can diverge silently during P0 fixes.
+- **Dual orchestrator risk:** `SessionOrchestrator` is currently unreferenced while `MineAgentNetwork` duplicates viewer and indexing-state orchestration. This can diverge silently during P0 fixes.
 - **Tooling gap:** Java LSP (`jdtls`) is unavailable in current environment, so reference mapping relies on grep/AST evidence only.
 
 ## 2026-02-20 Task 1 scope-correction retry
@@ -13,21 +13,21 @@
 
 ## 2026-02-20 Task 2 indexing contract issues
 
-- **Sticky INDEXING risk:** transition into `INDEXING` exists, transition out is missing in current snapshot flow, so sessions can remain blocked after index readiness returns (`ChatMCNetwork.java:417-425`, `:547-550`; `RecipeIndexManager.java:22-24`).
-- **Durable lock risk:** `INDEXING` state is persisted (`ChatMCNetwork.java:420-422`) but not normalized on load (`ServerSessionManager.java:348-353`).
-- **Parity risk remains active:** duplicated helper in unreferenced `SessionOrchestrator` can diverge from `ChatMCNetwork` during T8/T13 hardening (`SessionOrchestrator.java:162-166`).
+- **Sticky INDEXING risk:** transition into `INDEXING` exists, transition out is missing in current snapshot flow, so sessions can remain blocked after index readiness returns (`MineAgentNetwork.java:417-425`, `:547-550`; `RecipeIndexManager.java:22-24`).
+- **Durable lock risk:** `INDEXING` state is persisted (`MineAgentNetwork.java:420-422`) but not normalized on load (`ServerSessionManager.java:348-353`).
+- **Parity risk remains active:** duplicated helper in unreferenced `SessionOrchestrator` can diverge from `MineAgentNetwork` during T8/T13 hardening (`SessionOrchestrator.java:162-166`).
 
 ## 2026-02-20 Task 3 thread-boundary issues
 
-- **Async execution breach:** `AgentLoop.executeNode` executes tools directly on async graph path (`AgentLoop.java:385-408`), but session mutation and final state apply are server-thread patterns elsewhere (`ChatMCNetwork.java:467-471`, `:591-597`).
-- **Ordering race risk:** tool output append is re-queued to server (`AgentRunner.java:141-143`, `ChatMCNetwork.java:467-471`) while loop progress continues asynchronously, so history visibility can lag behind decision flow.
-- **Timeout gap:** no loop-level timeout envelope on `runAgentLoopAsync` (`ChatMCNetwork.java:744-749`), so T9 must define deterministic timeout to avoid long-lived transient states.
+- **Async execution breach:** `AgentLoop.executeNode` executes tools directly on async graph path (`AgentLoop.java:385-408`), but session mutation and final state apply are server-thread patterns elsewhere (`MineAgentNetwork.java:467-471`, `:591-597`).
+- **Ordering race risk:** tool output append is re-queued to server (`AgentRunner.java:141-143`, `MineAgentNetwork.java:467-471`) while loop progress continues asynchronously, so history visibility can lag behind decision flow.
+- **Timeout gap:** no loop-level timeout envelope on `runAgentLoopAsync` (`MineAgentNetwork.java:744-749`), so T9 must define deterministic timeout to avoid long-lived transient states.
 
 ## 2026-02-20 Task 4 args-size contract issues
 
-- **Wire-cap mismatch (P0):** proposal args are serialized with `2048` cap instead of unified `65536` (`ChatMCNetwork.java:655`, `:714`).
+- **Wire-cap mismatch (P0):** proposal args are serialized with `2048` cap instead of unified `65536` (`MineAgentNetwork.java:655`, `:714`).
 - **Validation gap:** no explicit size guard exists before parser-created `ToolCall` instances enter execution (`AgentReasoningService.java:433-434`, `:455-456`; `LangChainToolCallParser.java:46-47`; `AgentLoop.java:407`).
-- **Persistence ambiguity:** proposal args are saved/loaded without boundary checks, so oversize payload behavior is undefined on reload (`ChatMCSessionsSavedData.java:209`, `:234-235`).
+- **Persistence ambiguity:** proposal args are saved/loaded without boundary checks, so oversize payload behavior is undefined on reload (`MineAgentSessionsSavedData.java:209`, `:234-235`).
 - **Char-vs-byte risk:** 65536-char policy does not guarantee transport byte fit for multi-byte Unicode payloads, so overflow mapping must be explicit and deterministic.
 
 ## 2026-02-20 Task 5 harness-planning issues
