@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "chatmcmatrix",
+  "id": "mineagentmatrix",
   "version": "${version}",
-  "name": "ChatMC Matrix",
-  "description": "Matrix bridge extension for ChatMC",
+  "name": "MineAgent Matrix",
+  "description": "Matrix bridge extension for MineAgent",
   "authors": ["controlnet"],
   "license": "AGPL-3.0",
   "environment": "*",
   "entrypoints": {
-    "main": ["space.controlnet.chatmc.matrix.fabric.ChatMCMatrixFabric"],
-    "client": ["space.controlnet.chatmc.matrix.fabric.ChatMCMatrixFabricClient"]
+    "main": ["space.controlnet.mineagent.matrix.fabric.MineAgentMatrixFabric"],
+    "client": ["space.controlnet.mineagent.matrix.fabric.MineAgentMatrixFabricClient"]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "1.20.1",
     "architectury": ">=9.2.0",
     "fabric-api": "*",
-    "chatmc": "*"
+    "mineagent": "*"
   }
 }
