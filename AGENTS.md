@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is for agentic coding tools working in `/home/zhixi/GitRepos/ChatMC`.
+This file is for agentic coding tools working in this repository.
 It summarizes the repo's real build/test entrypoints, release automation, and code style.
 Follow this file before making changes.
 
@@ -49,18 +49,18 @@ Follow this file before making changes.
 ### Run a single JUnit test class
 
 - Base core:
-  - `./gradlew --no-daemon --configure-on-demand :base:core:test --tests 'space.controlnet.chatmc.core.session.ServerSessionManagerStateMachineRegressionTest'`
+  - `./gradlew --no-daemon --configure-on-demand :base:core:test --tests 'space.controlnet.mineagent.core.session.ServerSessionManagerStateMachineRegressionTest'`
 - Base common:
-  - `./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.chatmc.common.network.NetworkProposalLifecycleBehaviorTest'`
+  - `./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.network.NetworkProposalLifecycleBehaviorTest'`
 - AE common:
-  - `./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test --tests 'space.controlnet.chatmc.ae.common.tools.AeThreadConfinementRegressionTest'`
+  - `./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test --tests 'space.controlnet.mineagent.ae.common.tools.AeThreadConfinementRegressionTest'`
 
 ### Run a single JUnit test method
 
 - Pattern:
   - `./gradlew --no-daemon --configure-on-demand <module>:test --tests 'fully.qualified.ClassName.methodName'`
 - Example:
-  - `./gradlew --no-daemon --configure-on-demand :base:core:test --tests 'space.controlnet.chatmc.core.session.ServerSessionManagerStateMachineRegressionTest.task12_stateMachine_legalAndIllegalTransitions_areDeterministic'`
+  - `./gradlew --no-daemon --configure-on-demand :base:core:test --tests 'space.controlnet.mineagent.core.session.ServerSessionManagerStateMachineRegressionTest.task12_stateMachine_legalAndIllegalTransitions_areDeterministic'`
 
 ### GameTest commands
 
@@ -77,8 +77,8 @@ Follow this file before making changes.
 
 - There is no stable repo-local wrapper for running one specific Forge GameTest method.
 - Forge GameTests are registered by bootstrap classes:
-  - `base/forge-1.20.1/.../ChatMCGameTestBootstrap.java`
-  - `ext-ae/forge-1.20.1/.../ChatMCAeGameTestBootstrap.java`
+  - `base/forge-1.20.1/.../MineAgentGameTestBootstrap.java`
+  - `ext-ae/forge-1.20.1/.../MineAgentAeGameTestBootstrap.java`
 - Fabric currently has an existing smoke filter only for the AE smoke path: `-Dfabric-api.gametest.filter=ae_smoke`.
 - Prefer single JUnit class/method execution before touching GameTest scope.
 
@@ -119,7 +119,7 @@ Follow this file before making changes.
 
 - Keep `package` declaration first, then a blank line.
 - Group imports in blocks with a blank line between logical groups.
-- A common pattern is: third-party / Minecraft / test imports, then `space.controlnet.chatmc...`, then `java.*` last.
+- A common pattern is: third-party / Minecraft / test imports, then `space.controlnet.mineagent...`, then `java.*` last.
 - Preserve the local import grouping of the file you are editing instead of reordering imports to fit a stricter rule.
 - Do not reorder imports unnecessarily in untouched files.
 - Prefer explicit imports in new or substantially edited files, but do not churn existing files solely to remove wildcard imports.
@@ -130,7 +130,7 @@ Follow this file before making changes.
 - Methods and fields are camelCase.
 - Constants are `UPPER_SNAKE_CASE`.
 - Tests use long descriptive method names, often with scenario identifiers like `task7_...` or `task12_...`.
-- Preserve existing module and mod identifiers exactly: `chatmc`, `chatmcae`, `chatmcmatrix`.
+- Preserve existing module and mod identifiers exactly: `mineagent`, `mineagentae`, `mineagentmatrix`.
 
 ## Code style: types and data modeling
 

@@ -10,25 +10,25 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 
 | File | Reason |
 |------|--------|
-| `ChatAE.java` | Uses MC Logger, Architectury events, MC server |
-| `ChatAEClient.java` | Client initialization |
-| `ChatAERegistries.java` | MC registries, Architectury DeferredRegister |
-| `ChatAENetwork.java` | Architectury NetworkChannel, MC FriendlyByteBuf, ServerPlayer |
-| `ChatAECommands.java` | Brigadier commands, MC CommandSourceStack |
+| `MineAgent.java` | Uses MC Logger, Architectury events, MC server |
+| `MineAgentClient.java` | Client initialization |
+| `MineAgentRegistries.java` | MC registries, Architectury DeferredRegister |
+| `MineAgentNetwork.java` | Architectury NetworkChannel, MC FriendlyByteBuf, ServerPlayer |
+| `MineAgentCommands.java` | Brigadier commands, MC CommandSourceStack |
 | `RecipeIndexService.java` | MC RecipeManager, ItemStack, Ingredient |
 | `RecipeIndexReloadListener.java` | MC PreparableReloadListener |
-| `ChatAESessionsSavedData.java` | MC SavedData, CompoundTag, NBT |
+| `MineAgentSessionsSavedData.java` | MC SavedData, CompoundTag, NBT |
 | `AiTerminalMenu.java` | MC AbstractContainerMenu |
 | `AiTerminalScreen.java` | MC GUI, GuiGraphics, EditBox, Button |
 | `AiTerminalHost.java` | AE2 IActionHost, ICraftingRequester |
 | `AiTerminalPart.java` | AE2 AbstractDisplayPart |
 | `AiTerminalPartOperations.java` | AE2 IGrid, ICraftingPlan, AEItemKey |
 | `AiTerminalPartModelIds.java` | MC ResourceLocation |
-| `ChatAEPartRegistries.java` | Architectury DeferredRegister, AE2 PartItem |
-| `ChatAEScreens.java` | Architectury MenuRegistry |
+| `MineAgentAePartRegistries.java` | Architectury DeferredRegister, AE2 PartItem |
+| `MineAgentScreens.java` | Architectury MenuRegistry |
 | `TerminalContextFactory.java` | MC ServerPlayer, BlockEntity, AE2 IPartHost |
 | `TeamAccess.java` | Architectury Platform, MC ServerPlayer |
-| `AuditLogger.java` | Uses ChatAE.LOGGER (MC Logger) |
+| `AuditLogger.java` | Uses MineAgent.LOGGER (MC Logger) |
 
 ### Files/Logic That CAN Be Moved to core
 
@@ -52,13 +52,13 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 **Analysis:**
 - JSON parsing logic is pure Java (Gson)
 - File path resolution uses `Platform.getConfigFolder()` (Architectury)
-- Config writing uses `ChatAE.LOGGER`
+- Config writing uses `MineAgent.LOGGER`
 **Action:**
 - Create `core.agent.LlmConfigParser` with pure JSON parsing logic
 - Keep file I/O and path resolution in common
 
-#### 4. ChatAENetwork.java → Extract helper methods
-**Current location:** `common.ChatAENetwork`
+#### 4. MineAgentNetwork.java → Extract helper methods
+**Current location:** `common.MineAgentNetwork`
 **Analysis:** Several pure utility methods can be extracted:
 - `resolveEffectiveLocale(clientLocale, aiLocaleOverride)` - pure string logic
 - `ITEM_TAG_PATTERN` and item tag validation logic (minus MC registry check)
@@ -71,8 +71,8 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 **Analysis:**
 - Tool dispatch logic is mostly pure Java
 - Uses `TerminalContext` (already in core)
-- Uses `ChatAE.LOGGER` for error logging
-- Uses `ChatAE.RECIPE_INDEX` for recipe tools
+- Uses `MineAgent.LOGGER` for error logging
+- Uses `MineAgent.RECIPE_INDEX` for recipe tools
 **Action:**
 - Create `core.tools.ToolDispatcher` interface with `dispatch(toolName, argsJson)` method
 - Create `core.tools.ToolExecutor` with the switch logic, taking dependencies as constructor params
@@ -83,7 +83,7 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 **Analysis:**
 - Uses LangGraph4j (allowed in core per AGENTS.md)
 - Uses `ServerPlayer` for player context
-- Uses `ChatAENetwork.SESSIONS` for session access
+- Uses `MineAgentNetwork.SESSIONS` for session access
 - Uses `PromptRuntime.render()` for prompts
 - Uses `TerminalContextFactory` for terminal resolution
 **Action:**
@@ -92,7 +92,7 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 - Keep `AgentRunner` in common as the MC-specific implementation
 
 #### 7. Session Serialization Logic
-**Current location:** `ChatAESessionsSavedData.java`
+**Current location:** `MineAgentSessionsSavedData.java`
 **Analysis:**
 - NBT serialization is MC-specific
 - But the serialization structure/schema could be abstracted
@@ -109,7 +109,7 @@ This plan identifies code in `common-1.20.1` that can be moved to `core` to maxi
 
 #### 1.1 Create `core.util.LocaleResolver`
 ```java
-package space.controlnet.chatae.core.util;
+package space.controlnet.mineagent.core.util;
 
 public final class LocaleResolver {
     public static String resolveEffectiveLocale(String clientLocale, String aiLocaleOverride) {
@@ -122,11 +122,11 @@ public final class LocaleResolver {
     }
 }
 ```
-**Update:** `ChatAENetwork.resolveEffectiveLocale()` → delegate to `LocaleResolver`
+**Update:** `MineAgentNetwork.resolveEffectiveLocale()` → delegate to `LocaleResolver`
 
 #### 1.2 Create `core.util.ItemTagParser`
 ```java
-package space.controlnet.chatae.core.util;
+package space.controlnet.mineagent.core.util;
 
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -146,7 +146,7 @@ public final class ItemTagParser {
     }
 }
 ```
-**Update:** `ChatAENetwork.findInvalidItemTag()` → use `ItemTagParser` with MC validator
+**Update:** `MineAgentNetwork.findInvalidItemTag()` → use `ItemTagParser` with MC validator
 
 ### Phase 2: Move PromptStore to core
 
@@ -156,7 +156,7 @@ public final class ItemTagParser {
 
 #### 2.2 Create `core.agent.PromptResolver`
 ```java
-package space.controlnet.chatae.core.agent;
+package space.controlnet.mineagent.core.agent;
 
 public final class PromptResolver {
     private final PromptStore store;
@@ -177,7 +177,7 @@ public final class PromptResolver {
 
 #### 3.1 Create `core.agent.LlmConfigParser`
 ```java
-package space.controlnet.chatae.core.agent;
+package space.controlnet.mineagent.core.agent;
 
 public final class LlmConfigParser {
     public static LlmConfig parse(String json, LlmConfig defaults) {
@@ -195,7 +195,7 @@ public final class LlmConfigParser {
 
 #### 4.1 Create `core.tools.ToolExecutionContext`
 ```java
-package space.controlnet.chatae.core.tools;
+package space.controlnet.mineagent.core.tools;
 
 public interface ToolExecutionContext {
     Optional<TerminalContext> getTerminal();
@@ -208,7 +208,7 @@ public interface ToolExecutionContext {
 
 #### 4.2 Create `core.tools.ToolExecutor`
 ```java
-package space.controlnet.chatae.core.tools;
+package space.controlnet.mineagent.core.tools;
 
 public final class ToolExecutor {
     public static ToolOutcome execute(ToolExecutionContext ctx, ToolCall call, boolean approved) {
@@ -223,7 +223,7 @@ public final class ToolExecutor {
 
 #### 5.1 Create `core.agent.AgentSessionContext`
 ```java
-package space.controlnet.chatae.core.agent;
+package space.controlnet.mineagent.core.agent;
 
 public interface AgentSessionContext {
     UUID getPlayerId();
@@ -238,7 +238,7 @@ public interface AgentSessionContext {
 
 #### 5.2 Create `core.agent.AgentGraphBuilder`
 ```java
-package space.controlnet.chatae.core.agent;
+package space.controlnet.mineagent.core.agent;
 
 public final class AgentGraphBuilder {
     // Graph definition logic extracted from AgentRunner
@@ -263,7 +263,7 @@ This is more complex and may not be worth the effort given LangGraph4j's tight i
 8. `core/session/SessionSerializationSchema.java` - Field name constants (optional)
 
 ### Modified Files in common (6 files)
-1. `ChatAENetwork.java` - Use LocaleResolver, ItemTagParser
+1. `MineAgentNetwork.java` - Use LocaleResolver, ItemTagParser
 2. `PromptRuntime.java` - Delegate to PromptResolver
 3. `LlmConfigLoader.java` - Delegate to LlmConfigParser
 4. `ToolRouter.java` - Implement ToolExecutionContext, delegate to ToolExecutor
@@ -298,6 +298,6 @@ This is more complex and may not be worth the effort given LangGraph4j's tight i
 ## Notes
 
 - The `AgentRunner` is tightly coupled to LangGraph4j and MC types (`ServerPlayer`). Full extraction would require significant abstraction layers that may not be worth the complexity.
-- The `ChatAENetwork` file is the largest and most complex, but most of its logic is inherently MC-specific (networking, packet handling).
+- The `MineAgentNetwork` file is the largest and most complex, but most of its logic is inherently MC-specific (networking, packet handling).
 - The UI code (`AiTerminalScreen`) is entirely MC-specific and cannot be extracted.
 - AE2 integration code (`AiTerminalPart`, `AiTerminalPartOperations`) is entirely AE2-specific.

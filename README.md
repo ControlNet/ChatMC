@@ -1,6 +1,6 @@
-# ChatMC (Minecraft 1.20.1)
+# MineAgent (Minecraft 1.20.1)
 
-ChatMC is a Minecraft AI assistant mod built with Architectury (multi-loader). It provides an in-game chat interface to an LLM-powered agent that can search recipes, query inventories, and execute actions.
+MineAgent is a Minecraft AI assistant mod built with Architectury (multi-loader). It provides an in-game chat interface to an LLM-powered agent that can search recipes, query inventories, and execute actions.
 
 ## Project Structure
 
@@ -8,26 +8,26 @@ This is a multi-mod project with a base mod and optional extensions:
 
 | Mod | modid | Description |
 |-----|-------|-------------|
-| **ChatMC** (base) | `chatmc` | Core agent, UI, vanilla `mc.*` tools |
-| **ChatMC AE** | `chatmcae` | AE2 integration: `ae.*` tools, AI Terminal part |
-| **ChatMC Matrix** | `chatmcmatrix` | Matrix bridge (scaffolded) |
+| **MineAgent** (base) | `mineagent` | Core agent, UI, vanilla `mc.*` tools |
+| **MineAgent AE** | `mineagentae` | AE2 integration: `ae.*` tools, AI Terminal part |
+| **MineAgent Matrix** | `mineagentmatrix` | Matrix bridge (scaffolded) |
 
 ### Module Layout
 
 ```
-/base                 # ChatMC base mod
+/base                 # MineAgent base mod
   /core               # Pure domain logic (no MC deps)
   /common-1.20.1      # Shared MC 1.20.1 code
   /forge-1.20.1       # Forge loader
   /fabric-1.20.1      # Fabric loader
 
-/ext-ae               # ChatMC AE2 extension
+/ext-ae               # MineAgent AE extension
   /core               # AE2 tool schemas (no MC deps)
   /common-1.20.1      # AE2 tools, terminal part
   /forge-1.20.1       # Forge loader
   /fabric-1.20.1      # Fabric loader
 
-/ext-matrix           # ChatMC Matrix extension
+/ext-matrix           # MineAgent Matrix extension
   /core               # Matrix configs (no MC deps)
   /common-1.20.1      # Matrix bridge
   /forge-1.20.1       # Forge loader
@@ -93,20 +93,20 @@ This is a multi-mod project with a base mod and optional extensions:
 
 After building, jars are located in each module's `build/libs/` directory:
 
-- `base/forge-1.20.1/build/libs/chatmc-<ver>-forge-1.20.1.jar`
-- `base/fabric-1.20.1/build/libs/chatmc-<ver>-fabric-1.20.1.jar`
-- `ext-ae/forge-1.20.1/build/libs/chatmcae-<ver>-forge-1.20.1.jar`
-- `ext-ae/fabric-1.20.1/build/libs/chatmcae-<ver>-fabric-1.20.1.jar`
-- `ext-matrix/forge-1.20.1/build/libs/chatmcmatrix-<ver>-forge-1.20.1.jar`
-- `ext-matrix/fabric-1.20.1/build/libs/chatmcmatrix-<ver>-fabric-1.20.1.jar`
+- `base/forge-1.20.1/build/libs/mineagent-<ver>-forge-1.20.1.jar`
+- `base/fabric-1.20.1/build/libs/mineagent-<ver>-fabric-1.20.1.jar`
+- `ext-ae/forge-1.20.1/build/libs/mineagentae-<ver>-forge-1.20.1.jar`
+- `ext-ae/fabric-1.20.1/build/libs/mineagentae-<ver>-fabric-1.20.1.jar`
+- `ext-matrix/forge-1.20.1/build/libs/mineagentmatrix-<ver>-forge-1.20.1.jar`
+- `ext-matrix/fabric-1.20.1/build/libs/mineagentmatrix-<ver>-fabric-1.20.1.jar`
 
 ## Dependencies
 
 | Extension | Required Mods |
 |-----------|---------------|
-| chatmc (base) | None |
-| chatmcae | chatmc, ae2 |
-| chatmcmatrix | chatmc |
+| mineagent (base) | None |
+| mineagentae | mineagent, ae2 |
+| mineagentmatrix | mineagent |
 
 ## License
 

@@ -1,4 +1,4 @@
-# ChatAE Architecture: Core ↔ Common Dependency Visualization
+# MineAgent Architecture: Core ↔ Common Dependency Visualization
 
 ## Dependency Direction (Clean Architecture)
 
@@ -39,7 +39,7 @@
 core/
 ├── agent/                    # LLM/Agent orchestration
 │   ├── AgentDecision         ◄─── AgentRunner
-│   ├── AgentLoopResult       ◄─── AgentRunner, ChatAENetwork
+│   ├── AgentLoopResult       ◄─── AgentRunner, MineAgentNetwork
 │   ├── AgentReasoningService ◄─── AgentRunner
 │   ├── ConversationHistoryBuilder ◄─── AgentRunner
 │   ├── LangChainToolCallParser
@@ -57,39 +57,39 @@ core/
 │   └── ToolCallParsingService
 │
 ├── audit/                    # Audit logging
-│   ├── AuditEvent            ◄─── ChatAENetwork
+│   ├── AuditEvent            ◄─── MineAgentNetwork
 │   ├── AuditLogger           ◄─── common.audit.AuditLogger (implements)
-│   ├── AuditOutcome          ◄─── ChatAENetwork
+│   ├── AuditOutcome          ◄─── MineAgentNetwork
 │   ├── LlmAuditEvent         ◄─── common.audit.AuditLogger
 │   └── LlmAuditOutcome
 │
 ├── client/                   # Client-side state
 │   ├── ClientAiSettings      ◄─── AiTerminalScreen
-│   ├── ClientSessionIndex    ◄─── ChatAENetwork, AiTerminalScreen
-│   └── ClientSessionStore    ◄─── ChatAENetwork, AiTerminalScreen
+│   ├── ClientSessionIndex    ◄─── MineAgentNetwork, AiTerminalScreen
+│   └── ClientSessionStore    ◄─── MineAgentNetwork, AiTerminalScreen
 │
 ├── net/                      # Network packets (DTOs)
 │   ├── c2s/
-│   │   ├── C2SApprovalDecisionPacket  ◄─── ChatAENetwork
-│   │   ├── C2SCreateSessionPacket     ◄─── ChatAENetwork
-│   │   ├── C2SDeleteSessionPacket     ◄─── ChatAENetwork
-│   │   ├── C2SOpenSessionPacket       ◄─── ChatAENetwork
-│   │   ├── C2SRequestSessionListPacket ◄─── ChatAENetwork
-│   │   ├── C2SSendChatPacket          ◄─── ChatAENetwork
-│   │   └── C2SUpdateSessionPacket     ◄─── ChatAENetwork
+│   │   ├── C2SApprovalDecisionPacket  ◄─── MineAgentNetwork
+│   │   ├── C2SCreateSessionPacket     ◄─── MineAgentNetwork
+│   │   ├── C2SDeleteSessionPacket     ◄─── MineAgentNetwork
+│   │   ├── C2SOpenSessionPacket       ◄─── MineAgentNetwork
+│   │   ├── C2SRequestSessionListPacket ◄─── MineAgentNetwork
+│   │   ├── C2SSendChatPacket          ◄─── MineAgentNetwork
+│   │   └── C2SUpdateSessionPacket     ◄─── MineAgentNetwork
 │   └── s2c/
-│       ├── S2CSessionListPacket       ◄─── ChatAENetwork
-│       └── S2CSessionSnapshotPacket   ◄─── ChatAENetwork
+│       ├── S2CSessionListPacket       ◄─── MineAgentNetwork
+│       └── S2CSessionSnapshotPacket   ◄─── MineAgentNetwork
 │
 ├── policy/                   # Risk/Policy engine
 │   ├── PolicyDecision        ◄─── ToolRouter
 │   ├── PolicyEngine
-│   └── RiskLevel             ◄─── ToolRouter, ChatAENetwork
+│   └── RiskLevel             ◄─── ToolRouter, MineAgentNetwork
 │
 ├── proposal/                 # Approval workflow
-│   ├── ApprovalDecision      ◄─── ChatAESessionsSavedData, AiTerminalScreen
-│   ├── Proposal              ◄─── ChatAENetwork, AiTerminalScreen, ChatAESessionsSavedData
-│   ├── ProposalDetails       ◄─── ChatAENetwork, AiTerminalScreen, ChatAESessionsSavedData
+│   ├── ApprovalDecision      ◄─── MineAgentSessionsSavedData, AiTerminalScreen
+│   ├── Proposal              ◄─── MineAgentNetwork, AiTerminalScreen, MineAgentSessionsSavedData
+│   ├── ProposalDetails       ◄─── MineAgentNetwork, AiTerminalScreen, MineAgentSessionsSavedData
 │   └── ProposalFactory       ◄─── ToolRouter
 │
 ├── recipes/                  # Recipe search
@@ -100,20 +100,20 @@ core/
 │   └── RecipeSummary         ◄─── RecipeIndexService
 │
 ├── session/                  # Session management
-│   ├── ChatMessage           ◄─── ChatAENetwork, AgentRunner, AiTerminalScreen, ChatAESessionsSavedData
-│   ├── ChatRole              ◄─── ChatAENetwork, AgentRunner, ChatAESessionsSavedData
-│   ├── DecisionLogEntry      ◄─── ChatAENetwork, ChatAESessionsSavedData
-│   ├── PersistedSessions     ◄─── ChatAESessionsSavedData
-│   ├── ServerSessionManager  ◄─── ChatAENetwork
+│   ├── ChatMessage           ◄─── MineAgentNetwork, AgentRunner, AiTerminalScreen, MineAgentSessionsSavedData
+│   ├── ChatRole              ◄─── MineAgentNetwork, AgentRunner, MineAgentSessionsSavedData
+│   ├── DecisionLogEntry      ◄─── MineAgentNetwork, MineAgentSessionsSavedData
+│   ├── PersistedSessions     ◄─── MineAgentSessionsSavedData
+│   ├── ServerSessionManager  ◄─── MineAgentNetwork
 │   ├── SessionAccess
-│   ├── SessionListScope      ◄─── ChatAENetwork, AiTerminalScreen
-│   ├── SessionMetadata       ◄─── ChatAENetwork, ChatAESessionsSavedData
-│   ├── SessionSnapshot       ◄─── ChatAENetwork, AgentRunner, AiTerminalScreen, ChatAESessionsSavedData
-│   ├── SessionState          ◄─── ChatAENetwork, ChatAESessionsSavedData
-│   ├── SessionSummary        ◄─── ChatAENetwork, AiTerminalScreen
+│   ├── SessionListScope      ◄─── MineAgentNetwork, AiTerminalScreen
+│   ├── SessionMetadata       ◄─── MineAgentNetwork, MineAgentSessionsSavedData
+│   ├── SessionSnapshot       ◄─── MineAgentNetwork, AgentRunner, AiTerminalScreen, MineAgentSessionsSavedData
+│   ├── SessionState          ◄─── MineAgentNetwork, MineAgentSessionsSavedData
+│   ├── SessionSummary        ◄─── MineAgentNetwork, AiTerminalScreen
 │   ├── SessionUpdate
-│   ├── SessionVisibility     ◄─── ChatAENetwork, AiTerminalScreen, ChatAESessionsSavedData
-│   └── TerminalBinding       ◄─── ChatAENetwork, AgentRunner, TerminalContextFactory, ChatAESessionsSavedData
+│   ├── SessionVisibility     ◄─── MineAgentNetwork, AiTerminalScreen, MineAgentSessionsSavedData
+│   └── TerminalBinding       ◄─── MineAgentNetwork, AgentRunner, TerminalContextFactory, MineAgentSessionsSavedData
 │
 ├── terminal/                 # Terminal abstraction
 │   ├── AiTerminalData        ◄─── AiTerminalHost, AiTerminalPart, AiTerminalPartOperations, TerminalContextFactory
@@ -123,11 +123,11 @@ core/
     ├── LocalCommandParser
     ├── ParseOutcome
     ├── ToolArgs              ◄─── ToolRouter
-    ├── ToolCall              ◄─── ToolRouter, ChatAENetwork, AgentRunner, ChatAESessionsSavedData
+├── ToolCall              ◄─── ToolRouter, MineAgentNetwork, AgentRunner, MineAgentSessionsSavedData
     ├── ToolError
-    ├── ToolOutcome           ◄─── ToolRouter, ChatAENetwork, AgentRunner
+├── ToolOutcome           ◄─── ToolRouter, MineAgentNetwork, AgentRunner
     ├── ToolPolicy            ◄─── ToolRouter
-    └── ToolResult            ◄─── ToolRouter, ChatAENetwork
+└── ToolResult            ◄─── ToolRouter, MineAgentNetwork
 ```
 
 ---
@@ -138,7 +138,7 @@ core/
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ChatAENetwork.java (31 core imports)                                        │
+│ MineAgentNetwork.java (31 core imports)                                     │
 │ ════════════════════════════════════                                        │
 │                                                                             │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                   │
@@ -167,7 +167,7 @@ core/
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ChatAESessionsSavedData.java (13 core imports)                              │
+│ MineAgentSessionsSavedData.java (13 core imports)                           │
 │ ══════════════════════════════════════════════                              │
 │                                                                             │
 │  proposal: ApprovalDecision, Proposal, ProposalDetails                      │
@@ -254,12 +254,12 @@ core/
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ChatAE.java                 (mod initialization)                            │
-│ ChatAEClient.java           (client init)                                   │
-│ ChatAERegistries.java       (MC registries)                                 │
-│ ChatAECommands.java         (Brigadier commands)                            │
-│ ChatAEScreens.java          (screen factory)                                │
-│ ChatAEPartRegistries.java   (AE2 part registration)                         │
+│ MineAgent.java             (mod initialization)                             │
+│ MineAgentClient.java       (client init)                                    │
+│ MineAgentRegistries.java   (MC registries)                                  │
+│ MineAgentCommands.java     (Brigadier commands)                             │
+│ MineAgentScreens.java      (screen factory)                                 │
+│ MineAgentAePartRegistries.java (AE2 part registration)                      │
 │ AiTerminalPartModelIds.java (resource locations)                            │
 │ AiTerminalMenu.java         (MC container menu)                             │
 │ RecipeIndexReloadListener.java (MC reload listener)                         │
@@ -282,7 +282,7 @@ core/
 │                                  common-1.20.1                                        │
 │                                                                                       │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐     │
-│  │  ChatAENetwork │  │  AgentRunner   │  │  ToolRouter    │  │ SessionsSaved  │     │
+│  │ MineAgentNetwork │  │  AgentRunner │  │  ToolRouter    │  │ SessionsSaved  │     │
 │  │  (31 imports)  │  │  (13 imports)  │  │  (11 imports)  │  │  (13 imports)  │     │
 │  └───────┬────────┘  └───────┬────────┘  └───────┬────────┘  └───────┬────────┘     │
 │          │                   │                   │                   │               │
@@ -321,8 +321,8 @@ core/
 
 | Common File | Core Dependencies | Coupling Reason |
 |-------------|-------------------|-----------------|
-| `ChatAENetwork` | 31 types | Central hub for networking, sessions, tools |
-| `ChatAESessionsSavedData` | 13 types | NBT serialization of all session types |
+| `MineAgentNetwork` | 31 types | Central hub for networking, sessions, tools |
+| `MineAgentSessionsSavedData` | 13 types | NBT serialization of all session types |
 | `AgentRunner` | 13 types | LangGraph4j + session + tools integration |
 | `ToolRouter` | 11 types | Tool dispatch needs policy + proposal + terminal |
 | `AiTerminalScreen` | 10 types | UI needs session + proposal + client state |
