@@ -1,0 +1,10 @@
+{
+  "itemGroup.mineagentae": "MineAgent AE",
+  "item.mineagentae.ai_terminal": "AI Terminal",
+  "ui.mineagent.tool.ae.list_items": "I'm checking the ME network for %s",
+  "ui.mineagent.tool.ae.list_craftables": "I'm listing craftable items%s",
+  "ui.mineagent.tool.ae.simulate_craft": "I'm simulating crafting %s",
+  "ui.mineagent.tool.ae.request_craft": "I'm requesting crafting %s",
+  "ui.mineagent.tool.ae.job_status": "I'm checking status for job %s",
+  "ui.mineagent.tool.ae.job_cancel": "I'm cancelling job %s"
+}

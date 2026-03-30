@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "mineagentae:block/ai_terminal" },
+    "facing=east": { "model": "mineagentae:block/ai_terminal", "y": 90 },
+    "facing=south": { "model": "mineagentae:block/ai_terminal", "y": 180 },
+    "facing=west": { "model": "mineagentae:block/ai_terminal", "y": 270 }
+  }
+}

@@ -14,16 +14,16 @@ loom {
             server()
             environment("gameTestServer")
             mods {
-                create("chatmcae") {
+                create("mineagentae") {
                     sourceSet project.sourceSets.main
                 }
             }
             property("forge.enableGameTest", "true")
-            property("forge.enabledGameTestNamespaces", "minecraft")
+            property("forge.enabledGameTestNamespaces", "mineagentae")
         }
         named("server") {
             mods {
-                create("chatmcae") {
+                create("mineagentae") {
                     sourceSet project.sourceSets.main
                 }
             }
@@ -38,6 +38,43 @@ architectury {
         platformPackage = "${group}.forge"
     }
 }
+
+def expectedBaseForgeModIdSnippet = 'modId="mineagent"'
+def hasCurrentBaseForgeMetadata = { String modsToml ->
+    modsToml.contains(expectedBaseForgeModIdSnippet)
+}
+
+def invalidateStaleMineAgentForgeRemapCache = {
+    def remappedModsDir = rootProject.file(".gradle/loom-cache/remapped_mods")
+    if (!remappedModsDir.isDirectory()) {
+        return
+    }
+
+    remappedModsDir.eachDir { cacheRoot ->
+        def versionDir = new File(cacheRoot, "space/controlnet/mineagent/forge-1.20.1/${project.version}")
+        def cachedJar = new File(versionDir, "forge-1.20.1-${project.version}-dev.jar")
+        if (!cachedJar.isFile()) {
+            return
+        }
+
+        def zipFile = new java.util.zip.ZipFile(cachedJar)
+        try {
+            def modsTomlEntry = zipFile.getEntry("META-INF/mods.toml")
+            if (modsTomlEntry == null) {
+                return
+            }
+
+            def modsToml = zipFile.getInputStream(modsTomlEntry).getText("UTF-8")
+            if (!hasCurrentBaseForgeMetadata(modsToml)) {
+                project.delete(versionDir)
+            }
+        } finally {
+            zipFile.close()
+        }
+    }
+}
+
+invalidateStaleMineAgentForgeRemapCache()
 
 configurations {
     forge
@@ -65,10 +102,9 @@ dependencies {
 
     modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_version}"
 
-    // Base mod dependency (ChatMC) - compile + runtime
-    // Use 'common' config which extends runtimeClasspath + developmentForge
     modCompileOnly project(path: ":base:forge-1.20.1", configuration: "namedElements")
     modLocalRuntime project(path: ":base:forge-1.20.1", configuration: "namedElements")
+
     // Base common + core classes needed at dev runtime (not in forge dev jar)
     common(project(path: ":base:common-1.20.1", configuration: "namedElements"))
     common(project(path: ":base:core"))
@@ -112,7 +148,7 @@ def syncBinMainModsToml = tasks.register("syncBinMainModsToml", Sync) {
 def syncRunGameTestStructures = tasks.register("syncRunGameTestStructures", Sync) {
     dependsOn(tasks.named("processResources"))
     from(layout.projectDirectory.dir("gameteststructures"))
-    from(project(":base:forge-1.20.1").layout.projectDirectory.dir("src/main/resources/data/chatmc/gameteststructures"))
+    from(project(":base:forge-1.20.1").layout.projectDirectory.dir("src/main/resources/data/mineagent/gameteststructures"))
     from(layout.projectDirectory.dir("src/main/resources/data/minecraft/gameteststructures"))
     include("**/*.snbt")
     into(layout.projectDirectory.dir("run/gameteststructures"))
