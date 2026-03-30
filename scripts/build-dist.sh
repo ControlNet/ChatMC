@@ -28,12 +28,12 @@ mkdir -p "$DIST_DIR"
 rm -f "$DIST_DIR"/*.jar
 
 declare -a jars=(
-  "$ROOT_DIR/base/fabric-1.20.1/build/libs/chatmc-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
-  "$ROOT_DIR/base/forge-1.20.1/build/libs/chatmc-${MOD_VERSION}-forge-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae/fabric-1.20.1/build/libs/chatmcae-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-ae/forge-1.20.1/build/libs/chatmcae-${MOD_VERSION}-forge-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-matrix/fabric-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
-  "$ROOT_DIR/ext-matrix/forge-1.20.1/build/libs/chatmcmatrix-${MOD_VERSION}-forge-${MC_VERSION}.jar"
+  "$ROOT_DIR/base/fabric-1.20.1/build/libs/mineagent-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
+  "$ROOT_DIR/base/forge-1.20.1/build/libs/mineagent-${MOD_VERSION}-forge-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae/fabric-1.20.1/build/libs/mineagentae-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-ae/forge-1.20.1/build/libs/mineagentae-${MOD_VERSION}-forge-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-matrix/fabric-1.20.1/build/libs/mineagentmatrix-${MOD_VERSION}-fabric-${MC_VERSION}.jar"
+  "$ROOT_DIR/ext-matrix/forge-1.20.1/build/libs/mineagentmatrix-${MOD_VERSION}-forge-${MC_VERSION}.jar"
 )
 
 for jar in "${jars[@]}"; do

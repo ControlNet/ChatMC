@@ -7,7 +7,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "ChatMC"
+rootProject.name = "MineAgent"
 
 include("base:core")
 include("base:common-1.20.1")
