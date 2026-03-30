@@ -3,19 +3,19 @@ loaderVersion="[47,)"
 license="AGPL-3.0"
 
 [[mods]]
-modId="chatmc"
+modId="mineagent"
 version="${version}"
-displayName="ChatMC"
+displayName="MineAgent"
 description='''Minecraft AI assistant base mod'''
 
-[[dependencies.chatmc]]
+[[dependencies.mineagent]]
 modId="minecraft"
 mandatory=true
 versionRange="[${minecraft_version}]"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.chatmc]]
+[[dependencies.mineagent]]
 modId="architectury"
 mandatory=true
 versionRange="[9.2,)"

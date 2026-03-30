@@ -1,0 +1,4 @@
+- Task 10 decision: preserve historical architecture/planning docs with canonical MineAgent-family names or neutral wording instead of carrying any pre-rename identifiers forward in tracked text.
+- Task 19 decision: stale Loom remap-cache cleanup must validate current MineAgent metadata in tracked build logic instead of matching pre-rename identifiers, so the cache fix remains effective without failing the zero-residue gate.
+- Final-wave decision: sacred `.sisyphus/plans/*.md` files were restored to repository history, and the active rename plan was reduced to checkbox-only progress tracking because reviewer QA accepts plan-state bookkeeping but rejects rename-driven prose churn in orchestrator-managed plans.
+- Final-wave decision: the active rename plan must also have zero working diff, so even checkbox progress tracking was removed from `.sisyphus/plans/mineagent-full-rename.md` and left to orchestrator-managed state only.

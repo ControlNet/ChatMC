@@ -3,33 +3,33 @@ loaderVersion="[47,)"
 license="AGPL-3.0"
 
 [[mods]]
-modId="chatmcae"
+modId="mineagentae"
 version="${version}"
-displayName="ChatMC AE"
-description='''AE2 tools and AI Terminal for ChatMC'''
+displayName="MineAgent AE"
+description='''AE2 tools and AI Terminal for MineAgent'''
 
-[[dependencies.chatmcae]]
+[[dependencies.mineagentae]]
 modId="minecraft"
 mandatory=true
 versionRange="[${minecraft_version}]"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.chatmcae]]
+[[dependencies.mineagentae]]
 modId="architectury"
 mandatory=true
 versionRange="[9.2,)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.chatmcae]]
-modId="chatmc"
+[[dependencies.mineagentae]]
+modId="mineagent"
 mandatory=true
 versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 
-[[dependencies.chatmcae]]
+[[dependencies.mineagentae]]
 modId="ae2"
 mandatory=true
 versionRange="[15,)"

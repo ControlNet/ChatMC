@@ -3,27 +3,27 @@ loaderVersion="[47,)"
 license="AGPL-3.0"
 
 [[mods]]
-modId="chatmcmatrix"
+modId="mineagentmatrix"
 version="${version}"
-displayName="ChatMC Matrix"
-description='''Matrix bridge extension for ChatMC'''
+displayName="MineAgent Matrix"
+description='''Matrix bridge extension for MineAgent'''
 
-[[dependencies.chatmcmatrix]]
+[[dependencies.mineagentmatrix]]
 modId="minecraft"
 mandatory=true
 versionRange="[${minecraft_version}]"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.chatmcmatrix]]
+[[dependencies.mineagentmatrix]]
 modId="architectury"
 mandatory=true
 versionRange="[9.2,)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.chatmcmatrix]]
-modId="chatmc"
+[[dependencies.mineagentmatrix]]
+modId="mineagent"
 mandatory=true
 versionRange="[0,)"
 ordering="AFTER"

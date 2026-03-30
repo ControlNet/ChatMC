@@ -18,7 +18,7 @@
   - No `Failed to find system mod: minecraft`
   - `LaunchServiceHandler Launching target 'forgeserveruserdev'`
   - `DedicatedServer: Done (...)`
-  - `ForgeGameTestHooks: Enabled Gametest Namespaces: [chatmc]`
+  - `ForgeGameTestHooks: Enabled Gametest Namespaces: [mineagent]`
 - Ext-AE final run (`task-17-forge-ext-ae-final2.log`):
   - No `InvalidModFileException ... version (main)`
   - No `Failed to find system mod: minecraft`

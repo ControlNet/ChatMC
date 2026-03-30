@@ -94,12 +94,12 @@ jobs:
         run: |
           set -euo pipefail
           expected_jars=(
-            "dist/chatmc-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
-            "dist/chatmc-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
-            "dist/chatmcae-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
-            "dist/chatmcae-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
-            "dist/chatmcmatrix-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
-            "dist/chatmcmatrix-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagent-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagent-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagentae-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagentae-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagentmatrix-${{ steps.meta.outputs.mod_version }}-fabric-${{ steps.meta.outputs.mc_version }}.jar"
+            "dist/mineagentmatrix-${{ steps.meta.outputs.mod_version }}-forge-${{ steps.meta.outputs.mc_version }}.jar"
           )
 
           missing=()

@@ -1,48 +1,48 @@
-# ChatMC (Minecraft AI Assistant) + Extensions
+# MineAgent (Minecraft AI Assistant) + Extensions
 
-This document is written for Codex (coding agent). It defines the project goals, architecture, and implementation plan for **ChatMC**, a Minecraft AI assistant base mod, and its extensions like **ChatMC AE2** (AE2 addon).
+This document is written for Codex (coding agent). It defines the project goals, architecture, and implementation plan for **MineAgent**, a Minecraft AI assistant base mod, and its extensions like **MineAgent AE** (AE2 addon).
 
 ---
 
 ## 0) Project Identity
 
 **Base Mod:**
-- **Mod name:** ChatMC
-- **modid:** `chatmc`
-- **Maven group:** `space.controlnet.chatmc`
+- **Mod name:** MineAgent
+- **modid:** `mineagent`
+- **Maven group:** `space.controlnet.mineagent`
 
 **AE2 Extension:**
-- **Mod name:** ChatMC AE2
-- **modid:** `chatmcae`
-- **Maven group:** `space.controlnet.chatmc.ae`
+- **Mod name:** MineAgent AE
+- **modid:** `mineagentae`
+- **Maven group:** `space.controlnet.mineagent.ae`
 
 **Matrix Extension:**
-- **Mod name:** ChatMC Matrix
-- **modid:** `chatmcmatrix`
-- **Maven group:** `space.controlnet.chatmc.matrix`
+- **Mod name:** MineAgent Matrix
+- **modid:** `mineagentmatrix`
+- **Maven group:** `space.controlnet.mineagent.matrix`
 
 **Java package namespaces (current):**
-- Base: `space.controlnet.chatmc.*`
-- AE2: `space.controlnet.chatmc.ae.*`
-- Matrix: `space.controlnet.chatmc.matrix.*`
+- Base: `space.controlnet.mineagent.*`
+- AE2: `space.controlnet.mineagent.ae.*`
+- Matrix: `space.controlnet.mineagent.matrix.*`
 
 **Common:**
 - **Primary target (initial):** Minecraft **1.20.1**
 - **License:** AGPL-3.0
 
 **Output jar names (current):**
-- `chatmc-<ver>-forge-<mc-ver>.jar`
-- `chatmc-<ver>-fabric-<mc-ver>.jar`
-- `chatmcae-<ver>-forge-<mc-ver>.jar`
-- `chatmcae-<ver>-fabric-<mc-ver>.jar`
-- `chatmcmatrix-<ver>-forge-<mc-ver>.jar`
-- `chatmcmatrix-<ver>-fabric-<mc-ver>.jar`
+- `mineagent-<ver>-forge-<mc-ver>.jar`
+- `mineagent-<ver>-fabric-<mc-ver>.jar`
+- `mineagentae-<ver>-forge-<mc-ver>.jar`
+- `mineagentae-<ver>-fabric-<mc-ver>.jar`
+- `mineagentmatrix-<ver>-forge-<mc-ver>.jar`
+- `mineagentmatrix-<ver>-fabric-<mc-ver>.jar`
 
 ---
 
 ## 1) Product Goal
 
-ChatMC (base + extensions) adds a new AE2-style block: **AI Terminal**. It provides an in-game chat interface to an agent that can:
+MineAgent (base + extensions) adds a new AE2-style block: **AI Terminal**. It provides an in-game chat interface to an agent that can:
 
 1. **Search and inspect recipes** (JEI-like "R/U" capability) using Minecraft’s recipe registry (no JEI dependency).
 2. **Query AE2 network inventory and craftables**.
@@ -68,13 +68,13 @@ Use **Architectury** to support multiple loaders with a shared codebase:
 
 **Publishing:** produce separate jars per loader *and* Minecraft version:
 
-- `chatmc-<mod-ver>-forge-<mc-ver>.jar`
-- `chatmc-<mod-ver>-fabric-<mc-ver>.jar`
-- `chatmc-<mod-ver>-neoforge-<mc-ver>.jar` (when enabled)
+- `mineagent-<mod-ver>-forge-<mc-ver>.jar`
+- `mineagent-<mod-ver>-fabric-<mc-ver>.jar`
+- `mineagent-<mod-ver>-neoforge-<mc-ver>.jar` (when enabled)
 
 Examples:
-- `chatmc-0.1.0-forge-1.20.1.jar`
-- `chatmc-0.1.0-fabric-1.20.1.jar`
+- `mineagent-0.1.0-forge-1.20.1.jar`
+- `mineagent-0.1.0-fabric-1.20.1.jar`
 
 ### 2.2 Multi-version
 We will **not** attempt “one codebase compiles to many MC versions without version layers.�?Instead:
@@ -193,7 +193,7 @@ Notes:
 - max iterations (configurable via `maxIterations`)
 - max actions per iteration (configurable via `maxToolCalls`)
 - max craft quantity per action
-- rate limit LLM calls per player/session
+- rate limit player-submitted queries per player/session (applied on the initial reasoning step, not every internal agent iteration)
 - timeouts for LLM and for long-running jobs
 - size limits for persisted session data (messages/decisions/sessions/message length)
 
@@ -205,7 +205,7 @@ Notes:
 ### 5.5 Prompt IDs + locale resolution
 - Prompt IDs are explicit (e.g., `agent.reason`, `assistant_response.main`).
 - Prompts are selected per request using `effectiveLocale = aiLocaleOverride.orElse(clientLocale)`.
-- Default prompts are sourced from `assets/chatmc/lang/*.json` and generated into config as `*.default.prompt` for overrides.
+- Default prompts are sourced from `assets/mineagent/lang/*.json` and generated into config as `*.default.prompt` for overrides.
 - Prompt overrides: `<prompt_id>.prompt` (global) and `<prompt_id>.<locale>.prompt` (per-locale).
 
 ---
@@ -359,7 +359,7 @@ No disk caching for MVP.
 
 ## 13) Current Progress / Status (as of 2026-01-16)
 
-> **Note:** This section documents the historical pre-refactor state (when the project was a single `chatae` mod). Package names (`space.controlnet.chatae`), asset paths (`assets/chatae`), and config paths (`config/chatae`) referenced here have been migrated to the new base+extensions structure. See Section 14-15 for the current refactored state.
+> **Note:** This section documents the historical pre-refactor state (when the project was a single `mineagentae` mod). Package names (`space.controlnet.mineagent.ae`), asset paths (`assets/mineagentae`), and config paths (`config/mineagentae`) referenced here have been migrated to the new base+extensions structure. See Section 14-15 for the current refactored state.
 
 ### 13.1 Build & Runtime
 - **Forge dev client can launch** via `:forge-1.20.1:runClient` with AE2 + GuideMe present (minor warnings about Narrator/flite and old datapacks).
@@ -383,7 +383,7 @@ No disk caching for MVP.
 
 ### 13.3 AI Terminal UX / UI
 - **Chat input no longer triggers vanilla keybinds** while focused (e.g., `E` won’t close the terminal). Enter submits; ESC closes.
-- **ChatAE creative tab** shows the AI Terminal part item (no vanilla Functional Blocks exposure).
+- **MineAgent AE creative tab** shows the AI Terminal part item (no vanilla Functional Blocks exposure).
 - **Shared sessions UI (WIP but compiling):** AI Terminal screen has a sessions panel to list/open/create/delete sessions, plus visibility toggle.
 - **AI language selector:** AI Terminal UI provides an override (Auto �?`en_us` �?`zh_cn`) sent with each message.
 - **Visibility gating:** `TEAM` only appears when `ftbteams` is installed; otherwise visibility cycles `PRIVATE`/`PUBLIC` only.
@@ -395,19 +395,19 @@ No disk caching for MVP.
 - **Chat log scrolling:** chat log is scrollable via mouse wheel.
 
 ### 13.4 AI Terminal Part
-- **AE2 part moved to common**: `AiTerminalPart` now lives in `common-1.20.1` under `space.controlnet.chatae.common.part`.
+- **AE2 part moved to common**: `AiTerminalPart` now lives in `common-1.20.1` under `space.controlnet.mineagent.ae.common.part`.
 - **Forge/Fabric use shared part**: loader entrypoints delegate to the common part implementation and registry.
-- **Part registry unified**: `ChatAEPartRegistries` in `common-1.20.1` registers the part item and models directly.
-- **Naming/IDs**: item id `chatae:ai_terminal`, lang key `item.chatae.ai_terminal`.
+- **Part registry unified**: `MineAgentAePartRegistries` in `common-1.20.1` registers the part item and models directly.
+- **Naming/IDs**: item id `mineagentae:ai_terminal`, lang key `item.mineagentae.ai_terminal`.
 
 ### 13.5 Agent/LLM Safety
 - **LLM initialization is lazy / reflection‑based** to avoid `NoClassDefFoundError` if agent deps are absent.
 - **LangChainToolCallParser moved to `core`**: The LLM-call agent layer (`LangChainToolCallParser`) is now in `core` as it contains no Minecraft-specific dependencies. Uses a platform-neutral `Logger` interface for logging.
-- **Parsing pipeline extracted to `core`**: `ReflectiveToolCallParser` and `ToolCallParsingService` now live in `core`; `ChatAENetwork` delegates parsing/rate-limit/timeout behavior to them.
-- **LLM config + hot reload:** server reads `config/chatae/llm.toml`, reloads models on `/chatae reload`, and applies rate-limit cooldown at runtime.
-- **Prompt resolution:** prompts are sourced from `assets/chatae/lang/*.json`, rendered with variables, and emitted to `config/chatae/prompts/*.default.prompt` for override.
-- **Rate limiting:** `AgentReasoningService` enforces per-player rate limiting via `LlmRateLimiter`; `AgentRunner` manages the rate limiter with configurable cooldown (default 1500ms) via `setRateLimitCooldown()`.
-- **LLM timeout:** LLM call timeout is configurable via `timeoutSeconds` and updated on `/chatae reload` (no stale cached timeout).
+- **Parsing pipeline extracted to `core`**: `ReflectiveToolCallParser` and `ToolCallParsingService` now live in `core`; `MineAgentAeNetwork` delegates parsing/rate-limit/timeout behavior to them.
+- **LLM config + hot reload:** server reads `config/mineagentae/llm.toml`, reloads models on `/mineagentae reload`, and applies rate-limit cooldown at runtime.
+- **Prompt resolution:** prompts are sourced from `assets/mineagentae/lang/*.json`, rendered with variables, and emitted to `config/mineagentae/prompts/*.default.prompt` for override.
+- **Rate limiting:** `AgentReasoningService` enforces per-player top-level query throttling via `LlmRateLimiter`; the cooldown is applied on the initial reasoning step for a player query, while follow-up iterations inside the same agent loop bypass that cooldown. `AgentRunner` manages the cooldown (default 1500ms) via `setRateLimitCooldown()`.
+- **LLM timeout:** LLM call timeout is configurable via `timeoutSeconds` and updated on `/mineagentae reload` (no stale cached timeout).
 - **LLM retries:** transient failures (timeout/connection/rate limit) retry up to `maxRetries` with backoff.
 - **LLM raw output logging:** when `logResponses = true`, raw LLM responses are logged at debug.
 - **LLM audit logging:** All LLM calls are logged via `LlmAuditEvent` with outcome tracking (SUCCESS/TIMEOUT/RATE_LIMITED/ERROR/PARSE_ERROR), duration, player ID, locale, and iteration number.
@@ -424,12 +424,12 @@ No disk caching for MVP.
   - **Sharing model:** if a player can view a session (PUBLIC / TEAM / owner), they can also chat + approve proposals in it; management operations (delete/rename/visibility) remain owner-only.
   - **ME network behavior:** tool execution always uses the current player’s open AI terminal / ME network context (no session-level ME scoping).
   - **DTOs**: All tool argument DTOs (`ToolArgs`), recipe DTOs, terminal data DTOs
-  - **Network packets** (`core.net.c2s`, `core.net.s2c`): All C2S and S2C packet records moved to `space.controlnet.chatae.core.net.*` for consistent package structure
+  - **Network packets** (`core.net.c2s`, `core.net.s2c`): All C2S and S2C packet records moved to `space.controlnet.mineagent.ae.core.net.*` for consistent package structure
 - **Terminal context split**: added core `TerminalContext` interface with common `TerminalContextFactory` adapter; `ToolRouter` and `AgentRunner` now use the adapter instead of resolving MC menus directly.
-- **AI Terminal part moved to common**: `AiTerminalPart` now lives in `common-1.20.1` under `space.controlnet.chatae.common.part`.
-- **Common package migration**: all common code now lives under `space.controlnet.chatae.common.*` to avoid split packages.
-- **Core package consolidation**: all core code now lives under `space.controlnet.chatae.core.*` (network packets moved from `space.controlnet.chatae.net` to `space.controlnet.chatae.core.net`).
-- **Part registry unified**: `ChatAEPartRegistries` in `common-1.20.1` registers the part item and models directly (no `@ExpectPlatform`).
+- **AI Terminal part moved to common**: `AiTerminalPart` now lives in `common-1.20.1` under `space.controlnet.mineagent.ae.common.part`.
+- **Common package migration**: all common code now lives under `space.controlnet.mineagent.ae.common.*` to avoid split packages.
+- **Core package consolidation**: all core code now lives under `space.controlnet.mineagent.ae.core.*` (network packets moved from `space.controlnet.mineagent.ae.net` to `space.controlnet.mineagent.ae.core.net`).
+- **Part registry unified**: `MineAgentAePartRegistries` in `common-1.20.1` registers the part item and models directly (no `@ExpectPlatform`).
 - **Tool specs abstraction:** core defines `AgentTool` + `ToolRender` + `ToolPayload`; common provides `AgentToolRegistry` and shared `ToolOutputFormatter` for UI rendering and item token formatting.
 - **Recipe index executor lifecycle fixed**: `RecipeIndexService` recreates the executor after shutdown to avoid resume crashes.
 - **Statistics**: Core now contains ~25.5% of total code (30 files, 769 lines), up from ~11.5%. Common-1.20.1 reduced to ~55.1% (16 files, 1660 lines).
@@ -456,10 +456,10 @@ No disk caching for MVP.
 ### 13.10 LLM Models + Prompts (Implemented)
 - **Prompt IDs + locale selection:** `agent.reason` prompt ID exists; each request uses `effectiveLocale = aiLocaleOverride.orElse(clientLocale)`.
 - **Dynamic agent loop prompt:** `agent.reason` now expects tool-only JSON objects; direct responses are emitted via the `response` tool with args `{ "message": "..." }`.
-- **Prompt sourcing + overrides:** defaults live in `assets/chatae/lang/*.json` and are generated into `config/chatae/prompts/*.default.prompt` for overrides; global (`<prompt_id>.prompt`) and locale (`<prompt_id>.<locale>.prompt`) overrides are supported.
-- **Hot reload:** `/chatae reload` reloads LLM config and prompts, then rebuilds the active LLM client/model atomically.
-- **LLM config:** OpenAI provider/model/baseUrl/keys/timeouts/retries/rate-limit cooldown are configurable in `config/chatae/llm.toml`.
-- **LLM agent limits:** `maxToolCalls`, `maxIterations`, and `maxHistoryMessages` are configurable in `config/chatae/llm.toml`.
+- **Prompt sourcing + overrides:** defaults live in `assets/mineagentae/lang/*.json` and are generated into `config/mineagentae/prompts/*.default.prompt` for overrides; global (`<prompt_id>.prompt`) and locale (`<prompt_id>.<locale>.prompt`) overrides are supported.
+- **Hot reload:** `/mineagentae reload` reloads LLM config and prompts, then rebuilds the active LLM client/model atomically.
+- **LLM config:** OpenAI provider/model/baseUrl/keys/timeouts/retries/rate-limit cooldown are configurable in `config/mineagentae/llm.toml`.
+- **LLM agent limits:** `maxToolCalls` and `maxIterations` are configurable in `config/mineagentae/llm.toml`; prompt history now uses the full session history instead of a recent-message window.
 - **LLM max tokens default:** `maxTokens` now defaults to `128000` in `LlmConfig.defaults()` unless overridden in config.
 - **OpenAI token param compatibility:** builders prefer `maxCompletionTokens` when available; GPT-5 models skip `maxTokens` to avoid unsupported parameter errors.
 - **OpenAI-compatible endpoint override:** `baseUrl` can point the OpenAI client at a compatible endpoint instead of the default OpenAI API URL.
@@ -474,7 +474,7 @@ No disk caching for MVP.
   - Token insertion replaces `@query` with a token object rendered as icon + colored name.
   - On send, tokens are serialized to `<item id="..." display_name="...">` tags.
 - **Client-side safety:** raw `<item ...>` typed by users is escaped (`<` �?`&lt;`, `>` �?`&gt;`).
-- **Server-side validation:** `ChatAENetwork.findInvalidItemTag()` validates all item IDs against `BuiltInRegistries.ITEM`; messages with invalid IDs are rejected with an error shown to the player.
+- **Server-side validation:** `MineAgentAeNetwork.findInvalidItemTag()` validates all item IDs against `BuiltInRegistries.ITEM`; messages with invalid IDs are rejected with an error shown to the player.
 - **Prompt integration:** `agent.reason` prompt instructs the LLM to treat `<item id="...">` tokens as authoritative item references.
 
 ### 13.12 Dynamic Agent Loop (Implemented)
@@ -484,22 +484,34 @@ No disk caching for MVP.
   User Message �?REASON �?(tool_call �?EXECUTE �?loop back) OR (respond �?END)
   ```
 - **Key components (in `core`):**
+  - `AgentLoop`: LangGraph4j-based multi-node graph with `reason`, `execute`, and `respond` nodes plus per-request iteration/state handling.
   - `AgentDecision`: Record representing LLM's decision (`TOOL_CALL` or `RESPOND`) with optional thinking, tool call, or response.
   - `AgentReasoningService`: Service that calls LLM with `agent.reason` prompt and parses the JSON response into `AgentDecision`.
   - `AgentLoopResult`: Result of running the agent loop (success with proposal/response, or error).
   - `ConversationHistoryBuilder`: Formats session messages for inclusion in the prompt.
 - **Key components (in `common-1.20.1`):**
-  - `AgentRunner`: LangGraph4j-based multi-node graph with `reason`, `execute`, and `respond` nodes.
+  - `AgentRunner`: MC-specific wrapper that adapts `ServerPlayer`, terminal binding, and session context into the core `AgentLoop`.
+  - `McSessionContext`: MC-facing `AgentSessionContext` implementation for session history, prompt rendering, tool execution affinity, and server-thread marshaling.
 - **LLM output format:** tool-only JSON objects; direct responses via `response` tool; multiple tool calls per step supported (JSON array).
 - **Iteration limit:** Max iterations per agent loop is configurable (`maxIterations`).
 - **Multi-tool calls:** JSON arrays are supported; tool calls are capped by `maxToolCalls`.
-- **Context preservation:** `ServerPlayer`, `TerminalBinding`, `sessionId`, and `effectiveLocale` are passed through the entire loop.
+- **Context preservation:** `sessionId`, `effectiveLocale`, and agent control state are carried through the graph; MC runtime objects are kept outside serialized graph state and rebound per active session during loop execution.
 - **Proposal handling:** When a tool requires approval (e.g., `ae.request_craft`), the loop pauses with a proposal; after approval, the loop resumes with the tool result in session history.
-- **Dead code removed:** `handleParsedOutcome`, `applyToolResult`, `parseCommandAsync`, `buildToolParserPrompt`, `buildAssistantPrompt`, `LLM_PARSER`, `ASSISTANT_RESPONDER`, `TOOL_LIST`, `ARGS_SCHEMA` removed from `ChatAENetwork`.
-- **Rate limiting:** `AgentReasoningService` enforces per-player rate limiting via `LlmRateLimiter`; managed by `AgentRunner` with configurable cooldown via `setRateLimitCooldown()`.
-- **LLM timeout:** LLM timeout is configurable and updated on `/chatae reload`; retry uses `maxRetries`.
-- **Locale preservation on approval resume:** `SESSION_LOCALE` map in `ChatAENetwork` stores the effective locale when a request starts; retrieved when resuming after approval to ensure consistent language.
+- **Dead code removed:** `handleParsedOutcome`, `applyToolResult`, `parseCommandAsync`, `buildToolParserPrompt`, `buildAssistantPrompt`, `LLM_PARSER`, `ASSISTANT_RESPONDER`, `TOOL_LIST`, `ARGS_SCHEMA` removed from `MineAgentAeNetwork`.
+- **Rate limiting:** `AgentReasoningService` uses `LlmRateLimiter` as a per-player query throttle on iteration `0`; internal follow-up iterations for the same user ask are not blocked by the cooldown.
+- **LLM timeout:** LLM timeout is configurable and updated on `/mineagentae reload`; retry uses `maxRetries`.
+- **Locale preservation on approval resume:** `SESSION_LOCALE` map in `MineAgentAeNetwork` stores the effective locale when a request starts; retrieved when resuming after approval to ensure consistent language.
 - **LLM audit logging:** New `LlmAuditEvent` record and `LlmAuditOutcome` enum track all LLM calls with player, prompt ID, locale, iteration, duration, and outcome (SUCCESS/TIMEOUT/RATE_LIMITED/ERROR/PARSE_ERROR).
+
+### 13.13 MCP Tool Runtime (Implemented on 2026-03-29)
+- **Remote MCP tool support:** base/common now supports MCP-backed tools discovered at runtime and registered into `ToolRegistry` as normal agent tools.
+- **Transports:** MCP client sessions support both `stdio` and public streamable HTTP transports.
+- **Runtime lifecycle:** `McpRuntimeManager` loads MCP config on server start, reloads on `/mineagent reload`, unregisters stale runtimes, and keeps the previous healthy runtime when a reload falls back to defaults or a specific server fails discovery.
+- **Provider-scoped replacement:** `ToolRegistry.registerOrReplace(...)` supports deterministic replacement of one provider's owned tool set without disturbing unrelated providers.
+- **Schema projection:** remote MCP tool schemas are mapped into local `AgentTool` definitions, including execution-affinity metadata.
+- **Execution affinity:** MCP tools currently run with `CALLING_THREAD` affinity so the remote invocation stays on the MCP runtime path instead of being forced through server-thread marshaling.
+- **Invocation/result handling:** `McpToolProvider` validates JSON-object arguments, namespaces projected tool names by server alias, normalizes MCP result envelopes, preserves structured/text content, and returns fallback errors for unsupported or malformed remote responses.
+- **Readonly/runtime regression coverage:** the MCP runtime now has focused regression coverage for config parsing, schema mapping, stdio lifecycle, streamable HTTP lifecycle, reload isolation, provider invocation, fallback rendering, and readonly integration paths.
 
 ### 13.14 AI Terminal Visual Identity (Implemented)
 - **Custom textures:** AI Terminal now has unique textures distinguishing it from standard AE2 terminals.
@@ -521,12 +533,12 @@ No disk caching for MVP.
 - **Generation script:** `scripts/generate_ai_terminal_textures.py` generates all textures programmatically using 3D rotation math.
   - Configurable: cube size (1.3), tilt angle (25°), frame count (16), animation speed (5 ticks)
   - Static cube uses 0° rotation to match first animation frame
-  - Output: `common-1.20.1/src/main/resources/assets/chatae/textures/part/`
+  - Output: `common-1.20.1/src/main/resources/assets/mineagentae/textures/part/`
 - **Item model:** Uses `ae2:item/display_base` parent with `ai_terminal_off.png` for the cube icon.
 
 ---
 
-## 14) Refactor Plan �?ChatMC Base + Extensions (2026-01-20)
+## 14) Refactor Plan �?MineAgent Base + Extensions (2026-01-20)
 
 ### 14.0 Motivation
 - The agent architecture is **general-purpose** and should not be locked to AE2-only gameplay.
@@ -538,9 +550,9 @@ No disk caching for MVP.
 - Rename and split into **base mod** + **extension mods**, no back-compat.
 - **Base mod** provides a clean, minimal agent API and vanilla `mc.*` tools.
 - **Extensions** are separate **addon jars** with their own `modid`s:
-  - `chatmc` (base)
-- `chatmcae` (AE2 extension)
-  - `chatmcmatrix` (Matrix extension)
+  - `mineagent` (base)
+- `mineagentae` (AE2 extension)
+  - `mineagentmatrix` (Matrix extension)
 - Reduce entanglement: `core` is pure and stable; `common-*` uses core via clean interfaces.
 - Keep UI identical across base and extensions.
 - File migration rule: **copy first �?verify �?remove** (no delete-then-guess).
@@ -567,12 +579,12 @@ No disk caching for MVP.
 ```
 
 ### 14.3 Dependency Rules
-**Base (`chatmc`)**
+**Base (`mineagent`)**
 - `base/core`: no MC/AE2/Architectury deps.
 - `base/common-*`: depends on `base/core` + MC APIs.
 - `base/forge-*`, `base/fabric-*`: depend on `base/common-*`.
 
-**AE2 extension (`chatmcae`)**
+**AE2 extension (`mineagentae`)**
 - `ext-ae/core`: depends on `base/core`.
 - `ext-ae/common-*`: depends on
   - `ext-ae/core`
@@ -584,7 +596,7 @@ No disk caching for MVP.
   - loader APIs
   - AE2 loader APIs
 
-**Matrix extension (`chatmcmatrix`)**
+**Matrix extension (`mineagentmatrix`)**
 - `ext-matrix/core`: depends on `base/core`.
 - `ext-matrix/common-*`: depends on
   - `ext-matrix/core`
@@ -596,12 +608,12 @@ No disk caching for MVP.
   - loader APIs
 
 ### 14.4 Packaging (separate jars)
-- `chatmc-<ver>-forge-1.20.1.jar`
-- `chatmc-<ver>-fabric-1.20.1.jar`
-- `chatmcae-<ver>-forge-1.20.1.jar`
-- `chatmcae-<ver>-fabric-1.20.1.jar`
-- `chatmcmatrix-<ver>-forge-1.20.1.jar`
-- `chatmcmatrix-<ver>-fabric-1.20.1.jar`
+- `mineagent-<ver>-forge-1.20.1.jar`
+- `mineagent-<ver>-fabric-1.20.1.jar`
+- `mineagentae-<ver>-forge-1.20.1.jar`
+- `mineagentae-<ver>-fabric-1.20.1.jar`
+- `mineagentmatrix-<ver>-forge-1.20.1.jar`
+- `mineagentmatrix-<ver>-fabric-1.20.1.jar`
 
 ### 14.5 Extension Types
 - **Tool extension (AE2):** adds `ae.*` tools + AI terminal block/part.
@@ -612,19 +624,19 @@ No disk caching for MVP.
 - **base/core** exports only pure Java:
   - agent loop, session models, tool schema/types, proposal lifecycle.
   - no MC/AE2/Architectury classes.
-- **base/common-* (chatmc)** owns:
+- **base/common-* (mineagent)** owns:
   - UI screen/menu, networking, session sync, keybind/command open.
   - tool registry and execution routing.
   - vanilla `mc.*` tool implementations.
-- **ext-ae/core (chatmcae)**:
+- **ext-ae/core (mineagentae)**:
   - AE2-specific tool DTOs/schemas (pure Java).
   - no MC/AE2 classes.
-- **ext-ae/common-* (chatmcae)**:
+- **ext-ae/common-* (mineagentae)**:
   - AE2 tool implementations, AE2 part/block, AE2 network adapters.
   - registers AE2 tool provider into base registry.
-- **ext-matrix/core (chatmcmatrix)**:
+- **ext-matrix/core (mineagentmatrix)**:
   - matrix bridge configs/DTOs (pure Java).
-- **ext-matrix/common-* (chatmcmatrix)**:
+- **ext-matrix/common-* (mineagentmatrix)**:
   - matrix bot integration, message bridge to agent loop.
   - no tools required (optional later).
 
@@ -652,11 +664,11 @@ No disk caching for MVP.
 **Phase B: Base mod rename**
 4) Copy current **core/common/forge/fabric** into `/base/*`.
 5) Update modid/group for base:
-   - `modid = chatmc`
-   - `group = space.controlnet.chatmc`
+   - `modid = mineagent`
+   - `group = space.controlnet.mineagent`
 6) Update resources + config names:
-   - `assets/chatae` -> `assets/chatmc`
-   - `config/chatae` -> `config/chatmc`
+   - `assets/mineagentae` -> `assets/mineagent`
+   - `config/mineagentae` -> `config/mineagent`
    - lang keys, prompt IDs, packet/channel IDs, etc.
 7) Verify: build base `:base:forge-1.20.1` and `:base:fabric-1.20.1`.
 8) Remove old root modules only after verification.
@@ -667,29 +679,29 @@ No disk caching for MVP.
 11) Move all `mc.*` tools into base and register default provider.
 12) Verify: base agent loop works with only `mc.*` tools.
 
-**Phase D: AE2 extension (chatmcae)**
+**Phase D: AE2 extension (mineagentae)**
 13) Copy AE2-related code into `/ext-ae/core` and `/ext-ae/common-*`.
 14) Update modid/group for AE2 extension:
-   - `modid = chatmcae`
-    - `group = space.controlnet.chatmc.ae`
+   - `modid = mineagentae`
+    - `group = space.controlnet.mineagent.ae`
 15) Wire dependencies:
     - ext-ae/common-* -> base/core + base/common-* + AE2 APIs.
 16) Register AE2 tool provider in ext-ae/common init.
 17) Keep AE2 terminal part/block in ext-ae only.
 18) Verify: base + AE2 extension run together.
 
-**Phase E: Matrix extension (chatmcmatrix)**
+**Phase E: Matrix extension (mineagentmatrix)**
 19) Create `/ext-matrix/core` and `/ext-matrix/common-*`.
 20) Add matrix bridge logic (server/client as needed).
 21) Update modid/group:
-    - `modid = chatmcmatrix`
-    - `group = space.controlnet.chatmc.matrix`
+    - `modid = mineagentmatrix`
+    - `group = space.controlnet.mineagent.matrix`
 22) Verify: base + matrix extension run together.
 
 ### 14.8 Acceptance Criteria (refactor)
-- `chatmc` runs standalone and provides UI + `mc.*` tools.
-- `chatmcae` loads only when `chatmc` + `ae2` are present.
-- `chatmcmatrix` loads only when `chatmc` is present.
+- `mineagent` runs standalone and provides UI + `mc.*` tools.
+- `mineagentae` loads only when `mineagent` + `ae2` are present.
+- `mineagentmatrix` loads only when `mineagent` is present.
 - Tools are discovered only via `ToolRegistry` providers.
 - No AE2 classes in `base/*`.
 - No MC/AE2 classes in any `*/core`.
@@ -717,18 +729,18 @@ After each phase that changes code layout or dependencies:
 
 ### 15.1 Completed (structural)
 - **New module layout created:** `/base/*`, `/ext-ae/*`, `/ext-matrix/*` with nested `core/common-1.20.1/forge-1.20.1/fabric-1.20.1`.
-- **Gradle wiring updated:** `settings.gradle` includes only new modules; root `gradle.properties` set to `chatmc`; per-extension `gradle.properties` set to `chatmcae` / `chatmcmatrix`.
+- **Gradle wiring updated:** `settings.gradle` includes only new modules; root `gradle.properties` set to `mineagent`; per-extension `gradle.properties` set to `mineagentae` / `mineagentmatrix`.
 - **Jar naming:** per-module `archives_base_name` and `maven_group` applied (root build.gradle enforces ext-ae/ext-matrix overrides to avoid capability collisions).
-- **Base rename:** packages moved to `space.controlnet.chatmc`, modid `chatmc`, resources under `assets/chatmc`.
-- **AE2 extension:** packages under `space.controlnet.chatmc.ae`, modid `chatmcae`, resources under `assets/chatmcae`.
-- **Matrix extension scaffolded:** packages under `space.controlnet.chatmc.matrix`, modid `chatmcmatrix`, minimal bootstrap + metadata.
+- **Base rename:** packages moved to `space.controlnet.mineagent`, modid `mineagent`, resources under `assets/mineagent`.
+- **AE2 extension:** packages under `space.controlnet.mineagent.ae`, modid `mineagentae`, resources under `assets/mineagentae`.
+- **Matrix extension scaffolded:** packages under `space.controlnet.mineagent.matrix`, modid `mineagentmatrix`, minimal bootstrap + metadata.
 - **Legacy archive deleted:** `/old-root-modules` removed after successful validation.
 
 ### 15.2 Completed (code moves & refactors)
 - **Tool provider split (base):** added `ToolProvider` + `ToolRegistry`; base registers `mc` provider.
 - **Terminal context split (base):** `TerminalHost`, `TerminalContextResolver`, `TerminalContextRegistry`; base menu allows hostless open.
-- **Commands (base):** `/chatmc open` (hostless) + `/chatmc reload`.
-- **AE2 tool provider:** `AeToolProvider` registered from `ChatMCAe2.init()`.
+- **Commands (base):** `/mineagent open` (hostless) + `/mineagent reload`.
+- **AE2 tool provider:** `AeToolProvider` registered from `MineAgentAe.init()`.
 - **AE2 terminal part:** part implementation, models, and item now live in `ext-ae` only.
 - **Resource moves:** AI terminal textures/models/blockstates/lang moved to `ext-ae` namespace.
 - **Extension runtime dependencies fixed:** ext-ae and ext-matrix loader modules now correctly include base mod classes on dev runtime classpath via `common()` configuration.
@@ -736,19 +748,19 @@ After each phase that changes code layout or dependencies:
 ### 15.3 Validation status
 - **Compilation (2026-01-20):** success for base + ext-ae + ext-matrix:
   - `:base:*` (core/common/forge/fabric) �?  - `:ext-ae:*` (core/common/forge/fabric) �?  - `:ext-matrix:*` (core/common/forge/fabric) �?- **Runtime tests (2026-01-20):** all passed:
-  - `:base:forge-1.20.1:runClient` �?(`ChatMC initialized`)
-  - `:base:fabric-1.20.1:runClient` �?(`ChatMC initialized`)
-  - `:ext-ae:forge-1.20.1:runClient` �?(`ChatMC initialized`, `ChatMCAe2 initialized`)
-  - `:ext-ae:fabric-1.20.1:runClient` �?(`ChatMC initialized`, `ChatMCAe2 initialized`)
-  - `:ext-matrix:forge-1.20.1:runClient` �?(`ChatMC initialized`, `ChatMCMatrix initialized`)
-  - `:ext-matrix:fabric-1.20.1:runClient` �?(`ChatMC initialized`, `ChatMCMatrix initialized`)
+  - `:base:forge-1.20.1:runClient` �?(`MineAgent initialized`)
+  - `:base:fabric-1.20.1:runClient` �?(`MineAgent initialized`)
+  - `:ext-ae:forge-1.20.1:runClient` �?(`MineAgent initialized`, `MineAgentAe initialized`)
+  - `:ext-ae:fabric-1.20.1:runClient` �?(`MineAgent initialized`, `MineAgentAe initialized`)
+  - `:ext-matrix:forge-1.20.1:runClient` �?(`MineAgent initialized`, `MineAgentMatrix initialized`)
+  - `:ext-matrix:fabric-1.20.1:runClient` �?(`MineAgent initialized`, `MineAgentMatrix initialized`)
 - **Warnings:** Forge `FMLJavaModLoadingContext.get()` deprecation warnings; Loom version outdated warning; Narrator `libflite.so` missing (non-blocking).
 
 ### 15.4 Refactor Complete
 The base + extensions refactor is **complete**. All acceptance criteria from §14.8 are met:
-- �?`chatmc` runs standalone and provides UI + `mc.*` tools
-- �?`chatmcae` loads only when `chatmc` + `ae2` are present
-- �?`chatmcmatrix` loads only when `chatmc` is present
+- �?`mineagent` runs standalone and provides UI + `mc.*` tools
+- �?`mineagentae` loads only when `mineagent` + `ae2` are present
+- �?`mineagentmatrix` loads only when `mineagent` is present
 - �?Tools are discovered via `ToolRegistry` providers
 - �?No AE2 classes in `base/*`
 - �?No MC/AE2 classes in any `*/core`
@@ -766,19 +778,19 @@ The base + extensions refactor is **complete**. All acceptance criteria from §1
   - `FlatButton`, `UiButtonStyle` �?Reusable flat-styled button component and style enum
 - **`AiTerminalScreen.java` reduced:** From ~2483 lines to ~2322 lines (~161 lines removed).
 - **Further extraction deferred:** `TokenInputHandler`, `ChatMessageFormatter`, `SessionPanelController` extraction was evaluated but cancelled �?these methods depend heavily on screen instance state and would require complex context passing without proportional benefit.
-- **`rootProject.name` fixed:** `settings.gradle` updated from `"ChatAE"` to `"ChatMC"` to match the renamed base mod.
+- **`rootProject.name` fixed:** `settings.gradle` updated from `"MineAgentAe"` to `"MineAgent"` to match the renamed base mod.
 
 ### 15.7 Commit Sync Update (added on 2026-02-21)
 
 The following three commits were not yet reflected in this document and are now recorded explicitly:
 
 1) **`22a7506` (2026-01-20)**
-   - Added/refined the multi-module ChatMC structure (`base`, `ext-ae`, `ext-matrix`) and completed large-scale package/resource migration from legacy naming.
+   - Added/refined the multi-module MineAgent structure (`base`, `ext-ae`, `ext-matrix`) and completed large-scale package/resource migration from legacy naming.
    - Introduced/expanded base tool-provider architecture (`ToolProvider`, `ToolRegistry`, `McToolProvider`) and AE extension tool integration.
    - Moved and cleaned significant UI, rendering, networking, session, and build wiring across modules; removed deprecated legacy paths.
 
 2) **`5116474` (2026-02-21)**
-   - Added keyboard shortcut support via `ChatMCKeybinds` and updated client registration.
+   - Added keyboard shortcut support via `MineAgentKeybinds` and updated client registration.
    - Fixed module naming consistency in build/scripts/settings metadata.
    - Updated language resources and repository helper scripts accordingly.
 
@@ -791,9 +803,32 @@ The following three commits were not yet reflected in this document and are now 
    - Added comprehensive regression coverage across `base/core`, `base/common-1.20.1`, and `ext-ae/common-1.20.1` for state machine, indexing, thread confinement, and boundary contracts.
 - Updated `.gitignore` for repository-local workflow artifacts (`.sisyphus/`, IDE metadata paths).
 
+### 15.8 Commit Sync Update (added on 2026-03-29)
+
+The following recent commits were not yet reflected in this document and are now recorded explicitly:
+
+1) **`86e74f5`, `a3e7aed`, `0e1d2ae`, `2cc06d5`, `ba8b020`, `bef506a`, `d6eb1e3` (2026-03-29)**
+   - Added MCP runtime support in base/common with provider-scoped tool registration/replacement.
+   - Added MCP schema mapping, execution-affinity handling, stdio transport, and public streamable HTTP transport.
+   - Wired MCP runtime load/reload into server startup and `/mineagent reload`.
+   - Added provider invocation normalization, fallback render behavior, and readonly/runtime regression coverage.
+
+2) **`c71ed6f` (2026-03-29)**
+   - Hardened runtime test isolation with a shared session/runtime lock for Fabric GameTest coverage.
+   - Strengthened runtime regression coverage around shared session state and loader-safe GameTest execution ordering.
+
+3) **`82373eb` (2026-03-29)**
+   - Added shared whole-agent reliability GameTest scenarios in `base/common-1.20.1` with thin Fabric/Forge adapters.
+   - Covered direct response, tool-loop, invalid model output, and model-exception failure paths through the real chat-packet-to-agent-loop request path.
+   - Clarified/fixed query throttling semantics so `LlmRateLimiter` applies to top-level player asks, not every internal iteration.
+   - Refactored `AgentLoop` graph state to keep serialized state deserialization-safe under Forge while moving live runtime objects to per-session in-memory maps.
+
+4) **`e6eb9f9`, `b84aaf2`, `e34efc5` (2026-03-29)**
+   - These commits were repository-workflow/documentation/gitignore maintenance only and did not change product runtime behavior.
+
 ---
 
-## 16) Test Strategy Notes (synced on 2026-02-21)
+## 16) Test Strategy Notes (synced on 2026-03-29)
 
 ### 16.1 Layered pyramid, current implemented state
 1. **Unit JUnit (core-first):**
@@ -804,8 +839,8 @@ The following three commits were not yet reflected in this document and are now 
    - Focus: network/serialization boundaries, lifecycle/state transitions, regression contracts.
 3. **GameTest (runtime invariants):**
    - Harness is active on both loaders.
-   - Fabric path is green in this workspace and emits XML reports.
-   - Forge path is wired and executed, but currently blocked at runtime startup in this workspace (see 16.4).
+   - Shared whole-agent reliability scenarios now live in `base/common-1.20.1` and run through thin Fabric/Forge adapters.
+   - Fabric and Forge base runtime paths are both green in this workspace, including the shared agent reliability scenario.
 
 ### 16.2 Canonical execution commands
 **JUnit matrix commands (PR lane style):**
@@ -819,9 +854,10 @@ The following three commits were not yet reflected in this document and are now 
 ```bash
 timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace
 timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke
+timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=baseAgentSystemReliability
 ```
 
-**Forge GameTest commands (dev-lane path, currently blocked in this workspace):**
+**Forge GameTest commands (dev-lane path):**
 ```bash
 timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace
 timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
@@ -840,12 +876,11 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - Parity report: `ci-reports/parity/gametest-parity-report.md`
 - Evidence archive: `.sisyphus/evidence/*`
 
-### 16.4 Known Forge blocker (explicit workspace caveat)
-In this workspace, Forge GameTest startup is still blocked before scenario execution by the known signatures:
-- `InvalidModFileException: Illegal version number specified version (main)`
-- `Failed to find system mod: minecraft`
-
-Main-lane CI still runs the Forge command, captures logs, and reports this state explicitly as `blocked` (policy exit code `3`) instead of silently treating it as pass.
+### 16.4 Cross-loader runtime status (updated 2026-03-29)
+- **Shared agent reliability coverage:** base runtime now includes a shared cross-loader reliability scenario that exercises the real chat packet → session transition → agent loop → tool execution / failure path.
+- **Shared scenario coverage:** direct response, tool loop, invalid model output, and model-exception failure are all covered from common code.
+- **Loader adapters:** Fabric exposes `baseAgentSystemReliability`; Forge exposes `agentSystemReliability`; both are thin wrappers over `AgentReliabilityGameTestScenarios.run(...)`.
+- **Current workspace status:** both base Fabric and base Forge GameTest runs pass in this workspace, and the previous Forge runtime blocker no longer applies to the current branch state.
 
 ### 16.5 CI lane mapping
 - **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:common-1.20.1:test`).

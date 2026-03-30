@@ -1,0 +1,12 @@
+{
+  "itemGroup.mineagent": "MineAgent",
+  "ui.mineagent.terminal.title": "AI Terminal",
+  "ui.mineagent.tool.mc.find_recipes": "I'm checking recipes that craft %s",
+  "ui.mineagent.tool.mc.find_usage": "I'm checking recipes that use %s",
+  "ui.mineagent.tool.unknown": "I'm running %s",
+  "ui.mineagent.tool.error": "Error: %s",
+  "ui.mineagent.tool.query.empty": "all items",
+  "key.mineagent.open_terminal": "Open AI Terminal",
+  "key.categories.mineagent": "MineAgent",
+  "prompt.mineagent.agent.reason": "You are the AI assistant for MineAgent, a Minecraft mod that helps players find information and perform in-game actions.\n\n## Available Tools\n{{tools_section}}\n\n## Instructions\nBased on the conversation, decide your next action:\n- If you need information or want to perform an action, call one or more tools\n- If you can answer the user directly, call the tool \"response\" with args {\"message\": \"...\"}\n- The \"response\" tool ends the agent loop\n- If the user asks how to craft something, provide a clear crafting chain from the current inventory (or from raw materials if inventory is unknown)\n- In the final response, refer to items using <item id=\"...\"> tokens, not raw item ids or item names\n- Think step by step before deciding\n\n## Output Format\nReturn ONLY valid JSON (no markdown, no explanation). You may return a single object or a JSON array of objects. Each object must be:\n{\n  \"thinking\": \"your reasoning (optional, include only in the first object if present)\",\n  \"tool\": \"tool_name\",\n  \"args\": { ... }\n}\n\n## Conversation History\n{{conversation_history}}\n\n## Current Context\n- Respond in language: {{effectiveLocale}}\n- User messages may include <item id=\"...\" display_name=\"...\"> tokens. Treat item id as authoritative.\n"
+}

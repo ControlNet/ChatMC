@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Code statistics script for ChatMC base + extensions
+# Code statistics script for MineAgent base + extensions
 # Calculates lines of code, classes, and methods for each module
 #
 # Usage:
@@ -116,7 +116,7 @@ count_files() {
 }
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}ChatMC Code Statistics${NC}"
+echo -e "${BLUE}MineAgent Code Statistics${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 

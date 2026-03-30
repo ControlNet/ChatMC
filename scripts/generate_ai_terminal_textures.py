@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate AI Terminal textures for ChatMCAe mod.
+Generate AI Terminal textures for the MineAgent AE mod.
 Creates a rotating wireframe cube animation for the terminal's bright layer,
 and a static cube for the off state.
 
@@ -8,7 +8,7 @@ Usage:
     python generate_ai_terminal_textures.py
 
 Output:
-    ext-ae/common-1.20.1/src/main/resources/assets/chatmcae/textures/part/
+    ext-ae/common-1.20.1/src/main/resources/assets/mineagentae/textures/part/
         ai_terminal_on.png        - Animated rotating cube (16 frames)
         ai_terminal_on.png.mcmeta - Animation config
         ai_terminal_off.png       - Static cube for off state (first frame)
@@ -193,7 +193,7 @@ def main():
     project_root = os.path.dirname(script_dir)
     output_dir = os.path.join(
         project_root,
-        "ext-ae/common-1.20.1/src/main/resources/assets/chatmcae/textures/part",
+        "ext-ae/common-1.20.1/src/main/resources/assets/mineagentae/textures/part",
     )
 
     # Create output directory if needed

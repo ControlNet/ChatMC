@@ -33,7 +33,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
     modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
 
-    // Base mod dependency (ChatMC) - compile + runtime
+    // Base mod dependency (MineAgent) - compile + runtime
     // Use 'common' config which extends runtimeClasspath + developmentFabric
     modCompileOnly project(path: ":base:fabric-1.20.1", configuration: "namedElements")
     modLocalRuntime project(path: ":base:fabric-1.20.1", configuration: "namedElements")

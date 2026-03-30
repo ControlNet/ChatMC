@@ -1,4 +1,4 @@
-# Code statistics script for ChatMC base + extensions
+# Code statistics script for MineAgent base + extensions
 # Calculates lines of code, classes, and methods for each module
 #
 # Usage:
@@ -159,7 +159,7 @@ function Count-Files {
 }
 
 Write-Host "========================================" -ForegroundColor Blue
-Write-Host "ChatMC Code Statistics" -ForegroundColor Blue
+Write-Host "MineAgent Code Statistics" -ForegroundColor Blue
 Write-Host "========================================" -ForegroundColor Blue
 Write-Host ""
 

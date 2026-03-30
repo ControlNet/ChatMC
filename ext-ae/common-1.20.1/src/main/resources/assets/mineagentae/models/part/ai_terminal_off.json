@@ -1,0 +1,32 @@
+{
+	"ambientocclusion": false,
+	"textures": {
+		"background": "ae2:part/monitor_light",
+		"staticCube": "mineagentae:part/ai_terminal_off"
+	},
+	"elements": [
+		{
+			"comment": "Background - solid panel (same as Dark Illuminated Panel)",
+			"from": [2, 2, 0],
+			"to": [14, 14, 2],
+			"faces": {
+				"north": {
+					"texture": "#background",
+					"tintindex": 2
+				}
+			}
+		},
+		{
+			"comment": "Static cube overlay (bright, consistent with power-on)",
+			"shade": false,
+			"from": [2, 2, 0],
+			"to": [14, 14, 2],
+			"faces": {
+				"north": {
+					"texture": "#staticCube",
+					"tintindex": 3
+				}
+			}
+		}
+	]
+}

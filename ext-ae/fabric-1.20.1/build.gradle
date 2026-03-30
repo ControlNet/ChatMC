@@ -30,6 +30,69 @@ architectury {
     }
 }
 
+def expectedBaseFabricModIdSnippet = '"id": "mineagent"'
+def expectedBaseFabricEntrypointSnippet = "space.controlnet.mineagent.fabric"
+def hasCurrentBaseFabricMetadata = { String fabricModJson ->
+    fabricModJson.contains(expectedBaseFabricModIdSnippet)
+        && fabricModJson.contains(expectedBaseFabricEntrypointSnippet)
+}
+
+def invalidateStaleMineAgentFabricRemapCache = {
+    def remappedModsDir = rootProject.file(".gradle/loom-cache/remapped_mods")
+    if (remappedModsDir.isDirectory()) {
+        remappedModsDir.eachDir { cacheRoot ->
+            def versionDir = new File(cacheRoot, "space/controlnet/mineagent/fabric-1.20.1/${project.version}")
+            def cachedJar = new File(versionDir, "fabric-1.20.1-${project.version}-dev.jar")
+            if (!cachedJar.isFile()) {
+                return
+            }
+
+            def zipFile = new java.util.zip.ZipFile(cachedJar)
+            try {
+                def fabricModEntry = zipFile.getEntry("fabric.mod.json")
+                if (fabricModEntry == null) {
+                    return
+                }
+
+                def fabricModJson = zipFile.getInputStream(fabricModEntry).getText("UTF-8")
+                if (!hasCurrentBaseFabricMetadata(fabricModJson)) {
+                    project.delete(versionDir)
+                }
+            } finally {
+                zipFile.close()
+            }
+        }
+    }
+
+    def remappedWorkingDir = layout.buildDirectory.dir("loom-cache/remapped_working").get().asFile
+    if (!remappedWorkingDir.isDirectory()) {
+        return
+    }
+
+    remappedWorkingDir.eachFile { cachedJar ->
+        if (!cachedJar.name.contains("space.controlnet.mineagent-fabric-1.20.1-${project.version}")) {
+            return
+        }
+
+        def zipFile = new java.util.zip.ZipFile(cachedJar)
+        try {
+            def fabricModEntry = zipFile.getEntry("fabric.mod.json")
+            if (fabricModEntry == null) {
+                return
+            }
+
+            def fabricModJson = zipFile.getInputStream(fabricModEntry).getText("UTF-8")
+            if (!hasCurrentBaseFabricMetadata(fabricModJson)) {
+                project.delete(cachedJar)
+            }
+        } finally {
+            zipFile.close()
+        }
+    }
+}
+
+invalidateStaleMineAgentFabricRemapCache()
+
 configurations {
     common
     shadowCommon
@@ -47,7 +110,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
     modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
 
-    // Base mod dependency (ChatMC) - compile + runtime
+    // Base mod dependency (MineAgent) - compile + runtime
     // Use 'common' config which extends runtimeClasspath + developmentFabric
     modCompileOnly project(path: ":base:fabric-1.20.1", configuration: "namedElements")
     modLocalRuntime project(path: ":base:fabric-1.20.1", configuration: "namedElements")

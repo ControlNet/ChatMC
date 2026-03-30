@@ -38,7 +38,7 @@ set DEFAULT_JVM_OPTS=-Dfile.encoding=UTF-8 "-Xmx64m" "-Xms64m"
 
 @rem Find java.exe
 @rem ---------------------------------------------------------------------------
-@rem ChatAE note (Windows):
+@rem MineAgent note (Windows):
 @rem Minecraft 1.20.1 (and Forge/Fabric tooling) expects Java 17.
 @rem If JAVA_HOME is not set, try to locate a Java 17 JDK in common install paths.
 @rem This avoids build failures when a newer Java (e.g. 25) is on PATH.

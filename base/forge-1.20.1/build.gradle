@@ -14,16 +14,16 @@ loom {
             server()
             environment("gameTestServer")
             mods {
-                create("chatmc") {
+                create("mineagent") {
                     sourceSet project.sourceSets.main
                 }
             }
             property("forge.enableGameTest", "true")
-            property("forge.enabledGameTestNamespaces", "chatmc")
+            property("forge.enabledGameTestNamespaces", "mineagent")
         }
         named("server") {
             mods {
-                create("chatmc") {
+                create("mineagent") {
                     sourceSet project.sourceSets.main
                 }
             }
@@ -107,7 +107,7 @@ def syncBinMainCompiledArtifacts = tasks.register("syncBinMainCompiledArtifacts"
 def syncBinMainGameTestStructures = tasks.register("syncBinMainGameTestStructures", Sync) {
     dependsOn(tasks.named("processResources"))
     from(layout.projectDirectory.dir("gameteststructures"))
-    from(layout.projectDirectory.dir("src/main/resources/data/chatmc/gameteststructures"))
+    from(layout.projectDirectory.dir("src/main/resources/data/mineagent/gameteststructures"))
     from(layout.projectDirectory.dir("src/main/resources/data/minecraft/gameteststructures"))
     include("**/*.snbt")
     into(layout.projectDirectory.dir("run/gameteststructures"))
