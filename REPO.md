@@ -333,7 +333,7 @@ No disk caching for MVP.
 6. Crafting job status is observable; cancellation works.
 7. Sessions persist to world save and survive restart; multi-viewer sessions stay in sync.
 8. No blocking of main threads during indexing or agent reasoning.
-9. Forge 1.20.1 release is functional; Fabric packaging is ready (and NeoForge scaffolding is present or planned).
+9. Forge and Fabric 1.20.1 release builds are functional, and `./scripts/build-dist.sh` produces MineAgent-family release jars.
 
 ---
 
@@ -886,3 +886,9 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:common-1.20.1:test`).
 - **Dev lane:** JUnit suite + Forge `:base:forge-1.20.1:runGameTestServer` with blocker-aware policy parsing.
 - **Nightly lane:** JUnit suite + Fabric `:base:fabric-1.20.1:runGametest` and `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke`.
+
+### 16.6 Released MineAgent state (updated 2026-03-31)
+- **Naming and module split:** the repository now treats MineAgent / MineAgent AE / MineAgent Matrix as the canonical shipped identities across source, resources, build metadata, and release automation.
+- **Published release flow:** GitHub releases are published from `master` by `.github/workflows/release.yml`, using `gradle.properties` as the source of truth for `mod_version` and `minecraft_version`.
+- **Current release metadata:** the repository is currently configured for `mod_version=0.0.1` on Minecraft `1.20.1`.
+- **Verification before release:** the post-rename verification matrix passed for JUnit, base Forge GameTests, ext-AE Forge GameTests, base Fabric GameTests, ext-AE Fabric GameTests, and `./scripts/build-dist.sh`.

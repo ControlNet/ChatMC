@@ -2,6 +2,12 @@
 
 MineAgent is a Minecraft AI assistant mod built with Architectury (multi-loader). It provides an in-game chat interface to an LLM-powered agent that can search recipes, query inventories, and execute actions.
 
+## Status
+
+- The MineAgent rename and base/extension split are now the current repository state.
+- Release artifacts are built via `./scripts/build-dist.sh` and published from `master` by `.github/workflows/release.yml`.
+- For detailed runtime verification and CI lane policy, see `REPO.md` and `docs/layered-testing-ci.md`.
+
 ## Project Structure
 
 This is a multi-mod project with a base mod and optional extensions:
