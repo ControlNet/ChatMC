@@ -14,9 +14,9 @@ This repository uses three explicit CI lanes for layered testing. Lane policy is
 | **Dev** | `push` to `dev` (or `workflow_dispatch lane=dev`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace` | JUnit XML + Forge log `ci-reports/dev/forge-gametest.log` + Forge XML reports under `base/forge-1.20.1/build/reports/**` (when available) + `ci-reports/dev/summary.json` |
 | **Nightly** | `schedule` (or `workflow_dispatch lane=nightly`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke` | JUnit XML + Fabric GameTest XML:<br>`base/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br>`ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br> + `ci-reports/nightly/summary.json` |
 
-## Forge blocker handling (explicit, not hidden)
+## Forge blocker handling policy (historical fallback, still explicit)
 
-Known workspace blocker signatures are codified in `ci/layered-testing-policy.json` (`dev` lane):
+Known Forge blocker signatures remain codified in `ci/layered-testing-policy.json` (`dev` lane) as a fallback path for CI parsing. The current MineAgent workspace no longer depends on this blocked path for normal verification, but the parser still recognizes these signatures so regressions surface as explicit `blocked` results instead of silent passes:
 
 - `InvalidModFileException: Illegal version number specified version (main)`
 - `Failed to find system mod: minecraft`
@@ -80,6 +80,8 @@ All lanes emit machine-consumable JSON summaries at `ci-reports/<lane>/summary.j
 ## Release automation
 
 GitHub release publishing is handled separately by `.github/workflows/release.yml`.
+
+- **Current repo release metadata:** `gradle.properties` currently sets `mod_version=0.0.1` for Minecraft `1.20.1`.
 
 - **Trigger:** `push` to `master` or manual `workflow_dispatch`
 - **Build step:** reuses `./scripts/build-dist.sh`
