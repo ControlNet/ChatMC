@@ -10,6 +10,13 @@ import java.util.List;
 @Mod.EventBusSubscriber(modid = MineAgent.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class MineAgentGameTestBootstrap {
     private static final List<Class<?>> GAME_TEST_CLASSES = List.of(
+            CommandMenuLifecycleGameTest.class,
+            ReloadCommandSmokeGameTest.class,
+            DeletedSessionQueuedAppendGameTest.class,
+            DeleteLastActiveSessionFallbackGameTest.class,
+            MenuValidityRuntimeGameTest.class,
+            SessionVisibilityDeleteRebindGameTest.class,
+            SessionVisibilitySessionListCycleGameTest.class,
             AgentSystemReliabilityGameTest.class,
             ProposalBindingUnavailableGameTest.class,
             IndexingGateRecoveryGameTest.class,

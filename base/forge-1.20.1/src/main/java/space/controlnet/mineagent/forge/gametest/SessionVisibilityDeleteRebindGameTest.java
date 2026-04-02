@@ -8,26 +8,23 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.mineagent.common.gametest.GameTestRuntimeLease;
-import space.controlnet.mineagent.common.gametest.ProposalBindingUnavailableGameTestScenarios;
+import space.controlnet.mineagent.common.gametest.SessionLifecycleGameTestScenarios;
 
 import java.util.UUID;
 
 @PrefixGameTestTemplate(false)
 @GameTestHolder("mineagent")
-public final class ProposalBindingUnavailableGameTest {
-    private static final UUID PLAYER_ID = UUID.fromString("00000000-0000-0000-0000-000000000006");
-    private static final String PLAYER_NAME = "bind_unavail";
-
-    private ProposalBindingUnavailableGameTest() {
+public final class SessionVisibilityDeleteRebindGameTest {
+    private SessionVisibilityDeleteRebindGameTest() {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(template = "empty", batch = "mineagent")
-    public static void proposalBindingUnavailableApprovalFailsDeterministically(GameTestHelper helper) {
+    @GameTest(template = "empty", batch = "mineagent_runtime")
+    public static void sessionVisibilityDeleteRebindUnderRuntimeConditions(GameTestHelper helper) {
         GameTestRuntimeLease.runWhenAvailable(helper,
-                () -> ProposalBindingUnavailableGameTestScenarios.proposalBindingUnavailableApprovalFailsDeterministically(
+                () -> SessionLifecycleGameTestScenarios.sessionVisibilityDeleteRebindUnderRuntimeConditions(
                         helper,
-                        ProposalBindingUnavailableGameTest::createPlayer
+                        SessionVisibilityDeleteRebindGameTest::createPlayer
                 ));
     }
 

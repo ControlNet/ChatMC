@@ -5,18 +5,18 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import space.controlnet.mineagent.common.gametest.GameTestRuntimeLease;
-import space.controlnet.mineagent.common.gametest.ToolArgsBoundaryGameTestScenarios;
+import space.controlnet.mineagent.common.gametest.ReloadCommandGameTestScenarios;
 
 @PrefixGameTestTemplate(false)
 @GameTestHolder("mineagent")
-public final class ToolArgsBoundaryEndToEndGameTest {
-    private ToolArgsBoundaryEndToEndGameTest() {
+public final class ReloadCommandSmokeGameTest {
+    private ReloadCommandSmokeGameTest() {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(template = "empty", batch = "mineagent", timeoutTicks = 400)
-    public static void toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus(GameTestHelper helper) {
+    @GameTest(template = "empty", batch = "mineagent_runtime")
+    public static void reloadCommandSmokeRebuildsRecipeIndex(GameTestHelper helper) {
         GameTestRuntimeLease.runWhenAvailable(helper,
-                () -> ToolArgsBoundaryGameTestScenarios.toolArgsBoundaryEndToEnd(helper));
+                () -> ReloadCommandGameTestScenarios.reloadCommandSmokeRebuildsRecipeIndex(helper));
     }
 }

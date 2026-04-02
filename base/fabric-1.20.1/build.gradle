@@ -1,8 +1,18 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
 plugins {
     id "architectury-plugin"
     id "dev.architectury.loom"
     id "com.github.johnrengelman.shadow"
 }
+
+def gametestlessFabricModMetadata = layout.buildDirectory.file("generated/gametestless/fabric.mod.json")
+def gametestlessRuntimeJarFile = layout.buildDirectory.file("libs/fabric-1.20.1-${project.version}-dev-gametestless.jar")
 
 loom {
     silentMojangMappingsLicense()
@@ -12,8 +22,13 @@ loom {
             runConfig.configName = "Game Test"
             runConfig.server()
             runConfig.runDir("run/gametest")
+            def configuredGameTestFilter = project.findProperty("fabric-api.gametest.filter")
+                    ?: System.getProperty("fabric-api.gametest.filter")
 
             runConfig.property("fabric-api.gametest")
+            if (configuredGameTestFilter != null) {
+                runConfig.property("fabric-api.gametest.filter", configuredGameTestFilter.toString())
+            }
             runConfig.property(
                 "fabric-api.gametest.report-file",
                 layout.buildDirectory.file("reports/gametest/runGametest.xml").get().asFile.absolutePath
@@ -69,5 +84,75 @@ processResources {
 
     filesMatching("fabric.mod.json") {
         expand "version": project.version
+    }
+}
+
+tasks.register("generateGametestlessFabricMod") {
+    dependsOn tasks.named("processResources")
+    inputs.file(layout.buildDirectory.file("resources/main/fabric.mod.json"))
+    outputs.file(gametestlessFabricModMetadata)
+
+    doLast {
+        def sourceMetadata = layout.buildDirectory.file("resources/main/fabric.mod.json").get().asFile
+        def parsedMetadata = new JsonSlurper().parseText(sourceMetadata.getText("UTF-8"))
+        def entrypoints = new LinkedHashMap<>(parsedMetadata.entrypoints as Map)
+        entrypoints.remove("fabric-gametest")
+        parsedMetadata.entrypoints = entrypoints
+
+        def outputMetadata = gametestlessFabricModMetadata.get().asFile
+        outputMetadata.parentFile.mkdirs()
+        outputMetadata.setText(
+                JsonOutput.prettyPrint(JsonOutput.toJson(parsedMetadata)) + System.lineSeparator(),
+                "UTF-8"
+        )
+    }
+}
+
+tasks.register("gametestlessRuntimeJar") {
+    dependsOn tasks.named("jar")
+    dependsOn tasks.named("generateGametestlessFabricMod")
+    inputs.file(tasks.named("jar", Jar).flatMap { it.archiveFile })
+    inputs.file(gametestlessFabricModMetadata)
+    outputs.file(gametestlessRuntimeJarFile)
+
+    doLast {
+        def sourceJar = tasks.named("jar", Jar).get().archiveFile.get().asFile
+        def outputJar = gametestlessRuntimeJarFile.get().asFile
+        def replacementMetadata = gametestlessFabricModMetadata.get().asFile
+        outputJar.parentFile.mkdirs()
+
+        new ZipFile(sourceJar).withCloseable { inputZip ->
+            new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(outputJar))).withCloseable { outputZip ->
+                def entries = inputZip.entries()
+                while (entries.hasMoreElements()) {
+                    def entry = entries.nextElement()
+                    if (entry.name == "fabric.mod.json") {
+                        continue
+                    }
+
+                    def copiedEntry = new ZipEntry(entry.name)
+                    copiedEntry.time = entry.time
+                    outputZip.putNextEntry(copiedEntry)
+                    if (!entry.isDirectory()) {
+                        inputZip.getInputStream(entry).withCloseable { inputStream ->
+                            inputStream.transferTo(outputZip)
+                        }
+                    }
+                    outputZip.closeEntry()
+                }
+
+                outputZip.putNextEntry(new ZipEntry("fabric.mod.json"))
+                outputZip.write(replacementMetadata.bytes)
+                outputZip.closeEntry()
+            }
+        }
+    }
+}
+
+tasks.named("runGametest") {
+    def configuredGameTestFilter = project.findProperty("fabric-api.gametest.filter")
+            ?: System.getProperty("fabric-api.gametest.filter")
+    if (configuredGameTestFilter != null) {
+        systemProperty "fabric-api.gametest.filter", configuredGameTestFilter.toString()
     }
 }
