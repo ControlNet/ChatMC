@@ -1,17 +1,65 @@
 {
   "actionable_gaps": [
-    "Add Fabric wrappers (or loader-neutral shared provider wiring) for missing Forge scenarios, especially ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay.",
-    "Keep wrapper-only entries explicit in parity dashboards (currently smoke bootstrap), and avoid counting them as Forge parity coverage.",
-    "Unblock Forge runtime startup (`InvalidModFileException ... version (main)` + `Failed to find system mod: minecraft`) so Forge scenario execution status can be compared beyond wrapper-level coverage."
+    "Fabric GameTest XML did not report every registered wrapper testcase in this workspace, so parity inventory uses Fabric wrapper registration as the authoritative testcase set and XML only as supplemental runtime status."
   ],
   "categories": {
     "matched": [
       {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "CommandMenuLifecycleGameTest::commandMenuOpenCloseLifecycleCleanup",
+        "mapped_forge_class": null,
+        "name_similarity": 1.0,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::commandMenuOpenCloseLifecycleCleanup",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.commandmenuopencloselifecyclecleanup"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "ReloadCommandSmokeGameTest::reloadCommandSmokeRebuildsRecipeIndex",
+        "mapped_forge_class": null,
+        "name_similarity": 0.429,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseReloadCommandSmoke",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basereloadcommandsmoke"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "DeleteLastActiveSessionFallbackGameTest::deleteLastActiveSessionFallbackCreatesNewSession",
+        "mapped_forge_class": null,
+        "name_similarity": 0.625,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseDeleteLastActiveSessionFallback",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basedeletelastactivesessionfallback"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "MenuValidityRuntimeGameTest::menuValidityTracksRealHostLivenessConditions",
+        "mapped_forge_class": null,
+        "name_similarity": 0.222,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseMenuValidityRuntime",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basemenuvalidityruntime"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "SessionVisibilitySessionListCycleGameTest::sessionVisibilitySessionListUpdateCycle",
+        "mapped_forge_class": null,
+        "name_similarity": 0.667,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseSessionVisibilitySessionListCycle",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basesessionvisibilitysessionlistcycle"
+      },
+      {
         "forge_batch": "mineagent",
         "forge_scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically",
-        "mapped_forge_class": "ProposalBindingUnavailableGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.429,
-        "wrapper_batch": "base_smoke",
+        "wrapper_batch": "mineagent",
         "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseProposalBindingUnavailable",
         "wrapper_status": "passed",
         "wrapper_testcase": "mineagentfabricgametestentrypoint.baseproposalbindingunavailable"
@@ -19,19 +67,19 @@
       {
         "forge_batch": "mineagent",
         "forge_scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload",
-        "mapped_forge_class": "IndexingGateRecoveryGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.5,
-        "wrapper_batch": "base_smoke",
+        "wrapper_batch": "mineagent",
         "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseIndexingGateRecovery",
         "wrapper_status": "passed",
         "wrapper_testcase": "mineagentfabricgametestentrypoint.baseindexinggaterecovery"
       },
       {
-        "forge_batch": "mineagent",
+        "forge_batch": "mineagent_task8_viewer",
         "forge_scenario_id": "ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn",
-        "mapped_forge_class": "ViewerChurnConsistencyGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.429,
-        "wrapper_batch": "base_smoke",
+        "wrapper_batch": "mineagent_task8_viewer",
         "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseViewerChurnConsistency",
         "wrapper_status": "passed",
         "wrapper_testcase": "mineagentfabricgametestentrypoint.baseviewerchurnconsistency"
@@ -39,120 +87,363 @@
       {
         "forge_batch": "mineagent",
         "forge_scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread",
-        "mapped_forge_class": "ServerThreadConfinementGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.222,
-        "wrapper_batch": "base_smoke",
+        "wrapper_batch": "mineagent",
         "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseServerThreadConfinement",
         "wrapper_status": "passed",
         "wrapper_testcase": "mineagentfabricgametestentrypoint.baseserverthreadconfinement"
       },
       {
+        "forge_batch": "mineagent_task9_timeout",
+        "forge_scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay",
+        "mapped_forge_class": null,
+        "name_similarity": 0.455,
+        "wrapper_batch": "mineagent_task9_timeout",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseTimeoutFailureContractUnderForcedDelay",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basetimeoutfailurecontractunderforceddelay"
+      },
+      {
         "forge_batch": "mineagent",
         "forge_scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus",
-        "mapped_forge_class": "ToolArgsBoundaryEndToEndGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.231,
-        "wrapper_batch": "base_smoke",
+        "wrapper_batch": "mineagent",
         "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseToolArgsBoundaryE2e",
-        "wrapper_status": "passed",
+        "wrapper_status": "xml_missing",
         "wrapper_testcase": "mineagentfabricgametestentrypoint.basetoolargsboundarye2e"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "SessionVisibilityDeleteRebindGameTest::sessionVisibilityDeleteRebindUnderRuntimeConditions",
+        "mapped_forge_class": null,
+        "name_similarity": 0.625,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseSessionVisibilityDeleteRebindRuntime",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.basesessionvisibilitydeleterebindruntime"
+      },
+      {
+        "forge_batch": "mineagent_runtime",
+        "forge_scenario_id": "DeletedSessionQueuedAppendGameTest::deletedSessionQueuedAppendDoesNotRecreate",
+        "mapped_forge_class": null,
+        "name_similarity": 1.0,
+        "wrapper_batch": "mineagent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::deletedSessionQueuedAppendDoesNotRecreate",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.deletedsessionqueuedappenddoesnotrecreate"
+      },
+      {
+        "forge_batch": "mineagent_agent_runtime",
+        "forge_scenario_id": "AgentSystemReliabilityGameTest::agentSystemReliability",
+        "mapped_forge_class": null,
+        "name_similarity": 0.75,
+        "wrapper_batch": "mineagent_agent_runtime",
+        "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseAgentSystemReliability",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentfabricgametestentrypoint.baseagentsystemreliability"
       },
       {
         "forge_batch": "mineagentae",
         "forge_scenario_id": "AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
-        "mapped_forge_class": "AeCraftLifecycleIsolationGameTest",
+        "mapped_forge_class": null,
         "name_similarity": 0.3,
-        "wrapper_batch": "ae_smoke",
+        "wrapper_batch": "ae_smoke_craft",
         "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::craftLifecycleIsolation",
         "wrapper_status": "passed",
         "wrapper_testcase": "mineagentaefabricgametestentrypoint.craftlifecycleisolation"
-      }
-    ],
-    "missing": [
-      {
-        "batch": "mineagent",
-        "class_name": "ServerThreadConfinementGameTest",
-        "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
-        "module": "base-forge",
-        "scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay"
-      }
-    ],
-    "runtime_blocked": [
-      {
-        "batch": "mineagent",
-        "class_name": "IndexingGateRecoveryGameTest",
-        "method_name": "indexingGateRecoveryAcrossReload",
-        "module": "base-forge",
-        "scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload"
       },
       {
-        "batch": "mineagent",
-        "class_name": "ProposalBindingUnavailableGameTest",
-        "method_name": "proposalBindingUnavailableApprovalFailsDeterministically",
-        "module": "base-forge",
-        "scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically"
-      },
-      {
-        "batch": "mineagent",
-        "class_name": "ServerThreadConfinementGameTest",
-        "method_name": "asyncToolInvocationMarshalsToServerThread",
-        "module": "base-forge",
-        "scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread"
-      },
-      {
-        "batch": "mineagent",
-        "class_name": "ServerThreadConfinementGameTest",
-        "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
-        "module": "base-forge",
-        "scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay"
-      },
-      {
-        "batch": "mineagent",
-        "class_name": "ToolArgsBoundaryEndToEndGameTest",
-        "method_name": "toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus",
-        "module": "base-forge",
-        "scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus"
-      },
-      {
-        "batch": "mineagent",
-        "class_name": "ViewerChurnConsistencyGameTest",
-        "method_name": "multiViewerSnapshotConsistencyUnderChurn",
-        "module": "base-forge",
-        "scenario_id": "ViewerChurnConsistencyGameTest::multiViewerSnapshotConsistencyUnderChurn"
-      },
-      {
-        "batch": "mineagentae",
-        "class_name": "AeCraftLifecycleIsolationGameTest",
-        "method_name": "craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
-        "module": "ext-ae-forge",
-        "scenario_id": "AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage"
-      }
-    ],
-    "wrapper_only": [
-      {
+        "forge_batch": "mineagentae",
+        "forge_scenario_id": "AeBoundTerminalApprovalSuccessGameTest::aeBoundTerminalApprovalSuccessHandoff",
         "mapped_forge_class": null,
-        "wrapper_batch": "smoke",
-        "wrapper_id": "MineAgentFabricGameTestEntrypoint::smokeBootstrap",
+        "name_similarity": 1.0,
+        "wrapper_batch": "ae_smoke_approval_success",
+        "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeBoundTerminalApprovalSuccessHandoff",
         "wrapper_status": "passed",
-        "wrapper_testcase": "mineagentfabricgametestentrypoint.smokebootstrap"
+        "wrapper_testcase": "mineagentaefabricgametestentrypoint.aeboundterminalapprovalsuccesshandoff"
+      },
+      {
+        "forge_batch": "mineagentae",
+        "forge_scenario_id": "AeTerminalTeardownLiveJobsGameTest::aeTerminalTeardownClearsLiveJobs",
+        "mapped_forge_class": null,
+        "name_similarity": 1.0,
+        "wrapper_batch": "ae_smoke_teardown",
+        "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeTerminalTeardownClearsLiveJobs",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentaefabricgametestentrypoint.aeterminalteardownclearslivejobs"
+      },
+      {
+        "forge_batch": "mineagentae",
+        "forge_scenario_id": "AeBindingInvalidationGameTest::aeBindingInvalidationAfterTerminalRemovalOrWrongSide",
+        "mapped_forge_class": null,
+        "name_similarity": 1.0,
+        "wrapper_batch": "ae_smoke_invalidation",
+        "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeBindingInvalidationAfterTerminalRemovalOrWrongSide",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentaefabricgametestentrypoint.aebindinginvalidationafterterminalremovalorwrongside"
+      },
+      {
+        "forge_batch": "mineagentae",
+        "forge_scenario_id": "AeCpuUnavailableGameTest::aeCpuTargetedUnavailableCpuBranch",
+        "mapped_forge_class": null,
+        "name_similarity": 1.0,
+        "wrapper_batch": "ae_smoke_cpu",
+        "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeCpuTargetedUnavailableCpuBranch",
+        "wrapper_status": "passed",
+        "wrapper_testcase": "mineagentaefabricgametestentrypoint.aecputargetedunavailablecpubranch"
       }
-    ]
+    ],
+    "missing": [],
+    "runtime_blocked": [],
+    "wrapper_only": []
   },
-  "fabric_discovered_testcases": [
+  "fabric_registered_testcases": [
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.commandmenuopencloselifecyclecleanup",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::commandMenuOpenCloseLifecycleCleanup",
+      "xml_time": 0.254
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basereloadcommandsmoke",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseReloadCommandSmoke",
+      "xml_time": 0.291
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basedeletelastactivesessionfallback",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseDeleteLastActiveSessionFallback",
+      "xml_time": 0.26
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basemenuvalidityruntime",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseMenuValidityRuntime",
+      "xml_time": 0.289
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basesessionvisibilitysessionlistcycle",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseSessionVisibilitySessionListCycle",
+      "xml_time": 0.279
+    },
+    {
+      "batch": "mineagent",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseproposalbindingunavailable",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseProposalBindingUnavailable",
+      "xml_time": 0.045
+    },
+    {
+      "batch": "mineagent",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseindexinggaterecovery",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseIndexingGateRecovery",
+      "xml_time": 0.099
+    },
+    {
+      "batch": "mineagent_task8_viewer",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseviewerchurnconsistency",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseViewerChurnConsistency",
+      "xml_time": 0.023
+    },
+    {
+      "batch": "mineagent",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseserverthreadconfinement",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseServerThreadConfinement",
+      "xml_time": 0.107
+    },
+    {
+      "batch": "mineagent_task9_timeout",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basetimeoutfailurecontractunderforceddelay",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseTimeoutFailureContractUnderForcedDelay",
+      "xml_time": 31.563
+    },
+    {
+      "batch": "mineagent",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basetoolargsboundarye2e",
+      "reported_in_xml": false,
+      "runtime_status": "xml_missing",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseToolArgsBoundaryE2e",
+      "xml_time": null
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basesessionvisibilitydeleterebindruntime",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseSessionVisibilityDeleteRebindRuntime",
+      "xml_time": 0.282
+    },
+    {
+      "batch": "mineagent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.deletedsessionqueuedappenddoesnotrecreate",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::deletedSessionQueuedAppendDoesNotRecreate",
+      "xml_time": 0.287
+    },
+    {
+      "batch": "mineagent_agent_runtime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseagentsystemreliability",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentFabricGameTestEntrypoint::baseAgentSystemReliability",
+      "xml_time": 0.454
+    },
+    {
+      "batch": "ae_smoke_craft",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.craftlifecycleisolation",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::craftLifecycleIsolation",
+      "xml_time": 0.026
+    },
+    {
+      "batch": "ae_smoke_approval_success",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aeboundterminalapprovalsuccesshandoff",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeBoundTerminalApprovalSuccessHandoff",
+      "xml_time": 0.041
+    },
+    {
+      "batch": "ae_smoke_teardown",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aeterminalteardownclearslivejobs",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeTerminalTeardownClearsLiveJobs",
+      "xml_time": 0.024
+    },
+    {
+      "batch": "ae_smoke_invalidation",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aebindinginvalidationafterterminalremovalorwrongside",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeBindingInvalidationAfterTerminalRemovalOrWrongSide",
+      "xml_time": 0.023
+    },
+    {
+      "batch": "ae_smoke_cpu",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aecputargetedunavailablecpubranch",
+      "reported_in_xml": true,
+      "runtime_status": "passed",
+      "wrapper_id": "MineAgentAeFabricGameTestEntrypoint::aeCpuTargetedUnavailableCpuBranch",
+      "xml_time": 0.177
+    }
+  ],
+  "fabric_xml_reported_testcases": [
     {
       "classname": "fabric-gametest-api-v1:empty",
-      "method_lc": "smokebootstrap",
+      "method_lc": "commandmenuopencloselifecyclecleanup",
       "module": "base-fabric",
-      "name": "mineagentfabricgametestentrypoint.smokebootstrap",
+      "name": "mineagentfabricgametestentrypoint.commandmenuopencloselifecyclecleanup",
       "status": "passed",
-      "time": 0.06
+      "time": 0.254
     },
     {
       "classname": "fabric-gametest-api-v1:empty",
-      "method_lc": "baseindexinggaterecovery",
+      "method_lc": "basedeletelastactivesessionfallback",
       "module": "base-fabric",
-      "name": "mineagentfabricgametestentrypoint.baseindexinggaterecovery",
+      "name": "mineagentfabricgametestentrypoint.basedeletelastactivesessionfallback",
       "status": "passed",
-      "time": 0.098
+      "time": 0.26
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "basereloadcommandsmoke",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basereloadcommandsmoke",
+      "status": "passed",
+      "time": 0.291
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "basemenuvalidityruntime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basemenuvalidityruntime",
+      "status": "passed",
+      "time": 0.289
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "basesessionvisibilitysessionlistcycle",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basesessionvisibilitysessionlistcycle",
+      "status": "passed",
+      "time": 0.279
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "basesessionvisibilitydeleterebindruntime",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basesessionvisibilitydeleterebindruntime",
+      "status": "passed",
+      "time": 0.282
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "deletedsessionqueuedappenddoesnotrecreate",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.deletedsessionqueuedappenddoesnotrecreate",
+      "status": "passed",
+      "time": 0.287
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "baseagentsystemreliability",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseagentsystemreliability",
+      "status": "passed",
+      "time": 0.454
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "basetimeoutfailurecontractunderforceddelay",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.basetimeoutfailurecontractunderforceddelay",
+      "status": "passed",
+      "time": 31.563
     },
     {
       "classname": "fabric-gametest-api-v1:empty",
@@ -160,23 +451,7 @@
       "module": "base-fabric",
       "name": "mineagentfabricgametestentrypoint.baseviewerchurnconsistency",
       "status": "passed",
-      "time": 0.084
-    },
-    {
-      "classname": "fabric-gametest-api-v1:empty",
-      "method_lc": "baseserverthreadconfinement",
-      "module": "base-fabric",
-      "name": "mineagentfabricgametestentrypoint.baseserverthreadconfinement",
-      "status": "passed",
-      "time": 0.064
-    },
-    {
-      "classname": "fabric-gametest-api-v1:empty",
-      "method_lc": "basetoolargsboundarye2e",
-      "module": "base-fabric",
-      "name": "mineagentfabricgametestentrypoint.basetoolargsboundarye2e",
-      "status": "passed",
-      "time": 0.049
+      "time": 0.023
     },
     {
       "classname": "fabric-gametest-api-v1:empty",
@@ -184,7 +459,39 @@
       "module": "base-fabric",
       "name": "mineagentfabricgametestentrypoint.baseproposalbindingunavailable",
       "status": "passed",
-      "time": 0.027
+      "time": 0.045
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "baseindexinggaterecovery",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseindexinggaterecovery",
+      "status": "passed",
+      "time": 0.099
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "baseserverthreadconfinement",
+      "module": "base-fabric",
+      "name": "mineagentfabricgametestentrypoint.baseserverthreadconfinement",
+      "status": "passed",
+      "time": 0.107
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "aecputargetedunavailablecpubranch",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aecputargetedunavailablecpubranch",
+      "status": "passed",
+      "time": 0.177
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "aeterminalteardownclearslivejobs",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aeterminalteardownclearslivejobs",
+      "status": "passed",
+      "time": 0.024
     },
     {
       "classname": "fabric-gametest-api-v1:empty",
@@ -192,16 +499,67 @@
       "module": "ext-ae-fabric",
       "name": "mineagentaefabricgametestentrypoint.craftlifecycleisolation",
       "status": "passed",
-      "time": 0.055
+      "time": 0.026
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "aebindinginvalidationafterterminalremovalorwrongside",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aebindinginvalidationafterterminalremovalorwrongside",
+      "status": "passed",
+      "time": 0.023
+    },
+    {
+      "classname": "fabric-gametest-api-v1:empty",
+      "method_lc": "aeboundterminalapprovalsuccesshandoff",
+      "module": "ext-ae-fabric",
+      "name": "mineagentaefabricgametestentrypoint.aeboundterminalapprovalsuccesshandoff",
+      "status": "passed",
+      "time": 0.041
     }
   ],
   "forge_expected_scenarios": [
+    {
+      "batch": "mineagent_agent_runtime",
+      "class_name": "AgentSystemReliabilityGameTest",
+      "method_name": "agentSystemReliability",
+      "module": "base-forge",
+      "scenario_id": "AgentSystemReliabilityGameTest::agentSystemReliability"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "CommandMenuLifecycleGameTest",
+      "method_name": "commandMenuOpenCloseLifecycleCleanup",
+      "module": "base-forge",
+      "scenario_id": "CommandMenuLifecycleGameTest::commandMenuOpenCloseLifecycleCleanup"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "DeleteLastActiveSessionFallbackGameTest",
+      "method_name": "deleteLastActiveSessionFallbackCreatesNewSession",
+      "module": "base-forge",
+      "scenario_id": "DeleteLastActiveSessionFallbackGameTest::deleteLastActiveSessionFallbackCreatesNewSession"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "DeletedSessionQueuedAppendGameTest",
+      "method_name": "deletedSessionQueuedAppendDoesNotRecreate",
+      "module": "base-forge",
+      "scenario_id": "DeletedSessionQueuedAppendGameTest::deletedSessionQueuedAppendDoesNotRecreate"
+    },
     {
       "batch": "mineagent",
       "class_name": "IndexingGateRecoveryGameTest",
       "method_name": "indexingGateRecoveryAcrossReload",
       "module": "base-forge",
       "scenario_id": "IndexingGateRecoveryGameTest::indexingGateRecoveryAcrossReload"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "MenuValidityRuntimeGameTest",
+      "method_name": "menuValidityTracksRealHostLivenessConditions",
+      "module": "base-forge",
+      "scenario_id": "MenuValidityRuntimeGameTest::menuValidityTracksRealHostLivenessConditions"
     },
     {
       "batch": "mineagent",
@@ -211,6 +569,13 @@
       "scenario_id": "ProposalBindingUnavailableGameTest::proposalBindingUnavailableApprovalFailsDeterministically"
     },
     {
+      "batch": "mineagent_runtime",
+      "class_name": "ReloadCommandSmokeGameTest",
+      "method_name": "reloadCommandSmokeRebuildsRecipeIndex",
+      "module": "base-forge",
+      "scenario_id": "ReloadCommandSmokeGameTest::reloadCommandSmokeRebuildsRecipeIndex"
+    },
+    {
       "batch": "mineagent",
       "class_name": "ServerThreadConfinementGameTest",
       "method_name": "asyncToolInvocationMarshalsToServerThread",
@@ -218,11 +583,25 @@
       "scenario_id": "ServerThreadConfinementGameTest::asyncToolInvocationMarshalsToServerThread"
     },
     {
-      "batch": "mineagent",
+      "batch": "mineagent_task9_timeout",
       "class_name": "ServerThreadConfinementGameTest",
       "method_name": "timeoutAndFailureContractsRemainStableUnderForcedDelay",
       "module": "base-forge",
       "scenario_id": "ServerThreadConfinementGameTest::timeoutAndFailureContractsRemainStableUnderForcedDelay"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "SessionVisibilityDeleteRebindGameTest",
+      "method_name": "sessionVisibilityDeleteRebindUnderRuntimeConditions",
+      "module": "base-forge",
+      "scenario_id": "SessionVisibilityDeleteRebindGameTest::sessionVisibilityDeleteRebindUnderRuntimeConditions"
+    },
+    {
+      "batch": "mineagent_runtime",
+      "class_name": "SessionVisibilitySessionListCycleGameTest",
+      "method_name": "sessionVisibilitySessionListUpdateCycle",
+      "module": "base-forge",
+      "scenario_id": "SessionVisibilitySessionListCycleGameTest::sessionVisibilitySessionListUpdateCycle"
     },
     {
       "batch": "mineagent",
@@ -232,7 +611,7 @@
       "scenario_id": "ToolArgsBoundaryEndToEndGameTest::toolArgsBoundaryEndToEnd_65535_65536_65537_withUtfCorpus"
     },
     {
-      "batch": "mineagent",
+      "batch": "mineagent_task8_viewer",
       "class_name": "ViewerChurnConsistencyGameTest",
       "method_name": "multiViewerSnapshotConsistencyUnderChurn",
       "module": "base-forge",
@@ -240,26 +619,43 @@
     },
     {
       "batch": "mineagentae",
+      "class_name": "AeBindingInvalidationGameTest",
+      "method_name": "aeBindingInvalidationAfterTerminalRemovalOrWrongSide",
+      "module": "ext-ae-forge",
+      "scenario_id": "AeBindingInvalidationGameTest::aeBindingInvalidationAfterTerminalRemovalOrWrongSide"
+    },
+    {
+      "batch": "mineagentae",
+      "class_name": "AeBoundTerminalApprovalSuccessGameTest",
+      "method_name": "aeBoundTerminalApprovalSuccessHandoff",
+      "module": "ext-ae-forge",
+      "scenario_id": "AeBoundTerminalApprovalSuccessGameTest::aeBoundTerminalApprovalSuccessHandoff"
+    },
+    {
+      "batch": "mineagentae",
+      "class_name": "AeCpuUnavailableGameTest",
+      "method_name": "aeCpuTargetedUnavailableCpuBranch",
+      "module": "ext-ae-forge",
+      "scenario_id": "AeCpuUnavailableGameTest::aeCpuTargetedUnavailableCpuBranch"
+    },
+    {
+      "batch": "mineagentae",
       "class_name": "AeCraftLifecycleIsolationGameTest",
       "method_name": "craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage",
       "module": "ext-ae-forge",
       "scenario_id": "AeCraftLifecycleIsolationGameTest::craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage"
+    },
+    {
+      "batch": "mineagentae",
+      "class_name": "AeTerminalTeardownLiveJobsGameTest",
+      "method_name": "aeTerminalTeardownClearsLiveJobs",
+      "module": "ext-ae-forge",
+      "scenario_id": "AeTerminalTeardownLiveJobsGameTest::aeTerminalTeardownClearsLiveJobs"
     }
   ],
   "forge_runtime": {
-    "blocked": true,
-    "blocker_hits": [
-      {
-        "excerpt": "InvalidModFileException: Illegal version number specified version (main)",
-        "file": "ci-reports/parity/forge-blocker.log",
-        "pattern": "InvalidModFileException: Illegal version number specified version \\(main\\)"
-      },
-      {
-        "excerpt": "Failed to find system mod: minecraft",
-        "file": "ci-reports/parity/forge-blocker.log",
-        "pattern": "Failed to find system mod: minecraft"
-      }
-    ]
+    "blocked": false,
+    "blocker_hits": []
   },
   "report_type": "forge-vs-fabric-gametest-parity"
 }

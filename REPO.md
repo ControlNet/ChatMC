@@ -828,7 +828,7 @@ The following recent commits were not yet reflected in this document and are now
 
 ---
 
-## 16) Test Strategy Notes (synced on 2026-03-29)
+## 16) Test Strategy Notes (synced on 2026-03-31)
 
 ### 16.1 Layered pyramid, current implemented state
 1. **Unit JUnit (core-first):**
@@ -840,6 +840,8 @@ The following recent commits were not yet reflected in this document and are now
 3. **GameTest (runtime invariants):**
    - Harness is active on both loaders.
    - Shared whole-agent reliability scenarios now live in `base/common-1.20.1` and run through thin Fabric/Forge adapters.
+   - Shared cross-loader GameTest scenarios in `base/common-1.20.1` now cover the reload-command smoke path, delete-last-active-session fallback creation, real-host menu validity, session-visibility/session-list update no-op handling, base task6 proposal-binding-unavailable, task7 indexing-gate recovery, task8 viewer churn consistency, task9 server-thread confinement plus timeout/failure contracts, and task10 tool-args boundary, while loader modules stay thin wrappers or entrypoint adapters.
+   - Shared cross-loader GameTest scenarios in `ext-ae/common-1.20.1` now cover bound-terminal approval success handoff, craft lifecycle isolation, terminal teardown live-job cleanup, binding invalidation after removal / wrong-side lookup miss, and the CPU-targeted unavailable-CPU branch, while the deterministic no-binding approval failure remains covered by common-module JUnit.
    - Fabric and Forge base runtime paths are both green in this workspace, including the shared agent reliability scenario.
 
 ### 16.2 Canonical execution commands
@@ -847,7 +849,13 @@ The following recent commits were not yet reflected in this document and are now
 ```bash
 ./gradlew --no-daemon --configure-on-demand :base:core:test
 ./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test
+./gradlew --no-daemon --configure-on-demand :ext-ae:core:test
 ./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test
+```
+
+**Aggregate JUnit coverage command:**
+```bash
+./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport
 ```
 
 **Fabric GameTest commands (nightly/parity path):**
@@ -865,6 +873,9 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 
 ### 16.3 Report artifacts, parity, and evidence locations
 - JUnit XML: `**/build/test-results/test/*.xml`
+- Aggregate JUnit JaCoCo HTML: `build/reports/jacoco/jacocoUnitTestReport/html/index.html`
+- Aggregate JUnit JaCoCo XML: `build/reports/jacoco/jacocoUnitTestReport/jacocoUnitTestReport.xml`
+- Per-module JUnit JaCoCo reports: `**/build/reports/jacoco/test/**`
 - Fabric GameTest XML:
   - `base/fabric-1.20.1/build/reports/gametest/runGametest.xml`
   - `ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`
@@ -876,18 +887,27 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - Parity report: `ci-reports/parity/gametest-parity-report.md`
 - Evidence archive: `.sisyphus/evidence/*`
 
-### 16.4 Cross-loader runtime status (updated 2026-03-29)
+### 16.4 Cross-loader runtime status (updated 2026-04-02)
 - **Shared agent reliability coverage:** base runtime now includes a shared cross-loader reliability scenario that exercises the real chat packet → session transition → agent loop → tool execution / failure path.
-- **Shared scenario coverage:** direct response, tool loop, invalid model output, and model-exception failure are all covered from common code.
-- **Loader adapters:** Fabric exposes `baseAgentSystemReliability`; Forge exposes `agentSystemReliability`; both are thin wrappers over `AgentReliabilityGameTestScenarios.run(...)`.
+ - **Shared scenario coverage:** common code now owns the base command-menu lifecycle cleanup, reload-command smoke path, deleted-session queued-append lifecycle, delete-last-active-session fallback, real-host menu validity, session-visibility/delete/rebind lifecycle, session-list update / TEAM no-op handling, proposal-binding-unavailable, indexing-gate recovery, viewer churn consistency, server-thread confinement, timeout/failure contract, tool-args boundary, and agent-reliability scenarios, plus the ext-AE craft-lifecycle isolation, bound-terminal approval success handoff, terminal teardown live-job cleanup, binding invalidation, and unavailable-CPU runtime branches. The deterministic bound-terminal no-binding failure path is covered by `NetworkProposalLifecycleBehaviorTest.task7_approvalDecisionBehavior_approveWithoutBindingFailsDeterministically()` instead of the loader runtime lane.
+- **Loader adapters:** Fabric runtime methods and Forge GameTest classes are thin wrappers over the shared common scenarios, with loader-specific work limited to player creation and entrypoint wiring.
 - **Current workspace status:** both base Fabric and base Forge GameTest runs pass in this workspace, and the previous Forge runtime blocker no longer applies to the current branch state.
+- **Ext-AE Fabric isolation:** the ext-AE Fabric nightly/parity lane now keeps the base mod loaded for runtime dependencies but strips the base `fabric-gametest` entrypoint from the ext-AE local runtime artifact, so `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke` discovers only the five AE smoke GameTests while the base Fabric lane remains the source of base runtime coverage.
+- **Current workspace verification:** `:base:fabric-1.20.1:runGametest`, `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke`, `:base:forge-1.20.1:runGameTestServer`, and `:ext-ae:forge-1.20.1:runGameTestServer` all pass in this workspace.
+- **Parity evidence note:** the checked-in parity report now treats Fabric wrapper registration plus successful lane runs as the authoritative testcase inventory. Fabric's `runGametest.xml` remains a collected artifact, but it does not reliably enumerate every passing registered testcase in this workspace, so the XML is used as supplemental per-test status rather than the sole inventory source.
 
 ### 16.5 CI lane mapping
-- **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:common-1.20.1:test`).
-- **Dev lane:** JUnit suite + Forge `:base:forge-1.20.1:runGameTestServer` with blocker-aware policy parsing.
-- **Nightly lane:** JUnit suite + Fabric `:base:fabric-1.20.1:runGametest` and `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke`.
+- **PR lane:** JUnit matrix only (`:base:core:test`, `:base:common-1.20.1:test`, `:ext-ae:core:test`, `:ext-ae:common-1.20.1:test`) with per-module JaCoCo artifacts.
+- **Dev lane:** single `jacocoUnitTestReport` invocation (which runs the covered JUnit suite once and emits aggregate/per-module coverage) + Forge `:base:forge-1.20.1:runGameTestServer` with blocker-aware policy parsing.
+- **Nightly lane:** single `jacocoUnitTestReport` invocation (which runs the covered JUnit suite once and emits aggregate/per-module coverage) + Fabric `:base:fabric-1.20.1:runGametest` and `:ext-ae:fabric-1.20.1:runGametest -Dfabric-api.gametest.filter=ae_smoke`.
+- **Policy parser naming note:** the workflow-visible lane is `dev`, but the policy parser still uses the internal lane key `main` when collecting/enforcing the dev-lane summary.
 
-### 16.6 Released MineAgent state (updated 2026-03-31)
+### 16.6 JUnit coverage signal (updated 2026-03-31)
+- **Coverage scope:** percentage-based coverage is now tracked for the stable JUnit layer only, across `base/core`, `base/common-1.20.1`, `ext-ae/core`, and `ext-ae/common-1.20.1`.
+- **Aggregation model:** each covered module still emits its own JaCoCo report on `test`, and the root `jacocoUnitTestReport` task produces one aggregate HTML/XML report for CI artifacts and local inspection.
+- **Runtime policy:** Fabric/Forge GameTest coverage remains scenario-based and is intentionally not folded into the main JaCoCo percentage signal.
+
+### 16.7 Released MineAgent state (updated 2026-03-31)
 - **Naming and module split:** the repository now treats MineAgent / MineAgent AE / MineAgent Matrix as the canonical shipped identities across source, resources, build metadata, and release automation.
 - **Published release flow:** GitHub releases are published from `master` by `.github/workflows/release.yml`, using `gradle.properties` as the source of truth for `mod_version` and `minecraft_version`.
 - **Current release metadata:** the repository is currently configured for `mod_version=0.0.1` on Minecraft `1.20.1`.

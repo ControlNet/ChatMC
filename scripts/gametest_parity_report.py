@@ -36,6 +36,14 @@ class FabricWrapper:
     def wrapper_id(self) -> str:
         return f"{self.class_name}::{self.method_name}"
 
+    @property
+    def testcase_name(self) -> str:
+        return f"{self.class_name.lower()}.{self.method_name.lower()}"
+
+    @property
+    def counterpart_forge_module(self) -> str:
+        return "ext-ae-forge" if self.module == "ext-ae-fabric" else "base-forge"
+
 
 def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
@@ -115,7 +123,7 @@ def _parse_forge_scenarios(gametest_dir: Path, module: str) -> list[ForgeScenari
 
 
 def _parse_fabric_wrappers(
-    java_paths: Iterable[Path], module: str
+    java_paths: Iterable[tuple[Path, str]],
 ) -> list[FabricWrapper]:
     wrappers: list[FabricWrapper] = []
     method_pattern = re.compile(r"public\s+static\s+void\s+(?P<method>\w+)\s*\(")
@@ -123,7 +131,7 @@ def _parse_fabric_wrappers(
     direct_map_pattern = re.compile(r"Forge scenario:\s*(?P<class_name>\w+)")
     mirror_map_pattern = re.compile(r"Mirrors\s+(?P<class_name>\w+)")
 
-    for java_path in sorted(java_paths):
+    for java_path, module in sorted(java_paths, key=lambda row: row[0].as_posix()):
         lines = java_path.read_text(encoding="utf-8").splitlines()
         class_name = java_path.stem
         for idx, line in enumerate(lines):
@@ -210,8 +218,10 @@ def _load_blocker_patterns(policy_file: Path) -> list[str]:
 
 
 def generate_report(args: argparse.Namespace) -> dict[str, object]:
-    fabric_cases = _parse_fabric_xml(Path(args.base_fabric_xml), module="base-fabric")
-    fabric_cases.extend(
+    fabric_xml_cases = _parse_fabric_xml(
+        Path(args.base_fabric_xml), module="base-fabric"
+    )
+    fabric_xml_cases.extend(
         _parse_fabric_xml(Path(args.ae_fabric_xml), module="ext-ae-fabric")
     )
 
@@ -223,39 +233,55 @@ def generate_report(args: argparse.Namespace) -> dict[str, object]:
     )
 
     wrapper_paths = [
-        Path(args.base_fabric_entrypoint),
-        Path(args.ae_fabric_entrypoint),
+        (Path(args.base_fabric_entrypoint), "base-fabric"),
+        (Path(args.ae_fabric_entrypoint), "ext-ae-fabric"),
     ]
-    wrappers = _parse_fabric_wrappers(wrapper_paths, module="fabric")
+    wrappers = _parse_fabric_wrappers(wrapper_paths)
 
     forge_by_class: dict[str, list[ForgeScenario]] = {}
     for scenario in forge_scenarios:
         forge_by_class.setdefault(scenario.class_name, []).append(scenario)
 
-    case_by_method_lc = {case["method_lc"]: case for case in fabric_cases}
+    case_by_name = {case["name"]: case for case in fabric_xml_cases}
+    fabric_registered_testcases: list[dict[str, object]] = []
     matched: list[dict[str, object]] = []
     wrapper_only: list[dict[str, object]] = []
     mapped_forge_scenario_ids: set[str] = set()
 
     for wrapper in wrappers:
-        method_lc = wrapper.method_name.lower()
-        case = case_by_method_lc.get(method_lc)
+        case = case_by_name.get(wrapper.testcase_name)
+        fabric_registered_testcases.append(
+            {
+                "module": wrapper.module,
+                "wrapper_id": wrapper.wrapper_id,
+                "name": wrapper.testcase_name,
+                "batch": wrapper.batch,
+                "reported_in_xml": case is not None,
+                "runtime_status": case["status"] if case else "xml_missing",
+                "xml_time": case["time"] if case else None,
+            }
+        )
         wrapper_row = {
             "wrapper_id": wrapper.wrapper_id,
             "wrapper_batch": wrapper.batch,
-            "wrapper_testcase": case["name"] if case else None,
-            "wrapper_status": case["status"] if case else "not_found",
+            "wrapper_testcase": wrapper.testcase_name,
+            "wrapper_status": case["status"] if case else "xml_missing",
             "mapped_forge_class": wrapper.mapped_forge_class,
         }
 
-        if (
-            not wrapper.mapped_forge_class
-            or wrapper.mapped_forge_class not in forge_by_class
-        ):
+        if wrapper.mapped_forge_class and wrapper.mapped_forge_class in forge_by_class:
+            candidates = forge_by_class[wrapper.mapped_forge_class]
+        else:
+            candidates = [
+                scenario
+                for scenario in forge_scenarios
+                if scenario.module == wrapper.counterpart_forge_module
+            ]
+
+        if not candidates:
             wrapper_only.append(wrapper_row)
             continue
 
-        candidates = forge_by_class[wrapper.mapped_forge_class]
         wrapper_tokens = _tokenize(wrapper.method_name)
         best: ForgeScenario | None = None
         best_score = -1.0
@@ -266,6 +292,10 @@ def generate_report(args: argparse.Namespace) -> dict[str, object]:
                 best_score = score
 
         if best is None:
+            wrapper_only.append(wrapper_row)
+            continue
+
+        if best_score <= 0.0:
             wrapper_only.append(wrapper_row)
             continue
 
@@ -317,10 +347,15 @@ def generate_report(args: argparse.Namespace) -> dict[str, object]:
         actionable_gaps.append(
             "Unblock Forge runtime startup (`InvalidModFileException ... version (main)` + `Failed to find system mod: minecraft`) so Forge scenario execution status can be compared beyond wrapper-level coverage."
         )
+    if len(fabric_xml_cases) < len(wrappers):
+        actionable_gaps.append(
+            "Fabric GameTest XML did not report every registered wrapper testcase in this workspace, so parity inventory uses Fabric wrapper registration as the authoritative testcase set and XML only as supplemental runtime status."
+        )
 
     return {
         "report_type": "forge-vs-fabric-gametest-parity",
-        "fabric_discovered_testcases": fabric_cases,
+        "fabric_registered_testcases": fabric_registered_testcases,
+        "fabric_xml_reported_testcases": fabric_xml_cases,
         "forge_expected_scenarios": forge_expected,
         "categories": {
             "matched": matched,
@@ -364,8 +399,14 @@ def write_outputs(
         f"- Forge runtime blocked in workspace: **{str(forge_runtime['blocked']).lower()}**"  # type: ignore[index]
     )
     lines.append("")
-    lines.append("## Discovered Fabric testcases")
-    for case in report["fabric_discovered_testcases"]:  # type: ignore[index]
+    lines.append("## Registered Fabric wrapper testcases")
+    for case in report["fabric_registered_testcases"]:  # type: ignore[index]
+        lines.append(
+            f"- `{case['name']}` ({case['module']}, batch={case['batch']}, runtime_status={case['runtime_status']}, reported_in_xml={str(case['reported_in_xml']).lower()})"  # type: ignore[index]
+        )
+    lines.append("")
+    lines.append("## Fabric XML reported testcases")
+    for case in report["fabric_xml_reported_testcases"]:  # type: ignore[index]
         lines.append(
             f"- `{case['name']}` ({case['module']}, status={case['status']}, time={case['time']}s)"  # type: ignore[index]
         )
@@ -431,8 +472,8 @@ def verify_report(report: dict[str, object]) -> tuple[bool, list[str]]:
         errors.append("Matched+missing set does not equal expected Forge scenarios.")
     if forge_runtime["blocked"] and len(runtime_blocked) != len(expected):  # type: ignore[index]
         errors.append("Runtime blocked is true but runtime_blocked list is incomplete.")
-    if not report["fabric_discovered_testcases"]:  # type: ignore[index]
-        errors.append("No Fabric testcases discovered from XML reports.")
+    if not report["fabric_registered_testcases"]:  # type: ignore[index]
+        errors.append("No Fabric wrapper testcases discovered from source entrypoints.")
     return (len(errors) == 0, errors)
 
 

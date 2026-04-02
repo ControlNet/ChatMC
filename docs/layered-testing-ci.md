@@ -10,9 +10,13 @@ This repository uses three explicit CI lanes for layered testing. Lane policy is
 
 | Lane | Trigger | Exact commands | Collected artifacts |
 |---|---|---|---|
-| **PR** | `pull_request` (or `workflow_dispatch lane=pr`) | `./gradlew --no-daemon --configure-on-demand :base:core:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test` (matrix) | `**/build/test-results/test/*.xml` + `ci-reports/pr/*-summary.json` |
-| **Dev** | `push` to `dev` (or `workflow_dispatch lane=dev`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace` | JUnit XML + Forge log `ci-reports/dev/forge-gametest.log` + Forge XML reports under `base/forge-1.20.1/build/reports/**` (when available) + `ci-reports/dev/summary.json` |
-| **Nightly** | `schedule` (or `workflow_dispatch lane=nightly`) | `./gradlew --no-daemon --configure-on-demand :base:core:test :base:common-1.20.1:test :ext-ae:common-1.20.1:test`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke` | JUnit XML + Fabric GameTest XML:<br>`base/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br>`ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br> + `ci-reports/nightly/summary.json` |
+| **PR** | `pull_request` (or `workflow_dispatch lane=pr`) | `./gradlew --no-daemon --configure-on-demand :base:core:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :ext-ae:core:test` (matrix)<br>`./gradlew --no-daemon --configure-on-demand :ext-ae:common-1.20.1:test` (matrix) | `**/build/test-results/test/*.xml` + module JaCoCo HTML/XML under `**/build/reports/jacoco/test/**` + `ci-reports/pr/*-summary.json` |
+| **Dev** | `push` to `dev` (or `workflow_dispatch lane=dev`) | `./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGameTestServer --stacktrace` | JUnit XML + aggregate JaCoCo HTML/XML under `build/reports/jacoco/jacocoUnitTestReport/**` + per-module JaCoCo reports + Forge log `ci-reports/dev/forge-gametest.log` + Forge XML reports under `base/forge-1.20.1/build/reports/**` (when available) + `ci-reports/dev/summary.json` |
+| **Nightly** | `schedule` (or `workflow_dispatch lane=nightly`) | `./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :base:fabric-1.20.1:runGametest --stacktrace`<br>`timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:fabric-1.20.1:runGametest --stacktrace -Dfabric-api.gametest.filter=ae_smoke` | JUnit XML + aggregate JaCoCo HTML/XML under `build/reports/jacoco/jacocoUnitTestReport/**` + per-module JaCoCo reports + Fabric GameTest XML:<br>`base/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br>`ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml`<br> + `ci-reports/nightly/summary.json` |
+
+Nightly note: the ext-AE Fabric lane intentionally loads a base runtime artifact without the base `fabric-gametest` entrypoint, so the ext-AE command above verifies only the AE smoke runtime set while base Fabric runtime coverage stays in the separate base lane.
+
+Parity note: the Fabric `runGametest.xml` files are still collected as nightly artifacts, but the repo-local parity report does not treat them as a complete testcase inventory source because the Fabric emitter can omit passing registered cases in this workspace. The parity report uses Fabric wrapper registration as the authoritative inventory and XML only as supplemental runtime status.
 
 ## Forge blocker handling policy (historical fallback, still explicit)
 
@@ -27,6 +31,8 @@ Behavior:
 2. The parser returns **exit code `3`** with status `blocked` when only the known blocker is present.
 3. Workflow emits an explicit warning: `Dev lane is BLOCKED by known Forge runtime issue`.
 4. This is visible in artifacts and JSON summary instead of being silently treated as a pass.
+
+Implementation note: the workflow job is named **dev lane**, but the policy parser still uses the internal lane key `main` when invoking `scripts/ci_collect_reports.py`. Keep those names in sync only if the workflow, policy file, and parser invocation are updated together.
 
 ## Retry / quarantine / flaky policy
 
@@ -76,6 +82,25 @@ No manual-only acceptance is allowed: promotion must be reflected in policy/conf
 - `3`: blocked (known Forge runtime blocker detected and explicitly allowed for that lane)
 
 All lanes emit machine-consumable JSON summaries at `ci-reports/<lane>/summary.json` (PR matrix uses `ci-reports/pr/*-summary.json`).
+
+## JUnit coverage reporting
+
+- The repository now treats **JUnit coverage** as a first-class signal for the stable JVM test layer only.
+- Covered modules in the aggregate report:
+  - `base/core`
+  - `base/common-1.20.1`
+  - `ext-ae/core`
+  - `ext-ae/common-1.20.1`
+- Aggregate command:
+
+```bash
+./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport
+```
+
+- Aggregate report outputs:
+  - HTML: `build/reports/jacoco/jacocoUnitTestReport/html/index.html`
+  - XML: `build/reports/jacoco/jacocoUnitTestReport/jacocoUnitTestReport.xml`
+- Runtime/GameTest modules remain outside the main percentage-based coverage signal; they continue to be evaluated via GameTest scenario coverage and XML/log artifacts.
 
 ## Release automation
 
