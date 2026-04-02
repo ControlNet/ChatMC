@@ -34,6 +34,8 @@ jobs:
             task: :base:core:test
           - lane_name: base-common
             task: :base:common-1.20.1:test
+          - lane_name: ext-ae-core
+            task: :ext-ae:core:test
           - lane_name: ext-ae-common
             task: :ext-ae:common-1.20.1:test
 
@@ -69,6 +71,7 @@ jobs:
           path: |
             ci-reports/pr/${{ matrix.lane_name }}-summary.json
             **/build/test-results/test/*.xml
+            **/build/reports/jacoco/test/**
 
   dev-lane:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && inputs.lane == 'dev')
@@ -87,12 +90,8 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Run JUnit suite
-        run: |
-          ./gradlew --no-daemon --configure-on-demand \
-            :base:core:test \
-            :base:common-1.20.1:test \
-            :ext-ae:common-1.20.1:test
+      - name: Run JUnit suite with aggregate coverage report
+        run: ./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport
 
       - name: Run Forge GameTests (capture blocker logs)
         id: forge_run
@@ -132,6 +131,8 @@ jobs:
             ci-reports/dev/summary.json
             ci-reports/dev/forge-gametest.log
             base/forge-1.20.1/build/reports/**/*.xml
+            build/reports/jacoco/jacocoUnitTestReport/**
+            **/build/reports/jacoco/test/**
             **/build/test-results/test/*.xml
 
   nightly-lane:
@@ -151,12 +152,8 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Run nightly JUnit suite
-        run: |
-          ./gradlew --no-daemon --configure-on-demand \
-            :base:core:test \
-            :base:common-1.20.1:test \
-            :ext-ae:common-1.20.1:test
+      - name: Run nightly JUnit suite with aggregate coverage report
+        run: ./gradlew --no-daemon --configure-on-demand jacocoUnitTestReport
 
       - name: Run Fabric GameTests (base + AE-heavy)
         id: fabric_run
@@ -204,4 +201,6 @@ jobs:
             ci-reports/nightly/ext-ae-fabric-gametest.log
             base/fabric-1.20.1/build/reports/gametest/runGametest.xml
             ext-ae/fabric-1.20.1/build/reports/gametest/runGametest.xml
+            build/reports/jacoco/jacocoUnitTestReport/**
+            **/build/reports/jacoco/test/**
             **/build/test-results/test/*.xml

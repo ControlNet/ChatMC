@@ -1,7 +1,21 @@
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
 plugins {
     id "architectury-plugin" version "3.4.162"
     id "dev.architectury.loom" version "1.7.435" apply false
     id "com.github.johnrengelman.shadow" version "8.1.1" apply false
+    id "jacoco"
+}
+
+def junitCoverageProjects = [
+        project(":base:core"),
+        project(":base:common-1.20.1"),
+        project(":ext-ae:core"),
+        project(":ext-ae:common-1.20.1")
+]
+
+jacoco {
+    toolVersion = "0.8.12"
 }
 
 ext {
@@ -78,6 +92,54 @@ subprojects {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(javaVer)
         }
+    }
+}
+
+configure(junitCoverageProjects) {
+    apply plugin: "jacoco"
+
+    jacoco {
+        toolVersion = "0.8.12"
+    }
+
+    tasks.named("test", Test).configure {
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    tasks.named("jacocoTestReport", JacocoReport).configure {
+        dependsOn(tasks.named("test"))
+
+        reports {
+            xml.required = true
+            html.required = true
+            csv.required = false
+        }
+    }
+}
+
+tasks.register("jacocoUnitTestReport", JacocoReport) {
+    group = "verification"
+    description = "Generates an aggregate JaCoCo coverage report for the JUnit modules."
+
+    dependsOn(junitCoverageProjects.collect { it.tasks.named("test") })
+
+    executionData.from(files(junitCoverageProjects.collect {
+        it.layout.buildDirectory.file("jacoco/test.exec")
+    }).filter { it.exists() })
+    sourceDirectories.from(files(junitCoverageProjects.collect {
+        it.sourceSets.main.allSource.srcDirs
+    }))
+    additionalSourceDirs.from(files(junitCoverageProjects.collect {
+        it.sourceSets.main.allSource.srcDirs
+    }))
+    classDirectories.from(files(junitCoverageProjects.collect {
+        it.sourceSets.main.output
+    }))
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
     }
 }
 
