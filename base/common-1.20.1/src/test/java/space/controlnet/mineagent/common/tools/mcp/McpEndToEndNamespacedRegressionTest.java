@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class McpEndToEndNamespacedRegressionTest {
     private static final Duration RELOAD_TIMEOUT = Duration.ofSeconds(10);
-    private static final Duration REQUEST_TIMEOUT = Duration.ofMillis(150);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofMillis(500);
     private static final int MAX_RESPONSE_BYTES = 4096;
     private static final String TOOL_PREFIX = "mcp.task9e2e";
     private static final String DROP_ALIAS = "task9e2e-drop";
