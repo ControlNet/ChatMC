@@ -8,10 +8,18 @@ dependencies {
     rootProject.ext.addAgentDeps(dependencies, "compileOnly")
 
     compileOnly project(":base:core")
+    testImplementation project(":base:core")
     
     // Gson is provided by the Minecraft runtime; don't package it.
     compileOnly "com.google.code.gson:gson:2.10.1"
+    testImplementation "com.google.code.gson:gson:2.10.1"
 
     // NightConfig TOML (Forge provides at runtime; compile-only here)
     compileOnly "com.electronwill.night-config:toml:3.6.4"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+}
+
+tasks.named("test", Test).configure {
+    useJUnitPlatform()
 }
