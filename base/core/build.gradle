@@ -6,14 +6,17 @@ dependencies {
     // Pure domain module: no Minecraft/AE2/Architectury deps.
     // Agent dependencies (LangChain4j) are allowed as they're not MC-specific.
     rootProject.ext.addAgentDeps(dependencies, "compileOnly")
+    rootProject.ext.addAgentDeps(dependencies, "testImplementation")
     
     compileOnly "com.google.code.gson:gson:2.10.1"
     testImplementation "com.google.code.gson:gson:2.10.1"
 
     // NightConfig TOML (Forge provides at runtime; compile-only here)
     compileOnly "com.electronwill.night-config:toml:3.6.4"
+    testImplementation "com.electronwill.night-config:toml:3.6.4"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+    testImplementation "org.slf4j:slf4j-api:2.0.13"
 }
 
 tasks.named("test", Test).configure {

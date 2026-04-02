@@ -21,7 +21,7 @@ public final class RecipeSearchAlgorithm {
             int limit
     ) {
         if (snapshot == null) {
-            return new RecipeSearchResult(List.of(), Optional.of("0"));
+            return new RecipeSearchResult(List.of(), Optional.empty());
         }
 
         int safeLimit = Math.max(1, Math.min(limit, 100));
@@ -157,7 +157,8 @@ public final class RecipeSearchAlgorithm {
      */
     public static Optional<Integer> parseOffset(String token) {
         try {
-            return Optional.of(Integer.parseInt(token));
+            int offset = Integer.parseInt(token);
+            return offset < 0 ? Optional.empty() : Optional.of(offset);
         } catch (NumberFormatException e) {
             return Optional.empty();
         }

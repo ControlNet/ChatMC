@@ -84,7 +84,7 @@ public final class RecipeIndexManager {
     public RecipeSearchResult findByOutput(String itemId, Optional<String> pageToken, int limit) {
         RecipeIndexSnapshot snapshot = snapshotRef.get();
         if (snapshot == null) {
-            return new RecipeSearchResult(java.util.List.of(), Optional.of("0"));
+            return new RecipeSearchResult(java.util.List.of(), Optional.empty());
         }
         java.util.List<String> ids = snapshot.byOutputItemId().getOrDefault(itemId, java.util.List.of());
         return pageByIds(snapshot, ids, pageToken, limit);
@@ -96,7 +96,7 @@ public final class RecipeIndexManager {
     public RecipeSearchResult findByIngredient(String itemId, Optional<String> pageToken, int limit) {
         RecipeIndexSnapshot snapshot = snapshotRef.get();
         if (snapshot == null) {
-            return new RecipeSearchResult(java.util.List.of(), Optional.of("0"));
+            return new RecipeSearchResult(java.util.List.of(), Optional.empty());
         }
         java.util.List<String> ids = snapshot.byIngredientItemId().getOrDefault(itemId, java.util.List.of());
         return pageByIds(snapshot, ids, pageToken, limit);
@@ -107,15 +107,17 @@ public final class RecipeIndexManager {
         int offset = pageToken.flatMap(RecipeSearchAlgorithm::parseOffset).orElse(0);
 
         java.util.List<RecipeSummary> results = new java.util.ArrayList<>(Math.min(ids.size(), safeLimit));
+        int nextOffset = offset;
         for (int i = offset; i < ids.size() && results.size() < safeLimit; i++) {
+            nextOffset = i + 1;
             RecipeSummary summary = snapshot.byId().get(ids.get(i));
             if (summary != null) {
                 results.add(summary);
             }
         }
 
-        Optional<String> next = (offset + results.size()) < ids.size()
-                ? Optional.of(Integer.toString(offset + results.size()))
+        Optional<String> next = nextOffset < ids.size()
+                ? Optional.of(Integer.toString(nextOffset))
                 : Optional.empty();
 
         return new RecipeSearchResult(results, next);
