@@ -10,7 +10,11 @@ import java.util.List;
 @Mod.EventBusSubscriber(modid = MineAgentAe.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class MineAgentAeGameTestBootstrap {
     private static final List<Class<?>> GAME_TEST_CLASSES = List.of(
-            AeCraftLifecycleIsolationGameTest.class
+            AeCraftLifecycleIsolationGameTest.class,
+            AeBoundTerminalApprovalSuccessGameTest.class,
+            AeTerminalTeardownLiveJobsGameTest.class,
+            AeBindingInvalidationGameTest.class,
+            AeCpuUnavailableGameTest.class
     );
 
     private MineAgentAeGameTestBootstrap() {

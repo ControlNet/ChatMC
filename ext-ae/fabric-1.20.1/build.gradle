@@ -12,8 +12,13 @@ loom {
             runConfig.configName = "Game Test"
             runConfig.server()
             runConfig.runDir("run/gametest")
+            def configuredGameTestFilter = project.findProperty("fabric-api.gametest.filter")
+                    ?: System.getProperty("fabric-api.gametest.filter")
 
             runConfig.property("fabric-api.gametest")
+            if (configuredGameTestFilter != null) {
+                runConfig.property("fabric-api.gametest.filter", configuredGameTestFilter.toString())
+            }
             runConfig.property(
                 "fabric-api.gametest.report-file",
                 layout.buildDirectory.file("reports/gametest/runGametest.xml").get().asFile.absolutePath
@@ -32,6 +37,7 @@ architectury {
 
 def expectedBaseFabricModIdSnippet = '"id": "mineagent"'
 def expectedBaseFabricEntrypointSnippet = "space.controlnet.mineagent.fabric"
+def baseGametestlessRuntimeJar = project(":base:fabric-1.20.1").layout.buildDirectory.file("libs/fabric-1.20.1-${project.version}-dev-gametestless.jar")
 def hasCurrentBaseFabricMetadata = { String fabricModJson ->
     fabricModJson.contains(expectedBaseFabricModIdSnippet)
         && fabricModJson.contains(expectedBaseFabricEntrypointSnippet)
@@ -113,7 +119,7 @@ dependencies {
     // Base mod dependency (MineAgent) - compile + runtime
     // Use 'common' config which extends runtimeClasspath + developmentFabric
     modCompileOnly project(path: ":base:fabric-1.20.1", configuration: "namedElements")
-    modLocalRuntime project(path: ":base:fabric-1.20.1", configuration: "namedElements")
+    modLocalRuntime files(baseGametestlessRuntimeJar)
     // Base common + core classes needed at dev runtime (not in fabric dev jar)
     common(project(path: ":base:common-1.20.1", configuration: "namedElements"))
     common(project(path: ":base:core"))
@@ -149,4 +155,14 @@ processResources {
 
 tasks.named("runGametest") {
     dependsOn(":base:fabric-1.20.1:build")
+    dependsOn(":base:fabric-1.20.1:gametestlessRuntimeJar")
+    def configuredGameTestFilter = project.findProperty("fabric-api.gametest.filter")
+            ?: System.getProperty("fabric-api.gametest.filter")
+    if (configuredGameTestFilter != null) {
+        systemProperty "fabric-api.gametest.filter", configuredGameTestFilter.toString()
+    }
+}
+
+tasks.named("generateRemapClasspath") {
+    dependsOn(":base:fabric-1.20.1:gametestlessRuntimeJar")
 }

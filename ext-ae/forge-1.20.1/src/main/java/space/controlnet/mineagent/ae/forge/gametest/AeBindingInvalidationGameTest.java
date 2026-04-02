@@ -7,24 +7,24 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
-import space.controlnet.mineagent.ae.common.gametest.AeCraftLifecycleIsolationGameTestScenarios;
+import space.controlnet.mineagent.ae.common.gametest.AeBindingFailureGameTestScenarios;
 import space.controlnet.mineagent.common.gametest.GameTestRuntimeLease;
 
 import java.util.UUID;
 
 @PrefixGameTestTemplate(false)
 @GameTestHolder("mineagentae")
-public final class AeCraftLifecycleIsolationGameTest {
-    private AeCraftLifecycleIsolationGameTest() {
+public final class AeBindingInvalidationGameTest {
+    private AeBindingInvalidationGameTest() {
     }
 
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "mineagentae", timeoutTicks = 2400)
-    public static void craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage(GameTestHelper helper) {
+    public static void aeBindingInvalidationAfterTerminalRemovalOrWrongSide(GameTestHelper helper) {
         GameTestRuntimeLease.runWhenAvailable(helper,
-                () -> AeCraftLifecycleIsolationGameTestScenarios.craftLifecycleIsolation(
+                () -> AeBindingFailureGameTestScenarios.bindingInvalidationAfterTerminalRemovalOrWrongSide(
                         helper,
-                        AeCraftLifecycleIsolationGameTest::createPlayer
+                        AeBindingInvalidationGameTest::createPlayer
                 ));
     }
 

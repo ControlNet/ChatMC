@@ -7,24 +7,24 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
-import space.controlnet.mineagent.ae.common.gametest.AeCraftLifecycleIsolationGameTestScenarios;
+import space.controlnet.mineagent.ae.common.gametest.AeBindingFailureGameTestScenarios;
 import space.controlnet.mineagent.common.gametest.GameTestRuntimeLease;
 
 import java.util.UUID;
 
 @PrefixGameTestTemplate(false)
 @GameTestHolder("mineagentae")
-public final class AeCraftLifecycleIsolationGameTest {
-    private AeCraftLifecycleIsolationGameTest() {
+public final class AeBoundTerminalApprovalSuccessGameTest {
+    private AeBoundTerminalApprovalSuccessGameTest() {
     }
 
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "mineagentae", timeoutTicks = 2400)
-    public static void craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage(GameTestHelper helper) {
+    public static void aeBoundTerminalApprovalSuccessHandoff(GameTestHelper helper) {
         GameTestRuntimeLease.runWhenAvailable(helper,
-                () -> AeCraftLifecycleIsolationGameTestScenarios.craftLifecycleIsolation(
+                () -> AeBindingFailureGameTestScenarios.boundTerminalApprovalSuccessHandoff(
                         helper,
-                        AeCraftLifecycleIsolationGameTest::createPlayer
+                        AeBoundTerminalApprovalSuccessGameTest::createPlayer
                 ));
     }
 

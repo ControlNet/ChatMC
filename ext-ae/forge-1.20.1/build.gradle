@@ -145,6 +145,13 @@ def syncBinMainModsToml = tasks.register("syncBinMainModsToml", Sync) {
     into(layout.projectDirectory.dir("bin/main"))
 }
 
+def syncBinMainCompiledArtifacts = tasks.register("syncBinMainCompiledArtifacts", Sync) {
+    dependsOn(tasks.named("classes"))
+    from(layout.buildDirectory.dir("classes/java/main"))
+    from(layout.buildDirectory.dir("resources/main"))
+    into(layout.projectDirectory.dir("bin/main"))
+}
+
 def syncRunGameTestStructures = tasks.register("syncRunGameTestStructures", Sync) {
     dependsOn(tasks.named("processResources"))
     from(layout.projectDirectory.dir("gameteststructures"))
@@ -173,4 +180,5 @@ tasks.matching { it.name == "runGameTestServer" }.configureEach {
     dependsOn(syncBinMainModsToml)
     dependsOn(ensureGameTestEula)
     dependsOn(syncRunGameTestStructures)
+    dependsOn(syncBinMainCompiledArtifacts)
 }

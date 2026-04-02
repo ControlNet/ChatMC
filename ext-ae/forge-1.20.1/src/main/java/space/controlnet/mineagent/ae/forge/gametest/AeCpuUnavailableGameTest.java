@@ -14,17 +14,17 @@ import java.util.UUID;
 
 @PrefixGameTestTemplate(false)
 @GameTestHolder("mineagentae")
-public final class AeCraftLifecycleIsolationGameTest {
-    private AeCraftLifecycleIsolationGameTest() {
+public final class AeCpuUnavailableGameTest {
+    private AeCpuUnavailableGameTest() {
     }
 
     @PrefixGameTestTemplate(false)
     @GameTest(template = "empty", batch = "mineagentae", timeoutTicks = 2400)
-    public static void craftLifecycleIsolation_beginSuccessFailure_withoutCrossTerminalLeakage(GameTestHelper helper) {
+    public static void aeCpuTargetedUnavailableCpuBranch(GameTestHelper helper) {
         GameTestRuntimeLease.runWhenAvailable(helper,
-                () -> AeCraftLifecycleIsolationGameTestScenarios.craftLifecycleIsolation(
+                () -> AeCraftLifecycleIsolationGameTestScenarios.cpuTargetedUnavailableCpuBranch(
                         helper,
-                        AeCraftLifecycleIsolationGameTest::createPlayer
+                        AeCpuUnavailableGameTest::createPlayer
                 ));
     }
 
