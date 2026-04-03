@@ -879,6 +879,8 @@ python3 scripts/capture_ui_preview.py --loader fabric --scenario proposal_pendin
 
 - The AI terminal screenshot flow is shared in `base/common-1.20.1` and activates only when `MINEAGENT_UI_CAPTURE_SCENARIO` is present.
 - Forge and Fabric both use the same common preview scenarios, snapshot assertions, and screenshot capture path; the loader choice only affects which `runServer` / `runClient` tasks launch the runtime.
+- **Current workspace verification (2026-04-03):** `DISPLAY=:1 python3 scripts/capture_ui_preview.py --loader fabric --scenario all --display :1` and `DISPLAY=:1 python3 scripts/capture_ui_preview.py --loader forge --scenario all --display :1` both completed successfully and produced the full shared scenario set: `empty`, `chat_short`, `suggestions_visible`, `proposal_pending`, `executing`, `error_state`, `http_result`, and `session_list_dense`.
+- Generated UI capture PNGs under `artifacts/ui-captures/` are local runtime outputs and are intentionally kept out of git.
 
 ### 16.3 Report artifacts, parity, and evidence locations
 - JUnit XML: `**/build/test-results/test/*.xml`
