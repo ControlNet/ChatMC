@@ -486,6 +486,9 @@ public final class MineAgentNetwork {
     }
 
     public static void sendChatToServer(String text, String clientLocale, String aiLocaleOverride) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         String locale = clientLocale == null || clientLocale.isBlank() ? "en_us" : clientLocale;
         String override = aiLocaleOverride == null ? "" : aiLocaleOverride;
         CHANNEL.sendToServer(new C2SSendChatPacket(PROTOCOL_VERSION, text, locale, override));
@@ -505,27 +508,50 @@ public final class MineAgentNetwork {
     }
 
     public static void sendApprovalDecision(String proposalId, ApprovalDecision decision) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SApprovalDecisionPacket(PROTOCOL_VERSION, proposalId, decision));
     }
 
     public static void requestSessionList(SessionListScope scope) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SRequestSessionListPacket(PROTOCOL_VERSION, scope));
     }
 
     public static void openSession(UUID sessionId) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SOpenSessionPacket(PROTOCOL_VERSION, sessionId));
     }
 
     public static void createSession() {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SCreateSessionPacket(PROTOCOL_VERSION));
     }
 
     public static void deleteSession(UUID sessionId) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SDeleteSessionPacket(PROTOCOL_VERSION, sessionId));
     }
 
     public static void updateSession(UUID sessionId, Optional<String> title, Optional<SessionVisibility> visibility) {
+        if (isClientUiAutomationActive()) {
+            return;
+        }
         CHANNEL.sendToServer(new C2SUpdateSessionPacket(PROTOCOL_VERSION, sessionId, title, visibility));
+    }
+
+    private static boolean isClientUiAutomationActive() {
+        String scenario = System.getenv("MINEAGENT_UI_CAPTURE_SCENARIO");
+        return scenario != null && !scenario.isBlank();
     }
 
     private static void writeSummary(FriendlyByteBuf buf, SessionSummary summary) {

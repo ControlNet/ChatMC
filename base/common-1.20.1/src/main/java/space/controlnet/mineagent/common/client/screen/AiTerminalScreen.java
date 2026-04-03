@@ -19,6 +19,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import space.controlnet.mineagent.common.MineAgentNetwork;
+import space.controlnet.mineagent.common.client.automation.AiTerminalUiPreviewState;
+import space.controlnet.mineagent.common.client.automation.AiTerminalUiSnapshot;
 import space.controlnet.mineagent.common.menu.AiTerminalMenu;
 import space.controlnet.mineagent.common.team.TeamAccess;
 import space.controlnet.mineagent.common.tools.ToolRegistry;
@@ -130,6 +132,56 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         super(menu, inventory, Component.translatable("ui.mineagent.terminal.title"));
         this.imageWidth = 420;
         this.imageHeight = 250;
+    }
+
+    public void applyAutomationPreview(AiTerminalUiPreviewState previewState) {
+        if (previewState == null) {
+            return;
+        }
+        if (previewState.sessionsOpen() != this.sessionsOpen) {
+            setSessionsPanelVisible(previewState.sessionsOpen());
+        }
+        if (this.inputBox != null) {
+            this.inputBox.setValue(previewState.inputText());
+        }
+        this.itemSuggestions.clear();
+        this.itemSuggestions.addAll(previewState.itemSuggestions());
+        this.suggestionsVisible = !this.itemSuggestions.isEmpty();
+        this.selectedSuggestionIndex = this.suggestionsVisible
+                ? clamp(previewState.selectedSuggestionIndex(), 0, this.itemSuggestions.size() - 1)
+                : -1;
+        this.hoveredSuggestionIndex = -1;
+        this.scrollToBottomOnNextRender = true;
+        updateAiLocaleButtonLabel();
+        updateProposalUi();
+        rebuildWrappedLines();
+    }
+
+    public AiTerminalUiSnapshot captureAutomationSnapshot() {
+        int visibleRows = 0;
+        for (SessionRow row : this.sessionRows) {
+            if (row.getSummary() != null) {
+                visibleRows++;
+            }
+        }
+        return new AiTerminalUiSnapshot(
+                true,
+                getClass().getSimpleName(),
+                this.statusText,
+                this.sendButton != null && this.sendButton.active,
+                this.approveButton != null && this.approveButton.visible,
+                this.denyButton != null && this.denyButton.visible,
+                this.sessionsOpen,
+                this.sessionSummaries.size(),
+                visibleRows,
+                this.suggestionsVisible,
+                this.itemSuggestions.size(),
+                this.selectedSuggestionIndex,
+                this.inputBox == null ? "" : this.inputBox.getValue(),
+                this.messages.size(),
+                this.wrappedLines.size(),
+                this.pendingProposal != null
+        );
     }
 
     @Override

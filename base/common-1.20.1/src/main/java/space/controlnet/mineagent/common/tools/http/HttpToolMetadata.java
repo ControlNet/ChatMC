@@ -25,15 +25,18 @@ public final class HttpToolMetadata {
                     + ", default " + HttpToolRequest.DEFAULT_MAX_REDIRECTS,
             "responseMode: optional string in auto|text|json|bytes, default " + HttpToolRequest.DEFAULT_RESPONSE_MODE
     );
-    public static final String RESULT_SCHEMA = "{kind, request: {url, method, query: [{name, value}], headers: [{name, value}], bodyText?, bodyBase64?, timeoutMs, followRedirects, maxRedirects, responseMode}, response?: {statusCode, finalUrl, headers: [{name, value}], contentType?, bodyText?, bodyBase64?, bodyBytes}, failure?: {code, message}, truncated}";
+    public static final String RESULT_SCHEMA = "{kind, request: {url, method, query: [{name, value}], headers: [{name, value}], bodyText?, bodyBase64?, timeoutMs, followRedirects, maxRedirects, responseMode}, response?: {statusCode, finalUrl, redirectCount, headers: [{name, value}], contentType?, charset?, declaredContentLength?, bodyText?, bodyBase64?, bodyBytes}, failure?: {code, message}, truncated}";
     public static final List<String> RESULT_DESCRIPTION = List.of(
             "kind: always \"" + HttpToolResultEnvelope.KIND + "\"",
             "request: normalized request echo with resolved defaults, duplicate-preserving query/header entry arrays, and explicit redirect/response-mode settings",
             "response: populated for completed HTTP exchanges regardless of status code",
             "response.statusCode: integer HTTP status code",
             "response.finalUrl: final response URL after redirects",
+            "response.redirectCount: number of redirects followed before the terminal response",
             "response.headers: ordered array of {name, value} entries; preserves duplicates",
-            "response.contentType: optional response content type string",
+            "response.contentType: optional normalized response media type string",
+            "response.charset: optional normalized response charset name when declared",
+            "response.declaredContentLength: optional declared response body length from Content-Length",
             "response.bodyText: decoded text response body when available; mutually exclusive with response.bodyBase64",
             "response.bodyBase64: base64 response body for binary or undecodable content; mutually exclusive with response.bodyText",
             "response.bodyBytes: total response body size in bytes",

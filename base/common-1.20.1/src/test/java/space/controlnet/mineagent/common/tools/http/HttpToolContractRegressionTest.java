@@ -34,7 +34,7 @@ public final class HttpToolContractRegressionTest {
                 "responseMode: optional string in auto|text|json|bytes, default auto"
         ), tool.argsDescription());
         assertEquals(
-                "{kind, request: {url, method, query: [{name, value}], headers: [{name, value}], bodyText?, bodyBase64?, timeoutMs, followRedirects, maxRedirects, responseMode}, response?: {statusCode, finalUrl, headers: [{name, value}], contentType?, bodyText?, bodyBase64?, bodyBytes}, failure?: {code, message}, truncated}",
+                "{kind, request: {url, method, query: [{name, value}], headers: [{name, value}], bodyText?, bodyBase64?, timeoutMs, followRedirects, maxRedirects, responseMode}, response?: {statusCode, finalUrl, redirectCount, headers: [{name, value}], contentType?, charset?, declaredContentLength?, bodyText?, bodyBase64?, bodyBytes}, failure?: {code, message}, truncated}",
                 tool.resultSchema()
         );
         assertEquals(List.of(
@@ -43,8 +43,11 @@ public final class HttpToolContractRegressionTest {
                 "response: populated for completed HTTP exchanges regardless of status code",
                 "response.statusCode: integer HTTP status code",
                 "response.finalUrl: final response URL after redirects",
+                "response.redirectCount: number of redirects followed before the terminal response",
                 "response.headers: ordered array of {name, value} entries; preserves duplicates",
-                "response.contentType: optional response content type string",
+                "response.contentType: optional normalized response media type string",
+                "response.charset: optional normalized response charset name when declared",
+                "response.declaredContentLength: optional declared response body length from Content-Length",
                 "response.bodyText: decoded text response body when available; mutually exclusive with response.bodyBase64",
                 "response.bodyBase64: base64 response body for binary or undecodable content; mutually exclusive with response.bodyText",
                 "response.bodyBytes: total response body size in bytes",
@@ -83,8 +86,11 @@ public final class HttpToolContractRegressionTest {
         HttpToolResponse response = new HttpToolResponse(
                 200,
                 "https://example.com/api/search?tag=minecraft&tag=agent",
+                2,
                 List.of(setCookieOne, setCookieTwo),
                 "application/json",
+                "utf-8",
+                11L,
                 "{\"ok\":true}",
                 null,
                 11
@@ -102,6 +108,9 @@ public final class HttpToolContractRegressionTest {
         assertEquals(List.of(setCookieOne, setCookieTwo), response.headers());
         assertSame(setCookieOne, response.headers().get(0));
         assertSame(setCookieTwo, response.headers().get(1));
+        assertEquals(2, response.redirectCount());
+        assertEquals("utf-8", response.charset());
+        assertEquals(11L, response.declaredContentLength());
         assertEquals("http_result", result.kind());
         assertSame(request, result.request());
         assertSame(response, result.response());
@@ -153,8 +162,11 @@ public final class HttpToolContractRegressionTest {
                 () -> new HttpToolResponse(
                         200,
                         "https://example.com/upload",
+                        0,
                         List.of(),
                         "application/octet-stream",
+                        null,
+                        null,
                         "text",
                         "dGV4dA==",
                         4
@@ -203,7 +215,8 @@ public final class HttpToolContractRegressionTest {
                         "wrong",
                         new HttpToolRequest("https://example.com", "GET", List.of(), List.of(), null, null, 1_000,
                                 false, 0, "auto"),
-                        new HttpToolResponse(200, "https://example.com", List.of(), "text/plain", "ok", null, 2),
+                        new HttpToolResponse(200, "https://example.com", 0, List.of(), "text/plain", "utf-8", 2L,
+                                "ok", null, 2),
                         null,
                         false
                 ));
@@ -221,7 +234,8 @@ public final class HttpToolContractRegressionTest {
                         HttpToolResultEnvelope.KIND,
                         new HttpToolRequest("https://example.com", "GET", List.of(), List.of(), null, null, 1_000,
                                 false, 0, "auto"),
-                        new HttpToolResponse(200, "https://example.com", List.of(), "text/plain", "ok", null, 2),
+                        new HttpToolResponse(200, "https://example.com", 0, List.of(), "text/plain", "utf-8", 2L,
+                                "ok", null, 2),
                         new HttpToolFailure("tool_timeout", "slow"),
                         false
                 ));
@@ -253,8 +267,11 @@ public final class HttpToolContractRegressionTest {
         HttpToolResponse response = new HttpToolResponse(
                 201,
                 "https://example.com/immutable",
+                0,
                 List.of(new HttpToolEntry("Location", "/immutable/1")),
                 "text/plain",
+                "utf-8",
+                7L,
                 "created",
                 null,
                 7
@@ -272,5 +289,51 @@ public final class HttpToolContractRegressionTest {
         assertEquals(false, successEnvelope.truncated());
         assertEquals(true, failureEnvelope.truncated());
         assertTrue(HttpToolMetadata.SPEC == HttpToolMetadata.spec());
+    }
+
+    @Test
+    void task1_httpContracts_validateEntryFailureAndResponseGuardrails() {
+        IllegalArgumentException nullEntryName = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolEntry(null, "value"));
+        IllegalArgumentException blankEntryName = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolEntry("   ", "value"));
+        HttpToolEntry normalizedEntry = new HttpToolEntry("X-Test", null);
+
+        IllegalArgumentException nullFailureCode = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolFailure(null, "boom"));
+        IllegalArgumentException blankFailureCode = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolFailure("  ", "boom"));
+        HttpToolFailure normalizedFailure = new HttpToolFailure("tool_execution_failed", null);
+
+        IllegalArgumentException invalidStatus = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolResponse(99, "https://example.com", 0, List.of(), null, null, null,
+                        null, null, 0));
+        IllegalArgumentException blankFinalUrl = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolResponse(200, "   ", 0, List.of(), null, null, null,
+                        null, null, 0));
+        IllegalArgumentException negativeRedirectCount = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolResponse(200, "https://example.com", -1, List.of(), null, null, null,
+                        null, null, 0));
+        IllegalArgumentException negativeDeclaredContentLength = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolResponse(200, "https://example.com", 0, List.of(), null, null, -1L,
+                        null, null, 0));
+        IllegalArgumentException negativeBodyBytes = assertThrows(IllegalArgumentException.class,
+                () -> new HttpToolResponse(200, "https://example.com", 0, List.of(), null, null, null,
+                        null, null, -1));
+
+        assertEquals("name is required.", nullEntryName.getMessage());
+        assertEquals("name is required.", blankEntryName.getMessage());
+        assertEquals("", normalizedEntry.value());
+
+        assertEquals("code is required.", nullFailureCode.getMessage());
+        assertEquals("code is required.", blankFailureCode.getMessage());
+        assertEquals("", normalizedFailure.message());
+
+        assertEquals("statusCode must be between 100 and 599.", invalidStatus.getMessage());
+        assertEquals("finalUrl is required.", blankFinalUrl.getMessage());
+        assertEquals("redirectCount must be greater than or equal to 0.", negativeRedirectCount.getMessage());
+        assertEquals("declaredContentLength must be greater than or equal to 0.",
+                negativeDeclaredContentLength.getMessage());
+        assertEquals("bodyBytes must be greater than or equal to 0.", negativeBodyBytes.getMessage());
     }
 }

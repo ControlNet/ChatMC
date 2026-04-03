@@ -871,6 +871,15 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :base:forge-1.20.1:runGa
 timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:runGameTestServer --stacktrace
 ```
 
+**Shared UI preview capture commands (common fixtures, both loaders):**
+```bash
+python3 scripts/capture_ui_preview.py --loader forge --scenario all --display :1
+python3 scripts/capture_ui_preview.py --loader fabric --scenario proposal_pending --display :1
+```
+
+- The AI terminal screenshot flow is shared in `base/common-1.20.1` and activates only when `MINEAGENT_UI_CAPTURE_SCENARIO` is present.
+- Forge and Fabric both use the same common preview scenarios, snapshot assertions, and screenshot capture path; the loader choice only affects which `runServer` / `runClient` tasks launch the runtime.
+
 ### 16.3 Report artifacts, parity, and evidence locations
 - JUnit XML: `**/build/test-results/test/*.xml`
 - Aggregate JUnit JaCoCo HTML: `build/reports/jacoco/jacocoUnitTestReport/html/index.html`
@@ -885,6 +894,7 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - `ci-reports/dev/summary.json`
   - `ci-reports/nightly/summary.json`
 - Parity report: `ci-reports/parity/gametest-parity-report.md`
+- Shared UI preview capture PNGs: `artifacts/ui-captures/<loader>/<scenario>.png`
 - Evidence archive: `.sisyphus/evidence/*`
 
 ### 16.4 Cross-loader runtime status (updated 2026-04-02)
@@ -912,3 +922,67 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 - **Published release flow:** GitHub releases are published from `master` by `.github/workflows/release.yml`, using `gradle.properties` as the source of truth for `mod_version` and `minecraft_version`.
 - **Current release metadata:** the repository is currently configured for `mod_version=0.0.1` on Minecraft `1.20.1`.
 - **Verification before release:** the post-rename verification matrix passed for JUnit, base Forge GameTests, ext-AE Forge GameTests, base Fabric GameTests, ext-AE Fabric GameTests, and `./scripts/build-dist.sh`.
+
+### 16.8 Built-in `http` tool contract (updated 2026-04-03)
+- `http` is a first-party built-in tool from `base/common-1.20.1`.
+- Execution affinity is `CALLING_THREAD`, so outbound network I/O stays off the Minecraft server thread.
+- Each invocation is stateless and performs exactly one HTTP exchange with optional bounded redirect following.
+
+**Prompt-facing request schema:**
+```text
+{url, method?, query?: [{name, value}], headers?: [{name, value}], bodyText?, bodyBase64?, timeoutMs?, followRedirects?, maxRedirects?, responseMode?}
+```
+
+**Result envelope:**
+```text
+{kind, request: {url, method, query: [{name, value}], headers: [{name, value}], bodyText?, bodyBase64?, timeoutMs, followRedirects, maxRedirects, responseMode}, response?: {statusCode, finalUrl, redirectCount, headers: [{name, value}], contentType?, charset?, declaredContentLength?, bodyText?, bodyBase64?, bodyBytes}, failure?: {code, message}, truncated}
+```
+
+**Frozen request/response behavior:**
+- `method` is normalized to uppercase and defaults to `GET`.
+- `url` must be an absolute `http://` or `https://` URL.
+- `query` and `headers` are ordered `{name, value}` arrays that preserve duplicates.
+- `bodyText` and `bodyBase64` are mutually exclusive.
+- `GET` and `HEAD` requests with a body fail locally with `invalid_args`.
+- `responseMode` accepts only `auto | text | json | bytes`.
+- `response.headers` names are normalized to lowercase for deterministic rendering.
+- Completed `1xx` / `2xx` / `3xx` / `4xx` / `5xx` exchanges populate `response`; local validation, timeout, transport, and runtime failures populate `failure`.
+- The success envelope records only `finalUrl` and `redirectCount`; v1 does not return full redirect history.
+
+**Frozen defaults and limits:**
+- `timeoutMs`: default `10000`, allowed range `1000..25000`
+- `followRedirects`: default `false`
+- `maxRedirects`: default `5`, allowed range `0..10`
+- `responseMode`: default `auto`
+- Request body size after UTF-8 or base64 decoding must be `<= 32768` bytes.
+- Response body buffering is capped at `262144` bytes; overflow returns `failure.code = response_too_large` and sets top-level `truncated = true`.
+- `auto` text decoding treats `text/*`, `application/json`, `application/*+json`, `application/xml`, `text/xml`, `application/javascript`, and `application/x-www-form-urlencoded` as text candidates.
+- If a text response omits `charset`, decoding falls back to UTF-8, but `response.charset` stays absent unless the server declared one.
+- V1 is stateless across invocations: response `Set-Cookie` values are not persisted into later `Cookie` request headers.
+
+**Stable local failure codes currently exercised by regression coverage:**
+- `invalid_args`
+- `tool_timeout`
+- `too_many_redirects`
+- `response_too_large`
+- `unsupported_response_body`
+- `tool_execution_failed`
+
+**Deferred non-goals in this iteration:**
+- SSRF / allowlist / approval-flow hardening, secret-redaction frameworks, and broader request-safety policy work
+- cookie jar persistence across tool invocations
+- streaming, SSE, or WebSocket support
+- multipart/form-data helpers, retry frameworks, proxy support, TLS customization, or download-to-file behavior
+- dedicated response-compression helpers beyond default Java `HttpClient` behavior
+
+**Focused verification commands for the HTTP tool contract (run sequentially):**
+```bash
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolRegistrationRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolThreadAffinityRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolFixtureRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolRenderingRegressionTest'
+./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolDocumentationContractRegressionTest'
+```

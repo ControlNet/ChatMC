@@ -6,12 +6,14 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.PackType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import space.controlnet.mineagent.common.client.render.HttpToolOutputRenderer;
 import space.controlnet.mineagent.common.client.render.McToolOutputRenderer;
 import space.controlnet.mineagent.common.client.render.ToolOutputRendererRegistry;
 import space.controlnet.mineagent.common.recipes.RecipeIndexReloadListener;
 import space.controlnet.mineagent.common.recipes.RecipeIndexService;
 import space.controlnet.mineagent.common.tools.McToolProvider;
 import space.controlnet.mineagent.common.tools.ToolRegistry;
+import space.controlnet.mineagent.common.tools.http.HttpToolProvider;
 import space.controlnet.mineagent.common.tools.mcp.McpRuntimeManager;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,7 +32,9 @@ public final class MineAgent {
     public static void init() {
         MineAgentRegistries.init();
         ToolRegistry.register("mc", new McToolProvider());
+        ToolRegistry.register("http", new HttpToolProvider());
         ToolOutputRendererRegistry.register(new McToolOutputRenderer());
+        ToolOutputRendererRegistry.register(new HttpToolOutputRenderer());
         MineAgentNetwork.init();
         space.controlnet.mineagent.common.commands.MineAgentCommands.init();
 

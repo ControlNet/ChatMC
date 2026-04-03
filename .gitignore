@@ -29,6 +29,11 @@ logs/
 # Runtime
 run/
 /.architectury-transformer
+/artifacts/
+
+# Python
+__pycache__/
+**/__pycache__/
 
 # Local JDK
 .jdk/

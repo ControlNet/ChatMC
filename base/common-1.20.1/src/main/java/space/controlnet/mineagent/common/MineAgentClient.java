@@ -1,5 +1,6 @@
 package space.controlnet.mineagent.common;
 
+import space.controlnet.mineagent.common.client.automation.AiTerminalUiAutomation;
 import space.controlnet.mineagent.common.client.MineAgentScreens;
 import space.controlnet.mineagent.common.client.MineAgentKeybinds;
 
@@ -10,5 +11,6 @@ public final class MineAgentClient {
     public static void init() {
         MineAgentScreens.init();
         MineAgentKeybinds.init();
+        AiTerminalUiAutomation.init();
     }
 }

@@ -34,6 +34,16 @@ loom {
                 layout.buildDirectory.file("reports/gametest/runGametest.xml").get().asFile.absolutePath
             )
         }
+        register("uiCaptureServer") { runConfig ->
+            runConfig.configName = "UI Capture Server"
+            runConfig.server()
+            runConfig.runDir("run/ui-capture-server")
+        }
+        register("uiCaptureClient") { runConfig ->
+            runConfig.configName = "UI Capture Client"
+            runConfig.client()
+            runConfig.runDir("run/ui-capture-client")
+        }
     }
 }
 

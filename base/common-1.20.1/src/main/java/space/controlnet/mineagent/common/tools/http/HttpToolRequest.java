@@ -19,6 +19,7 @@ public record HttpToolRequest(
     public static final int DEFAULT_TIMEOUT_MS = 10_000;
     public static final int MIN_TIMEOUT_MS = 1_000;
     public static final int MAX_TIMEOUT_MS = 25_000;
+    public static final int MAX_REQUEST_BODY_BYTES = 32_768;
     public static final boolean DEFAULT_FOLLOW_REDIRECTS = false;
     public static final int DEFAULT_MAX_REDIRECTS = 5;
     public static final int MAX_REDIRECTS = 10;
@@ -44,14 +45,14 @@ public record HttpToolRequest(
         }
     }
 
-    private static String normalizeMethod(String method) {
+    static String normalizeMethod(String method) {
         if (method == null || method.isBlank()) {
             return "GET";
         }
         return method.trim().toUpperCase(Locale.ROOT);
     }
 
-    private static int normalizeTimeoutMs(Integer timeoutMs) {
+    static int normalizeTimeoutMs(Integer timeoutMs) {
         int resolvedTimeoutMs = timeoutMs == null ? DEFAULT_TIMEOUT_MS : timeoutMs;
         if (resolvedTimeoutMs < MIN_TIMEOUT_MS || resolvedTimeoutMs > MAX_TIMEOUT_MS) {
             throw new IllegalArgumentException(
@@ -61,11 +62,11 @@ public record HttpToolRequest(
         return resolvedTimeoutMs;
     }
 
-    private static boolean normalizeFollowRedirects(Boolean followRedirects) {
+    static boolean normalizeFollowRedirects(Boolean followRedirects) {
         return followRedirects == null ? DEFAULT_FOLLOW_REDIRECTS : followRedirects;
     }
 
-    private static int normalizeMaxRedirects(Integer maxRedirects) {
+    static int normalizeMaxRedirects(Integer maxRedirects) {
         int resolvedMaxRedirects = maxRedirects == null ? DEFAULT_MAX_REDIRECTS : maxRedirects;
         if (resolvedMaxRedirects < 0 || resolvedMaxRedirects > MAX_REDIRECTS) {
             throw new IllegalArgumentException("maxRedirects must be between 0 and " + MAX_REDIRECTS + ".");
@@ -73,7 +74,7 @@ public record HttpToolRequest(
         return resolvedMaxRedirects;
     }
 
-    private static String normalizeResponseMode(String responseMode) {
+    static String normalizeResponseMode(String responseMode) {
         String normalizedResponseMode = responseMode == null ? DEFAULT_RESPONSE_MODE : responseMode.trim().toLowerCase(Locale.ROOT);
         if (!"auto".equals(normalizedResponseMode)
                 && !"text".equals(normalizedResponseMode)

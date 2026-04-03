@@ -21,6 +21,24 @@ loom {
             property("forge.enableGameTest", "true")
             property("forge.enabledGameTestNamespaces", "mineagent")
         }
+        create("uiCaptureServer") {
+            server()
+            runDir("run/ui-capture-server")
+            mods {
+                create("mineagent") {
+                    sourceSet project.sourceSets.main
+                }
+            }
+        }
+        create("uiCaptureClient") {
+            client()
+            runDir("run/ui-capture-client")
+            mods {
+                create("mineagent") {
+                    sourceSet project.sourceSets.main
+                }
+            }
+        }
         named("server") {
             mods {
                 create("mineagent") {
