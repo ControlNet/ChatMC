@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="space.controlnet.mineagent.common.tools.http.HttpToolFixtureRegressionTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-04-03T05:22:18" hostname="ansr-4" time="0.518">
+  <properties/>
+  <testcase name="taskHttp_fixture_duplicateHeadersAndBinaryResponses_areStable()" classname="space.controlnet.mineagent.common.tools.http.HttpToolFixtureRegressionTest" time="0.39"/>
+  <testcase name="taskHttp_fixture_delayedResponse_supportsTimeoutScenarios()" classname="space.controlnet.mineagent.common.tools.http.HttpToolFixtureRegressionTest" time="0.108"/>
+  <testcase name="taskHttp_fixture_redirectTextAndEchoBehaviors_areDeterministic()" classname="space.controlnet.mineagent.common.tools.http.HttpToolFixtureRegressionTest" time="0.018"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

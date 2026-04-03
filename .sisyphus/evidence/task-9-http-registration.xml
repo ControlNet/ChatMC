@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="space.controlnet.mineagent.common.tools.http.HttpToolRegistrationRegressionTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-04-03T05:21:46" hostname="ansr-4" time="0.54">
+  <properties/>
+  <testcase name="task2_mineAgentRegistration_registersBuiltInHttpToolWithCallingThreadAffinity()" classname="space.controlnet.mineagent.common.tools.http.HttpToolRegistrationRegressionTest" time="0.03"/>
+  <testcase name="task2_httpProvider_exposesSingleToolAndStablePreExecutionFailures()" classname="space.controlnet.mineagent.common.tools.http.HttpToolRegistrationRegressionTest" time="0.508"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

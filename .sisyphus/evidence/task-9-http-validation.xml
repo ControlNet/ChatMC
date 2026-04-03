@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-04-03T05:22:38" hostname="ansr-4" time="0.179">
+  <properties/>
+  <testcase name="taskHttp_validation_getAndHeadBodiesAreRejectedDeterministically()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.12"/>
+  <testcase name="taskHttp_validation_requestBodySizeOverflow_returnsInvalidArgs()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.013"/>
+  <testcase name="taskHttp_validation_duplicateQueryPreservedAndInvalidBase64Rejected()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.033"/>
+  <testcase name="taskHttp_validation_timeoutRedirectNormalizationAndValidRequestsPrepareDeterministically()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.003"/>
+  <testcase name="taskHttp_validation_bodyTextAndBodyBase64Conflict_returnsInvalidArgs()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.002"/>
+  <testcase name="taskHttp_validation_invalidUrlBlankMethodAndUnsupportedScheme_returnStructuredInvalidArgs()" classname="space.controlnet.mineagent.common.tools.http.HttpToolProviderValidationRegressionTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

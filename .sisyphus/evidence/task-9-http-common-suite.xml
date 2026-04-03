@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<verification task="9" scope="base:common-1.20.1:test" result="passed">
+  <command>./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test</command>
+  <note>Full common-module suite passed after HTTP integration; no HTTP-caused drift remained.</note>
+</verification>

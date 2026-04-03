@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-04-03T05:22:56" hostname="ansr-4" time="1.855">
+  <properties/>
+  <testcase name="taskHttp_execution_connectionRefusalAndOversizedResponses_returnStructuredLocalFailures()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.51"/>
+  <testcase name="taskHttp_execution_redirectDnsAndTruncationFailures_areStable()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.214"/>
+  <testcase name="taskHttp_execution_redirectsEnabledAndDisabled_areDeterministic()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.017"/>
+  <testcase name="taskHttp_execution_http404_returnsSuccessfulToolResult()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.009"/>
+  <testcase name="taskHttp_execution_noBodyCharsetAndStatelessEdges_areStable()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.053"/>
+  <testcase name="taskHttp_execution_textJsonAndBytesModes_handleBinaryAndForcedDecodeFailures()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.022"/>
+  <testcase name="taskHttp_execution_timeoutAndRedirectOverflow_returnStableErrors()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="1.012"/>
+  <testcase name="taskHttp_execution_postBodyAndJsonMode_preserveNormalizedRequestAndResponseMetadata()" classname="space.controlnet.mineagent.common.tools.http.HttpToolExecutionRegressionTest" time="0.01"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Apr 03, 2026 5:22:57 AM sun.net.httpserver.ExchangeImpl sendResponseHeaders
+WARNING: sendResponseHeaders: rCode = 204: forcing contentLen = -1
+Apr 03, 2026 5:22:57 AM sun.net.httpserver.ExchangeImpl sendResponseHeaders
+WARNING: sendResponseHeaders: rCode = 304: forcing contentLen = -1
+Apr 03, 2026 5:22:57 AM sun.net.httpserver.ExchangeImpl sendResponseHeaders
+WARNING: sendResponseHeaders: being invoked with a content length for a HEAD request
+]]></system-err>
+</testsuite>

@@ -1,0 +1,12 @@
+
+- 2026-04-02: none.
+- 2026-04-02: none after Task 1 contract correction.
+- 2026-04-02: none after final envelope correction.
+- 2026-04-02: none after Task 2 provider registration and affinity regression coverage.
+- 2026-04-02: none after Task 4 request-side validation and normalization coverage.
+- 2026-04-02: none after Task 5 execution/redirect/decoding coverage.
+- 2026-04-03: none after Task 6 deterministic rendering and history compatibility coverage.
+- 2026-04-03: none after the F2 correction pass; the only failing step was an initial too-weak malformed-JSON fixture payload, which was tightened without requiring executor changes.
+- 2026-04-03: none after Task 7 edge-case regression lock; the existing HTTP executor satisfied the expanded matrix without code fixes.
+- 2026-04-03: none after Task 8 docs-sync coverage; the dedicated docs regression passed on the first focused Gradle run.
+- 2026-04-03: none after Task 9 verification; the focused HTTP suite and full `:base:common-1.20.1:test` run both passed without requiring HTTP-specific drift fixes.

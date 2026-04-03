@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-04-03T05:21:29" hostname="ansr-4" time="0.04">
+  <properties/>
+  <testcase name="task1_httpContracts_returnImmutableCopies()" classname="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" time="0.027"/>
+  <testcase name="task1_httpContracts_supportFailureEnvelopeAndTopLevelTruncation()" classname="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" time="0.001"/>
+  <testcase name="task1_httpToolSpec_freezesArgsAndResultMetadata()" classname="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" time="0.001"/>
+  <testcase name="task1_httpContracts_preserveEntryOrderingDefaultsAndKind()" classname="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" time="0.001"/>
+  <testcase name="task1_httpContracts_rejectMutuallyExclusiveBodiesInvalidBoundsAndWrongKind()" classname="space.controlnet.mineagent.common.tools.http.HttpToolContractRegressionTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
