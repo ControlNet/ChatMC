@@ -14,6 +14,8 @@ import space.controlnet.mineagent.core.audit.AuditEvent;
 import space.controlnet.mineagent.core.audit.AuditOutcome;
 import space.controlnet.mineagent.core.client.ClientSessionIndex;
 import space.controlnet.mineagent.core.client.ClientSessionStore;
+import space.controlnet.mineagent.core.client.ClientToolCatalog;
+import space.controlnet.mineagent.core.net.s2c.S2CToolCatalogPacket;
 import space.controlnet.mineagent.core.policy.RiskLevel;
 import space.controlnet.mineagent.core.proposal.ApprovalDecision;
 import space.controlnet.mineagent.core.proposal.Proposal;
@@ -30,9 +32,11 @@ import space.controlnet.mineagent.core.session.SessionState;
 import space.controlnet.mineagent.core.session.SessionVisibility;
 import space.controlnet.mineagent.core.session.TerminalBinding;
 import space.controlnet.mineagent.core.tools.ToolCall;
+import space.controlnet.mineagent.core.tools.ToolCatalogEntry;
 import space.controlnet.mineagent.core.tools.ToolOutcome;
 import space.controlnet.mineagent.core.tools.ToolMessagePayload;
 import space.controlnet.mineagent.core.tools.ToolResult;
+import space.controlnet.mineagent.core.tools.AgentTool;
 import space.controlnet.mineagent.core.util.ItemTagParser;
 import space.controlnet.mineagent.core.util.LocaleResolver;
 import space.controlnet.mineagent.core.net.c2s.C2SApprovalDecisionPacket;
@@ -63,8 +67,12 @@ public final class MineAgentNetwork {
     private static final int MAX_TOOL_ARGS_JSON_LENGTH = 65_536;
     private static final String NETWORK_BOUNDARY_SIGNAL = "NETWORK_BOUNDARY_TOOL_ARGS_TOO_LARGE";
     private static final NetworkChannel CHANNEL = NetworkChannel.create(MineAgentRegistries.id("main"));
-    private static final int PROTOCOL_VERSION = 4;
+    private static final int PROTOCOL_VERSION = 6;
     private static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
+    private static final int MAX_PROVIDER_ID_LENGTH = 128;
+    private static final int MAX_GROUP_ID_LENGTH = 128;
+    private static final int MAX_TOOL_NAME_LENGTH = 256;
+    private static final int MAX_TOOL_DESCRIPTION_LENGTH = 2048;
 
     public static final ServerSessionManager SESSIONS = new ServerSessionManager();
     private static final AgentInvoker AGENT = new AgentInvoker();
@@ -249,6 +257,32 @@ public final class MineAgentNetwork {
                     ClientSessionStore.set(packet.snapshot());
                 })
         );
+
+        CHANNEL.register(
+                S2CToolCatalogPacket.class,
+                (packet, buf) -> {
+                    buf.writeVarInt(packet.protocolVersion());
+                    buf.writeVarInt(packet.tools().size());
+                    for (ToolCatalogEntry entry : packet.tools()) {
+                        writeToolCatalogEntry(buf, entry);
+                    }
+                },
+                buf -> {
+                    int version = buf.readVarInt();
+                    int count = buf.readVarInt();
+                    List<ToolCatalogEntry> tools = new ArrayList<>(count);
+                    for (int i = 0; i < count; i++) {
+                        tools.add(readToolCatalogEntry(buf));
+                    }
+                    return new S2CToolCatalogPacket(version, tools);
+                },
+                (packet, context) -> context.get().queue(() -> {
+                    if (packet.protocolVersion() != PROTOCOL_VERSION) {
+                        return;
+                    }
+                    ClientToolCatalog.set(packet.tools());
+                })
+        );
     }
 
     public static void shutdown() {
@@ -339,6 +373,22 @@ public final class MineAgentNetwork {
         subscribeViewer(player.getUUID(), snapshot.metadata().sessionId());
         persistSessions();
         broadcastSessionSnapshot(snapshot.metadata().sessionId());
+        sendToolCatalog(player);
+    }
+
+    public static void broadcastToolCatalogToViewers() {
+        MinecraftServer server = SERVER.get();
+        if (server == null) {
+            return;
+        }
+        for (UUID viewerId : List.copyOf(SESSION_BY_VIEWER.keySet())) {
+            ServerPlayer viewer = server.getPlayerList().getPlayer(viewerId);
+            if (viewer == null) {
+                unsubscribeViewer(viewerId);
+                continue;
+            }
+            sendToolCatalog(viewer);
+        }
     }
 
     public static void onTerminalClosed(ServerPlayer player) {
@@ -578,6 +628,22 @@ public final class MineAgentNetwork {
         return new SessionSummary(sessionId, ownerId, ownerName, visibility, teamId, title, createdAt, lastActive);
     }
 
+    private static void writeToolCatalogEntry(FriendlyByteBuf buf, ToolCatalogEntry entry) {
+        buf.writeUtf(entry.providerId(), MAX_PROVIDER_ID_LENGTH);
+        buf.writeUtf(entry.groupId(), MAX_GROUP_ID_LENGTH);
+        buf.writeUtf(entry.toolName(), MAX_TOOL_NAME_LENGTH);
+        buf.writeUtf(entry.description(), MAX_TOOL_DESCRIPTION_LENGTH);
+    }
+
+    private static ToolCatalogEntry readToolCatalogEntry(FriendlyByteBuf buf) {
+        return new ToolCatalogEntry(
+                buf.readUtf(MAX_PROVIDER_ID_LENGTH),
+                buf.readUtf(MAX_GROUP_ID_LENGTH),
+                buf.readUtf(MAX_TOOL_NAME_LENGTH),
+                buf.readUtf(MAX_TOOL_DESCRIPTION_LENGTH)
+        );
+    }
+
     public static void sendSessionSnapshot(ServerPlayer player) {
         if (!hasPacketListener(player)) {
             return;
@@ -589,6 +655,27 @@ public final class MineAgentNetwork {
         }
         snapshot = ensureIndexingStateIfNeeded(snapshot);
         CHANNEL.sendToPlayer(player, new S2CSessionSnapshotPacket(PROTOCOL_VERSION, snapshot));
+    }
+
+    public static void sendToolCatalog(ServerPlayer player) {
+        if (!hasPacketListener(player)) {
+            return;
+        }
+        CHANNEL.sendToPlayer(player, new S2CToolCatalogPacket(PROTOCOL_VERSION, collectToolCatalogEntries()));
+    }
+
+    private static List<ToolCatalogEntry> collectToolCatalogEntries() {
+        List<ToolCatalogEntry> entries = new ArrayList<>();
+        for (AgentTool tool : ToolRegistry.getToolSpecs()) {
+            if (tool == null || tool.name() == null || tool.name().isBlank()) {
+                continue;
+            }
+            String providerId = ToolRegistry.getProviderId(tool.name()).orElse("");
+            String groupId = ToolRegistry.getGroupId(tool.name()).orElse(providerId);
+            entries.add(new ToolCatalogEntry(providerId, groupId, tool.name(), tool.descriptionOptional().orElse("")));
+        }
+        entries.sort(Comparator.comparing(ToolCatalogEntry::toolName));
+        return List.copyOf(entries);
     }
 
     private static void handleChatPacket(ServerPlayer player, String text, String clientLocale, String aiLocaleOverride) {

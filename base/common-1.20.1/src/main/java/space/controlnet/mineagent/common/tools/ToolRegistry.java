@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ToolRegistry {
     private static final Map<String, ToolProvider> PROVIDERS = new ConcurrentHashMap<>();
+    private static final Map<String, String> GROUP_IDS_BY_PROVIDER = new ConcurrentHashMap<>();
     private static final Map<String, String> PROVIDER_IDS_BY_TOOL = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> TOOL_NAMES_BY_PROVIDER = new ConcurrentHashMap<>();
     private static final Map<String, AgentTool> TOOLS_BY_NAME = new ConcurrentHashMap<>();
@@ -31,16 +32,32 @@ public final class ToolRegistry {
     }
 
     public static synchronized void register(String providerId, ToolProvider provider) {
-        registerOrReplace(providerId, provider);
+        registerOrReplace(providerId, providerId, provider);
+    }
+
+    public static synchronized void register(String providerId, String groupId, ToolProvider provider) {
+        registerOrReplace(providerId, groupId, provider);
+    }
+
+    public static synchronized void setGroupId(String providerId, String groupId) {
+        if (providerId == null || providerId.isBlank()) {
+            return;
+        }
+        GROUP_IDS_BY_PROVIDER.put(providerId, normalizeGroupId(groupId, providerId));
     }
 
     public static synchronized void registerOrReplace(String providerId, ToolProvider provider) {
+        registerOrReplace(providerId, providerId, provider);
+    }
+
+    public static synchronized void registerOrReplace(String providerId, String groupId, ToolProvider provider) {
         if (providerId == null || providerId.isBlank() || provider == null) {
             return;
         }
 
         removeOwnedTools(providerId);
         PROVIDERS.put(providerId, provider);
+        GROUP_IDS_BY_PROVIDER.put(providerId, normalizeGroupId(groupId, providerId));
 
         Map<String, AgentTool> providerTools = collectProviderTools(provider);
         Set<String> ownedToolNames = new HashSet<>();
@@ -68,6 +85,7 @@ public final class ToolRegistry {
         }
 
         PROVIDERS.remove(providerId);
+        GROUP_IDS_BY_PROVIDER.remove(providerId);
         removeOwnedTools(providerId);
         rebuildSnapshot();
     }
@@ -113,6 +131,24 @@ public final class ToolRegistry {
             return null;
         }
         return TOOLS_BY_NAME.get(name);
+    }
+
+    public static Optional<String> getProviderId(String toolName) {
+        if (toolName == null || toolName.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(PROVIDER_IDS_BY_TOOL.get(toolName));
+    }
+
+    public static Optional<String> getGroupId(String toolName) {
+        if (toolName == null || toolName.isBlank()) {
+            return Optional.empty();
+        }
+        String providerId = PROVIDER_IDS_BY_TOOL.get(toolName);
+        if (providerId == null || providerId.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(GROUP_IDS_BY_PROVIDER.get(providerId));
     }
 
     public static ToolProvider.ExecutionAffinity getExecutionAffinity(String toolName) {
@@ -178,5 +214,12 @@ public final class ToolRegistry {
         toolSpecsSnapshot = TOOLS_BY_NAME.values().stream()
                 .sorted(Comparator.comparing(AgentTool::name))
                 .toList();
+    }
+
+    private static String normalizeGroupId(String groupId, String providerId) {
+        if (groupId == null || groupId.isBlank()) {
+            return providerId == null ? "" : providerId;
+        }
+        return groupId;
     }
 }

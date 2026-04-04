@@ -32,7 +32,9 @@ public final class MineAgent {
     public static void init() {
         MineAgentRegistries.init();
         ToolRegistry.register("mc", new McToolProvider());
+        ToolRegistry.setGroupId("mc", MOD_ID);
         ToolRegistry.register("http", new HttpToolProvider());
+        ToolRegistry.setGroupId("http", MOD_ID);
         ToolOutputRendererRegistry.register(new McToolOutputRenderer());
         ToolOutputRendererRegistry.register(new HttpToolOutputRenderer());
         MineAgentNetwork.init();

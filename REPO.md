@@ -875,11 +875,16 @@ timeout 25m ./gradlew --no-daemon --configure-on-demand :ext-ae:forge-1.20.1:run
 ```bash
 python3 scripts/capture_ui_preview.py --loader forge --scenario all --display :1
 python3 scripts/capture_ui_preview.py --loader fabric --scenario proposal_pending --display :1
+python3 scripts/capture_status_ui.py --loader fabric --scenario all --display :1
+python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1
 ```
 
 - The AI terminal screenshot flow is shared in `base/common-1.20.1` and activates only when `MINEAGENT_UI_CAPTURE_SCENARIO` is present.
 - Forge and Fabric both use the same common preview scenarios, snapshot assertions, and screenshot capture path; the loader choice only affects which `runServer` / `runClient` tasks launch the runtime.
 - **Current workspace verification (2026-04-03):** `DISPLAY=:1 python3 scripts/capture_ui_preview.py --loader fabric --scenario all --display :1` and `DISPLAY=:1 python3 scripts/capture_ui_preview.py --loader forge --scenario all --display :1` both completed successfully and produced the full shared scenario set: `empty`, `chat_short`, `suggestions_visible`, `proposal_pending`, `executing`, `error_state`, `http_result`, and `session_list_dense`.
+- The AI terminal header now includes a shared top-right `Status` button that opens a separate status screen listing the currently loaded tools from a server-authoritative tool catalog synced to the client when the terminal opens (instead of relying on client-local preview/provider state). Built-in tools stay under `Built-in`, MCP tools stay under `MCP`, and extension tools are split into per-extension groups by mod id (for example `mineagentae`) instead of a single combined `Ext` section.
+- The shared status capture flow now runs against the real ext-enabled runtime (`:ext-ae:<loader>-1.20.1:runServer` + `:ext-ae:<loader>-1.20.1:runClient`), writes a real MCP stdio fixture into `config/mineagent/mcp.json`, and waits for the synced built-in/ext/MCP tool catalog before opening the status panel for screenshots.
+- **Current workspace verification (2026-04-04):** `DISPLAY=:1 python3 scripts/capture_status_ui.py --loader fabric --scenario all --display :1` and `DISPLAY=:1 python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1` completed successfully and produced `status_button` plus `status_panel` screenshots showing the new header button and a grouped tool-status panel with readable `Built-in`, per-extension mod-id sections such as `mineagentae`, and `MCP`. The Forge rerun also fixed the ext-AE Forge dev runtime by syncing processed `mods.toml`/compiled artifacts into `ext-ae/forge-1.20.1/bin/main` for normal `runServer` and `runClient` tasks.
 - Generated UI capture PNGs under `artifacts/ui-captures/` are local runtime outputs and are intentionally kept out of git.
 
 ### 16.3 Report artifacts, parity, and evidence locations

@@ -13,7 +13,8 @@ public record AiTerminalUiPreviewState(
         boolean sessionsOpen,
         String inputText,
         List<ItemSuggestion> itemSuggestions,
-        int selectedSuggestionIndex
+        int selectedSuggestionIndex,
+        boolean statusScreenOpen
 ) {
     public AiTerminalUiPreviewState {
         sessionSummaries = sessionSummaries == null ? List.of() : List.copyOf(sessionSummaries);

@@ -31,6 +31,10 @@ public final class AiTerminalConstants {
     // ===== Header Buttons =====
     public static final int LOCALE_BUTTON_WIDTH = 24;
     public static final int LOCALE_BUTTON_HEIGHT = 18;
+    public static final int STATUS_BUTTON_WIDTH = 36;
+    public static final int STATUS_BUTTON_HEIGHT = 18;
+    public static final int HEADER_BUTTON_GAP = 4;
+    public static final int HEADER_STATUS_GAP = 18;
     public static final int SESSION_TOGGLE_WIDTH = 24;
     public static final int SESSION_TOGGLE_HEIGHT = 18;
 

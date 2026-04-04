@@ -10,7 +10,9 @@ public enum AiTerminalUiScenarioId {
     EXECUTING,
     ERROR_STATE,
     HTTP_RESULT,
-    SESSION_LIST_DENSE;
+    SESSION_LIST_DENSE,
+    STATUS_BUTTON,
+    STATUS_PANEL;
 
     public String externalName() {
         return name().toLowerCase(Locale.ROOT);

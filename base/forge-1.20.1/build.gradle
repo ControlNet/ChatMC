@@ -152,3 +152,8 @@ tasks.matching { it.name == "runGameTestServer" }.configureEach {
     dependsOn(ensureGameTestEula)
     dependsOn(syncBinMainCompiledArtifacts)
 }
+
+tasks.matching { it.name == "runUiCaptureServer" }.configureEach {
+    dependsOn(syncBinMainModsToml)
+    dependsOn(syncBinMainCompiledArtifacts)
+}

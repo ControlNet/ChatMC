@@ -41,6 +41,8 @@ public final class AiTerminalUiFixtures {
             case ERROR_STATE -> errorState(ownerId, ownerName);
             case HTTP_RESULT -> httpResult(ownerId, ownerName);
             case SESSION_LIST_DENSE -> sessionListDense(ownerId, ownerName);
+            case STATUS_BUTTON -> statusButton(ownerId, ownerName);
+            case STATUS_PANEL -> statusPanel(ownerId, ownerName);
         };
     }
 
@@ -57,7 +59,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState chatShort(UUID ownerId, String ownerName) {
@@ -78,7 +80,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState suggestionsVisible(UUID ownerId, String ownerName) {
@@ -99,7 +101,7 @@ public final class AiTerminalUiFixtures {
                 suggestion("minecraft:diamond_block", "Block of Diamond", 0x56C6E8, 84),
                 suggestion("minecraft:diamond_sword", "Diamond Sword", 0x78F0FF, 78)
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "@dia", suggestions, 1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "@dia", suggestions, 1, false);
     }
 
     private static AiTerminalUiPreviewState proposalPending(UUID ownerId, String ownerName) {
@@ -127,7 +129,7 @@ public final class AiTerminalUiFixtures {
                 Optional.of(new TerminalBinding("minecraft:overworld", 0, 64, 0, Optional.empty())),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "zh_cn", false, "", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "zh_cn", false, "", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState executing(UUID ownerId, String ownerName) {
@@ -147,7 +149,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "Queue another task", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "Queue another task", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState errorState(UUID ownerId, String ownerName) {
@@ -167,7 +169,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.of("connect timeout while waiting for upstream response")
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "Retry with a 5 second timeout", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "Retry with a 5 second timeout", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState httpResult(UUID ownerId, String ownerName) {
@@ -187,7 +189,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState sessionListDense(UUID ownerId, String ownerName) {
@@ -218,7 +220,45 @@ public final class AiTerminalUiFixtures {
                     BASE_TIME - (i * 6_000L)
             ));
         }
-        return new AiTerminalUiPreviewState(snapshot, sessions, "", true, "", List.of(), -1);
+        return new AiTerminalUiPreviewState(snapshot, sessions, "", true, "", List.of(), -1, false);
+    }
+
+    private static AiTerminalUiPreviewState statusButton(UUID ownerId, String ownerName) {
+        UUID sessionId = fixedSessionId(9);
+        List<ChatMessage> messages = List.of(
+                new ChatMessage(ChatRole.ASSISTANT, "Use Status to inspect the currently loaded tool set.", BASE_TIME)
+        );
+        SessionSnapshot snapshot = snapshot(
+                sessionId,
+                ownerId,
+                ownerName,
+                "Preview Status Button",
+                messages,
+                SessionState.IDLE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        );
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
+    }
+
+    private static AiTerminalUiPreviewState statusPanel(UUID ownerId, String ownerName) {
+        UUID sessionId = fixedSessionId(10);
+        List<ChatMessage> messages = List.of(
+                new ChatMessage(ChatRole.ASSISTANT, "Status groups the active built-in, extension, and MCP tools.", BASE_TIME)
+        );
+        SessionSnapshot snapshot = snapshot(
+                sessionId,
+                ownerId,
+                ownerName,
+                "Preview Status Panel",
+                messages,
+                SessionState.IDLE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        );
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, true);
     }
 
     private static SessionSnapshot snapshot(

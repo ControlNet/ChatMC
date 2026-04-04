@@ -20,6 +20,7 @@ public final class MineAgentAe {
     public static void init() {
         MineAgentAePartRegistries.init();
         ToolRegistry.register("ae", new AeToolProvider());
+        ToolRegistry.setGroupId("ae", MOD_ID);
         TerminalContextRegistry.register(new AeTerminalContextResolver());
         ToolOutputRendererRegistry.register(new AeToolOutputRenderer());
         LOGGER.info("MineAgentAe initialized");

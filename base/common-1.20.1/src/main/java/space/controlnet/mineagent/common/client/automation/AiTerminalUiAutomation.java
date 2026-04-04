@@ -5,10 +5,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.network.chat.Component;
 import space.controlnet.mineagent.common.client.screen.AiTerminalScreen;
+import space.controlnet.mineagent.common.client.screen.AiTerminalStatusScreen;
 import space.controlnet.mineagent.common.menu.AiTerminalMenu;
 import space.controlnet.mineagent.core.client.ClientAiSettings;
 import space.controlnet.mineagent.core.client.ClientSessionIndex;
 import space.controlnet.mineagent.core.client.ClientSessionStore;
+import space.controlnet.mineagent.core.client.ClientToolCatalog;
+import space.controlnet.mineagent.core.tools.ToolCatalogEntry;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,8 +33,12 @@ public final class AiTerminalUiAutomation {
     private static CaptureRequest request;
     private static AiTerminalUiPreviewState previewState;
     private static boolean previewApplied;
+    private static boolean terminalOpenRequested;
+    private static boolean statusScreenTriggered;
     private static boolean screenshotTriggered;
     private static int ticksSinceOpen;
+    private static int terminalOpenWaitTicks;
+    private static int toolCatalogWaitTicks;
     private static PendingCapture pendingCapture;
     private static RuntimeException failure;
 
@@ -60,15 +67,41 @@ public final class AiTerminalUiAutomation {
             return;
         }
 
-        if (!(minecraft.screen instanceof AiTerminalScreen terminalScreen)) {
-            openPreviewScreen(minecraft);
+        if (!(minecraft.screen instanceof AiTerminalScreen) && !(minecraft.screen instanceof AiTerminalStatusScreen)) {
+            if (usesLiveStatusFlow()) {
+                ensureLiveTerminalOpen(minecraft);
+            } else {
+                openPreviewScreen(minecraft);
+            }
             return;
         }
 
-        if (!previewApplied) {
-            applyPreviewState(terminalScreen);
+        if (!previewApplied && minecraft.screen instanceof AiTerminalScreen terminalScreen) {
+            if (usesLiveStatusFlow()) {
+                previewApplied = true;
+                ticksSinceOpen = 0;
+            } else {
+                applyPreviewState(terminalScreen);
+            }
             return;
         }
+
+        if (minecraft.screen instanceof AiTerminalScreen terminalScreen
+                && shouldOpenStatusScreen()
+                && !statusScreenTriggered) {
+            if (!isStatusCatalogReady()) {
+                toolCatalogWaitTicks++;
+                if (toolCatalogWaitTicks > 200) {
+                    fail(new IllegalStateException("mineagent-ui-capture/tool-catalog-timeout"));
+                }
+                return;
+            }
+            terminalScreen.triggerStatusButtonForAutomation();
+            statusScreenTriggered = true;
+            return;
+        }
+
+        minecraft.getToasts().clear();
 
         if (!screenshotTriggered) {
             ticksSinceOpen++;
@@ -76,7 +109,7 @@ public final class AiTerminalUiAutomation {
                 return;
             }
             try {
-                AiTerminalUiSnapshot snapshot = terminalScreen.captureAutomationSnapshot();
+                AiTerminalUiSnapshot snapshot = captureSnapshot(minecraft);
                 AiTerminalUiAssertions.assertMatches(request.scenarioId(), snapshot);
                 pendingCapture = PendingCapture.begin(minecraft, request.outputPath());
                 screenshotTriggered = true;
@@ -117,11 +150,38 @@ public final class AiTerminalUiAutomation {
             ClientSessionIndex.set(previewState.sessionSummaries());
         }
         AiTerminalMenu menu = new AiTerminalMenu(0, minecraft.player.getInventory(), null, minecraft.player.blockPosition(), null);
-        minecraft.setScreen(new AiTerminalScreen(menu, minecraft.player.getInventory(), Component.translatable("ui.mineagent.terminal.title")));
+        AiTerminalScreen terminalScreen = new AiTerminalScreen(menu, minecraft.player.getInventory(), Component.translatable("ui.mineagent.terminal.title"));
+        minecraft.setScreen(terminalScreen);
         ticksSinceOpen = 0;
         previewApplied = false;
+        terminalOpenRequested = false;
+        terminalOpenWaitTicks = 0;
+        toolCatalogWaitTicks = 0;
+        statusScreenTriggered = false;
         screenshotTriggered = false;
         pendingCapture = null;
+    }
+
+    private static void ensureLiveTerminalOpen(Minecraft minecraft) {
+        if (minecraft.getConnection() == null) {
+            return;
+        }
+        if (!terminalOpenRequested) {
+            minecraft.getConnection().sendCommand("mineagent open");
+            terminalOpenRequested = true;
+            terminalOpenWaitTicks = 0;
+            ticksSinceOpen = 0;
+            previewApplied = false;
+            statusScreenTriggered = false;
+            screenshotTriggered = false;
+            toolCatalogWaitTicks = 0;
+            pendingCapture = null;
+            return;
+        }
+        terminalOpenWaitTicks++;
+        if (terminalOpenWaitTicks > 200) {
+            fail(new IllegalStateException("mineagent-ui-capture/open-terminal-timeout"));
+        }
     }
 
     private static void applyPreviewState(AiTerminalScreen terminalScreen) {
@@ -130,6 +190,57 @@ public final class AiTerminalUiAutomation {
         }
         terminalScreen.applyAutomationPreview(previewState);
         previewApplied = true;
+    }
+
+    private static AiTerminalUiSnapshot captureSnapshot(Minecraft minecraft) {
+        if (minecraft.screen instanceof AiTerminalStatusScreen statusScreen) {
+            return statusScreen.captureAutomationSnapshot();
+        }
+        if (minecraft.screen instanceof AiTerminalScreen terminalScreen) {
+            return terminalScreen.captureAutomationSnapshot();
+        }
+        throw new IllegalStateException("mineagent-ui-capture/screen -> unsupported screen "
+                + (minecraft.screen == null ? "null" : minecraft.screen.getClass().getName()));
+    }
+
+    private static boolean usesLiveStatusFlow() {
+        if (request == null) {
+            return false;
+        }
+        return request.scenarioId() == AiTerminalUiScenarioId.STATUS_BUTTON
+                || request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL;
+    }
+
+    private static boolean shouldOpenStatusScreen() {
+        if (request != null && request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL) {
+            return true;
+        }
+        return previewState != null && previewState.statusScreenOpen();
+    }
+
+    private static boolean isStatusCatalogReady() {
+        if (request == null || request.scenarioId() != AiTerminalUiScenarioId.STATUS_PANEL) {
+            return true;
+        }
+        boolean hasBuiltIn = false;
+        boolean hasExtension = false;
+        boolean hasMcp = false;
+        for (ToolCatalogEntry tool : ClientToolCatalog.get()) {
+            if (tool == null || tool.toolName() == null || tool.toolName().isBlank()) {
+                continue;
+            }
+            String providerId = tool.providerId();
+            if (providerId != null && providerId.startsWith("mcp.runtime.")) {
+                hasMcp = true;
+                continue;
+            }
+            if ("mc".equals(providerId) || "http".equals(providerId)) {
+                hasBuiltIn = true;
+                continue;
+            }
+            hasExtension = true;
+        }
+        return hasBuiltIn && hasExtension && hasMcp;
     }
 
     private static void fail(RuntimeException exception) {

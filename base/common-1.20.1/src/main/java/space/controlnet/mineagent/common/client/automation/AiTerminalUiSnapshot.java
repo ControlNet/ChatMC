@@ -1,9 +1,12 @@
 package space.controlnet.mineagent.common.client.automation;
 
+import java.util.List;
+
 public record AiTerminalUiSnapshot(
         boolean screenOpen,
         String screenClassName,
         String statusText,
+        boolean statusButtonVisible,
         boolean sendButtonActive,
         boolean approveButtonVisible,
         boolean denyButtonVisible,
@@ -16,6 +19,14 @@ public record AiTerminalUiSnapshot(
         String inputText,
         int messageCount,
         int wrappedLineCount,
-        boolean proposalVisible
+        boolean proposalVisible,
+        int toolSectionCount,
+        List<String> toolSectionLabels,
+        int builtInToolCount,
+        int extToolCount,
+        int mcpToolCount,
+        List<String> builtInToolNames,
+        List<String> extToolNames,
+        List<String> mcpToolNames
 ) {
 }

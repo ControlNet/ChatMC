@@ -59,6 +59,7 @@ public final class MineAgentCommands {
                             PromptRuntime.reload(server);
                             McRuntimeManager.reload(server);
                             McpRuntimeManager.reload(server);
+                            MineAgentNetwork.broadcastToolCatalogToViewers();
                             MineAgent.RECIPE_INDEX.rebuildAsync(server);
                             ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("MineAgent reloaded"), true);
                             return 1;

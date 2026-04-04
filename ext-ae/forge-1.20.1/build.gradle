@@ -182,3 +182,8 @@ tasks.matching { it.name == "runGameTestServer" }.configureEach {
     dependsOn(syncRunGameTestStructures)
     dependsOn(syncBinMainCompiledArtifacts)
 }
+
+tasks.matching { it.name == "runServer" || it.name == "runClient" }.configureEach {
+    dependsOn(syncBinMainModsToml)
+    dependsOn(syncBinMainCompiledArtifacts)
+}

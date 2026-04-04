@@ -75,6 +75,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private Button sessionsToggleButton;
     private Button newSessionButton;
     private Button aiLocaleButton;
+    private Button statusButton;
 
     private String statusText = "Idle";
     private int lastCursorPosition = -1;
@@ -168,6 +169,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 true,
                 getClass().getSimpleName(),
                 this.statusText,
+                this.statusButton != null && this.statusButton.visible,
                 this.sendButton != null && this.sendButton.active,
                 this.approveButton != null && this.approveButton.visible,
                 this.denyButton != null && this.denyButton.visible,
@@ -180,7 +182,15 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 this.inputBox == null ? "" : this.inputBox.getValue(),
                 this.messages.size(),
                 this.wrappedLines.size(),
-                this.pendingProposal != null
+                this.pendingProposal != null,
+                0,
+                List.of(),
+                0,
+                0,
+                0,
+                List.of(),
+                List.of(),
+                List.of()
         );
     }
 
@@ -219,6 +229,17 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 UiButtonStyle.GHOST
         );
         this.addRenderableWidget(this.aiLocaleButton);
+
+        this.statusButton = new FlatButton(
+                0,
+                0,
+                STATUS_BUTTON_WIDTH,
+                STATUS_BUTTON_HEIGHT,
+                Component.literal("Status"),
+                b -> openStatusScreen(),
+                UiButtonStyle.GHOST
+        );
+        this.addRenderableWidget(this.statusButton);
 
         int proposalButtonY = this.proposalY + (this.proposalH - PROPOSAL_BUTTON_HEIGHT) / 2;
         int denyX = this.proposalX + this.proposalW - PROPOSAL_BUTTON_WIDTH - PROPOSAL_BUTTON_GAP;
@@ -338,8 +359,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         SessionState state = sessionStateFromStatus();
         String statusLabel = stateLabel(state).toUpperCase();
         int statusTextWidth = scaledWidth(statusLabel);
-        int localeWidth = this.aiLocaleButton == null ? 0 : this.aiLocaleButton.getWidth();
-        int statusRight = this.headerX + this.headerW - PADDING - localeWidth - 48;
+        int statusRight = headerStatusTextRightEdge();
         int statusX = statusRight - statusTextWidth;
         int statusY = this.headerY + (this.headerH - Math.round(this.font.lineHeight * FONT_SCALE)) / 2;
         int dotX = statusX - STATUS_DOT_SIZE - 4;
@@ -910,8 +930,16 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (this.sendButton != null) {
             this.sendButton.setPosition(this.inputFieldX + this.inputW + 4, this.inputY);
         }
+        if (this.statusButton != null) {
+            int statusX = this.headerX + this.headerW - PADDING - this.statusButton.getWidth();
+            int statusY = this.headerY + (this.headerH - this.statusButton.getHeight()) / 2;
+            this.statusButton.setPosition(statusX, statusY);
+        }
         if (this.aiLocaleButton != null) {
-            int localeX = this.headerX + this.headerW - PADDING - this.aiLocaleButton.getWidth();
+            int statusLeft = this.statusButton == null
+                    ? this.headerX + this.headerW - PADDING
+                    : this.statusButton.getX() - HEADER_BUTTON_GAP;
+            int localeX = statusLeft - this.aiLocaleButton.getWidth();
             int localeY = this.headerY + (this.headerH - this.aiLocaleButton.getHeight()) / 2;
             this.aiLocaleButton.setPosition(localeX, localeY);
         }
@@ -950,6 +978,20 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
         String label = this.sessionsOpen ? "X" : "|||";
         this.sessionsToggleButton.setMessage(Component.literal(label));
+    }
+
+    private void openStatusScreen() {
+        if (this.minecraft == null) {
+            return;
+        }
+        this.minecraft.setScreen(new AiTerminalStatusScreen(this));
+    }
+
+    public void triggerStatusButtonForAutomation() {
+        if (this.statusButton == null) {
+            throw new IllegalStateException("mineagent-ui-capture/status-button-missing");
+        }
+        this.statusButton.onPress();
     }
 
     private void syncFromSessionIndex() {
@@ -2205,6 +2247,17 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             return 0;
         }
         return Math.round(this.font.width(text) * FONT_SCALE);
+    }
+
+    private int headerStatusTextRightEdge() {
+        int rightEdge = this.headerX + this.headerW - PADDING;
+        if (this.statusButton != null) {
+            rightEdge = this.statusButton.getX() - HEADER_STATUS_GAP;
+        }
+        if (this.aiLocaleButton != null) {
+            rightEdge = Math.min(rightEdge, this.aiLocaleButton.getX() - HEADER_STATUS_GAP);
+        }
+        return rightEdge;
     }
 
     private int scaledLineHeight() {
