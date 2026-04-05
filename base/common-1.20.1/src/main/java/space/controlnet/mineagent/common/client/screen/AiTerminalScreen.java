@@ -2282,6 +2282,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private final class TokenEditBox extends EditBox {
         private static final int CURSOR_COLOR = -3092272;
+        private static final int LEFT_PAD = 4;
         private static final Field FIELD_DISPLAY_POS = getField("displayPos");
         private static final Field FIELD_HIGHLIGHT_POS = getField("highlightPos");
         private static final Field FIELD_FRAME = getField("frame");
@@ -2306,7 +2307,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             int highlightPos = getHighlightPos();
 
             int innerWidth = this.getInnerWidth();
-            int baseX = this.getX() + Math.max(0, (this.getWidth() - innerWidth) / 2);
+            int baseX = this.getX() + LEFT_PAD + Math.max(0, (this.getWidth() - innerWidth) / 2);
             int lineHeight = scaledLineHeight();
             int rowHeight = Math.max(12, lineHeight + 4);
             int textY = this.getY() + (this.getHeight() - lineHeight) / 2;
