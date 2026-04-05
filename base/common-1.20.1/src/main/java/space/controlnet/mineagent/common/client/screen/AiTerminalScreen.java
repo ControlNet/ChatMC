@@ -315,8 +315,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
         this.sessionInnerX = this.sessionPanelX + SESSION_PANEL_PADDING;
         this.sessionInnerW = Math.max(1, this.sessionPanelW - (SESSION_PANEL_PADDING * 2));
-        int headerBottom = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT + 4;
-        this.sessionListStartY = headerBottom;
+        this.sessionListStartY = this.sessionPanelY + HEADER_HEIGHT + 4;
         int listEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SIDEBAR_FOOTER_HEIGHT;
         int availableHeight = Math.max(0, listEndY - this.sessionListStartY);
         this.sessionMaxRows = Math.max(1, availableHeight / (SESSION_ROW_HEIGHT + SESSION_ROW_GAP));
@@ -368,7 +367,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             guiGraphics.fill(this.sessionPanelX, this.sessionPanelY, this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, COLOR_BG_PANEL);
             guiGraphics.fill(this.sessionPanelX + this.sessionPanelW - 1, this.sessionPanelY,
                     this.sessionPanelX + this.sessionPanelW, this.sessionPanelY + this.sessionPanelH, COLOR_BORDER);
-            int headerBottom = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT;
+            int headerBottom = this.sessionPanelY + HEADER_HEIGHT - 1;
             guiGraphics.fill(this.sessionPanelX, headerBottom, this.sessionPanelX + this.sessionPanelW, headerBottom + 1, COLOR_BORDER);
             int footerTop = this.sessionPanelY + this.sessionPanelH - SIDEBAR_FOOTER_HEIGHT;
             guiGraphics.fill(this.sessionPanelX, footerTop, this.sessionPanelX + this.sessionPanelW, footerTop + 1, COLOR_BORDER);
@@ -747,7 +746,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         }
 
         int headerX = this.sessionInnerX;
-        int headerY = this.sessionPanelY + SESSION_PANEL_PADDING + 2;
+        int headerY = this.sessionPanelY + (HEADER_HEIGHT - this.font.lineHeight) / 2;
         drawScaledString(guiGraphics, "SESSIONS", headerX, headerY, COLOR_ACCENT_CYAN, true);
 
         int visibleCount = Math.min(this.sessionSummaries.size(), this.sessionMaxRows);
@@ -828,7 +827,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
         this.sessionInnerX = this.sessionPanelX + SESSION_PANEL_PADDING;
         this.sessionInnerW = Math.max(1, this.sessionPanelW - (SESSION_PANEL_PADDING * 2));
-        this.sessionListStartY = this.sessionPanelY + SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT + 4;
+        this.sessionListStartY = this.sessionPanelY + HEADER_HEIGHT + 4;
         int sessionListEndY = this.sessionPanelY + this.sessionPanelH - SESSION_PANEL_PADDING - SIDEBAR_FOOTER_HEIGHT;
 
         int availableHeight = Math.max(0, sessionListEndY - this.sessionListStartY);
@@ -852,8 +851,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     private void initSessionPanelWidgets() {
         this.sessionRows.clear();
-        int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
-        int newButtonY = this.sessionPanelY + SESSION_PANEL_PADDING;
+        int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_WIDTH;
+        int newButtonY = this.sessionPanelY + (HEADER_HEIGHT - SESSION_NEW_BUTTON_HEIGHT) / 2;
         this.newSessionButton = new FlatButton(
                 newButtonX,
                 newButtonY,
@@ -960,8 +959,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
             this.denyButton.setPosition(denyX, proposalButtonY);
         }
         if (this.newSessionButton != null) {
-            int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_HEIGHT;
-            int newButtonY = this.sessionPanelY + SESSION_PANEL_PADDING;
+            int newButtonX = this.sessionPanelX + this.sessionPanelW - SESSION_PANEL_PADDING - SESSION_NEW_BUTTON_WIDTH;
+            int newButtonY = this.sessionPanelY + (HEADER_HEIGHT - SESSION_NEW_BUTTON_HEIGHT) / 2;
             this.newSessionButton.setPosition(newButtonX, newButtonY);
         }
         int listStartY = this.sessionListStartY;

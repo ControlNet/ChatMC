@@ -1016,3 +1016,9 @@ python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1
 - **Snapshot extended:** `AiTerminalUiSnapshot` gains `inputTokenCount` so assertions can verify token presence.
 - **Fixture:** Input text `"Tell me how to craft @Crafting Table"` with one `ItemToken` for `minecraft:crafting_table`.
 - **Files changed:** `AiTerminalUiPreviewState.java`, `AiTerminalUiSnapshot.java`, `AiTerminalUiScenarioId.java`, `AiTerminalUiAssertions.java`, `AiTerminalUiFixtures.java`, `AiTerminalScreen.java`, `AiTerminalStatusScreen.java`, `scripts/capture_ui_preview.py`.
+
+### 15.14 Session Sidebar Header Alignment (2026-04-05)
+- **Bug:** The left session sidebar header ("SESSIONS" text, "+" button, divider line) was 2–3 px lower than the right main panel header, because the sidebar used `SESSION_PANEL_PADDING + SIDEBAR_HEADER_HEIGHT` (8+22=30 px) while the main panel used `HEADER_HEIGHT` (28 px), and elements were not centered the same way.
+- **Fix:** Sidebar header now uses `HEADER_HEIGHT` for all vertical positioning. "SESSIONS" text and "+" button are vertically centered within `HEADER_HEIGHT` using the same formula as the main panel title and buttons. The divider line sits at `sessionPanelY + HEADER_HEIGHT - 1`. Session list start Y follows the aligned divider.
+- **Also fixed:** The "+" button X calculation incorrectly used `SESSION_NEW_BUTTON_HEIGHT` instead of `SESSION_NEW_BUTTON_WIDTH` for horizontal offset.
+- **Files changed:** `AiTerminalScreen.java`.
