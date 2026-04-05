@@ -6,6 +6,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -134,6 +135,31 @@ def stop_process_group(process: subprocess.Popen | None) -> None:
         process.wait(timeout=10)
 
 
+def _wait_for_client_marker(
+    process: subprocess.Popen, marker: str, timeout_seconds: int
+) -> bool:
+    """Read client stdout line-by-line, return True when *marker* appears."""
+    found = threading.Event()
+
+    def _reader() -> None:
+        try:
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                if marker in line:
+                    found.set()
+                    return
+        except (OSError, ValueError):
+            pass
+
+    thread = threading.Thread(target=_reader, daemon=True)
+    thread.start()
+    return found.wait(timeout=timeout_seconds)
+
+
 def run_capture(
     loader: str, scenario: str, output_dir: Path, display: str, timeout_seconds: int
 ) -> Path:
@@ -151,20 +177,25 @@ def run_capture(
         module_path(loader) + ":runUiCaptureClient",
         "--args=--quickPlayMultiplayer 127.0.0.1 --width 1365 --height 768",
     ]
-    completed = subprocess.run(
+    process = subprocess.Popen(
         command,
         cwd=ROOT,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=timeout_seconds,
-        check=False,
+        preexec_fn=os.setsid,
     )
-    sys.stdout.write(completed.stdout)
-    if completed.returncode != 0:
+    try:
+        marker_seen = _wait_for_client_marker(
+            process, "[mineagent-ui-capture] saved ", timeout_seconds
+        )
+    finally:
+        stop_process_group(process)
+    if not marker_seen:
         raise RuntimeError(
-            f"runClient failed for {loader}/{scenario} with exit code {completed.returncode}"
+            f"runClient for {loader}/{scenario} did not produce the success marker "
+            f"within {timeout_seconds}s"
         )
     if not scenario_output.is_file():
         raise RuntimeError(f"Expected screenshot not found: {scenario_output}")

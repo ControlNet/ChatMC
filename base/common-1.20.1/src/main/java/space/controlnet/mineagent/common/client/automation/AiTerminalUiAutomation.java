@@ -128,6 +128,7 @@ public final class AiTerminalUiAutomation {
             if (completedPath.isPresent()) {
                 System.out.println("[mineagent-ui-capture] saved " + completedPath.get());
                 minecraft.stop();
+                scheduleForceHalt();
                 return;
             }
             if (pendingCapture.hasTimedOut()) {
@@ -241,6 +242,18 @@ public final class AiTerminalUiAutomation {
             hasExtension = true;
         }
         return hasBuiltIn && hasExtension && hasMcp;
+    }
+
+    private static void scheduleForceHalt() {
+        Thread haltThread = new Thread(() -> {
+            try {
+                Thread.sleep(10_000);
+            } catch (InterruptedException ignored) {
+            }
+            Runtime.getRuntime().halt(0);
+        }, "mineagent-ui-capture-halt");
+        haltThread.setDaemon(true);
+        haltThread.start();
     }
 
     private static void fail(RuntimeException exception) {
