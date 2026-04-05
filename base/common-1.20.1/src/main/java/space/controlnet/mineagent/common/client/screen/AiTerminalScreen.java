@@ -2098,7 +2098,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
     private TokenMetrics measureToken(ItemToken token) {
         int textWidth = scaledWidth(token.displayName());
         int iconSize = Math.round(16 * FONT_SCALE);
-        int width = 2 + iconSize + 2 + textWidth;
+        int width = 2 + iconSize + 2 + textWidth + 3;
         return new TokenMetrics(width);
     }
 
