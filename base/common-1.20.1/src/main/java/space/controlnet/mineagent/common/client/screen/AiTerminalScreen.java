@@ -142,6 +142,8 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         if (previewState.sessionsOpen() != this.sessionsOpen) {
             setSessionsPanelVisible(previewState.sessionsOpen());
         }
+        this.inputTokens.clear();
+        this.inputTokens.addAll(previewState.inputTokens());
         if (this.inputBox != null) {
             this.inputBox.setValue(previewState.inputText());
         }
@@ -180,6 +182,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
                 this.itemSuggestions.size(),
                 this.selectedSuggestionIndex,
                 this.inputBox == null ? "" : this.inputBox.getValue(),
+                this.inputTokens.size(),
                 this.messages.size(),
                 this.wrappedLines.size(),
                 this.pendingProposal != null,

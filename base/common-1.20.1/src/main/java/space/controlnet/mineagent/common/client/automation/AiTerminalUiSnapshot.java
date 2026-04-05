@@ -17,6 +17,7 @@ public record AiTerminalUiSnapshot(
         int suggestionCount,
         int selectedSuggestionIndex,
         String inputText,
+        int inputTokenCount,
         int messageCount,
         int wrappedLineCount,
         boolean proposalVisible,

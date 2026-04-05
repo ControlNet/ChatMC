@@ -63,6 +63,13 @@ public final class AiTerminalUiAssertions {
                 requireAtLeast("ui/session-dense/session-count", 7, snapshot.sessionSummaryCount());
                 requireAtLeast("ui/session-dense/visible-rows", 4, snapshot.visibleSessionRowCount());
             }
+            case INPUT_ITEM_TOKEN -> {
+                requireEquals("ui/input-token/screen-class", "AiTerminalScreen", snapshot.screenClassName());
+                requireEquals("ui/input-token/status", "IDLE", snapshot.statusText());
+                require("ui/input-token/send-active", snapshot.sendButtonActive());
+                requireAtLeast("ui/input-token/token-count", 1, snapshot.inputTokenCount());
+                require("ui/input-token/input-has-at", snapshot.inputText().contains("@"));
+            }
             case STATUS_BUTTON -> {
                 requireEquals("ui/status-button/screen-class", "AiTerminalScreen", snapshot.screenClassName());
                 require("ui/status-button/visible", snapshot.statusButtonVisible());

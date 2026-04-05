@@ -21,6 +21,7 @@ SCENARIOS = [
     "error_state",
     "http_result",
     "session_list_dense",
+    "input_item_token",
 ]
 
 

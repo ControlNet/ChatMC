@@ -96,6 +96,7 @@ public final class AiTerminalStatusScreen extends Screen {
                 "",
                 0,
                 0,
+                0,
                 false,
                 this.sections.size(),
                 sectionLabels(),

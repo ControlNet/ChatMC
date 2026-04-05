@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import space.controlnet.mineagent.common.client.screen.components.ItemSuggestion;
+import space.controlnet.mineagent.common.client.screen.components.ItemToken;
 import space.controlnet.mineagent.core.policy.RiskLevel;
 import space.controlnet.mineagent.core.proposal.Proposal;
 import space.controlnet.mineagent.core.proposal.ProposalDetails;
@@ -42,6 +43,7 @@ public final class AiTerminalUiFixtures {
             case HTTP_RESULT -> httpResult(ownerId, ownerName);
             case SESSION_LIST_DENSE -> sessionListDense(ownerId, ownerName);
             case STATUS_BUTTON -> statusButton(ownerId, ownerName);
+            case INPUT_ITEM_TOKEN -> inputItemToken(ownerId, ownerName);
             case STATUS_PANEL, STATUS_PANEL_SCROLLED -> statusPanel(ownerId, ownerName);
         };
     }
@@ -59,7 +61,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState chatShort(UUID ownerId, String ownerName) {
@@ -80,7 +82,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState suggestionsVisible(UUID ownerId, String ownerName) {
@@ -101,7 +103,7 @@ public final class AiTerminalUiFixtures {
                 suggestion("minecraft:diamond_block", "Block of Diamond", 0x56C6E8, 84),
                 suggestion("minecraft:diamond_sword", "Diamond Sword", 0x78F0FF, 78)
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "@dia", suggestions, 1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "@dia", suggestions, List.of(), 1, false);
     }
 
     private static AiTerminalUiPreviewState proposalPending(UUID ownerId, String ownerName) {
@@ -129,7 +131,7 @@ public final class AiTerminalUiFixtures {
                 Optional.of(new TerminalBinding("minecraft:overworld", 0, 64, 0, Optional.empty())),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "zh_cn", false, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "zh_cn", false, "", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState executing(UUID ownerId, String ownerName) {
@@ -149,7 +151,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "Queue another task", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "Queue another task", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState errorState(UUID ownerId, String ownerName) {
@@ -169,7 +171,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.of("connect timeout while waiting for upstream response")
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "Retry with a 5 second timeout", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "", false, "Retry with a 5 second timeout", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState httpResult(UUID ownerId, String ownerName) {
@@ -189,7 +191,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState sessionListDense(UUID ownerId, String ownerName) {
@@ -220,7 +222,37 @@ public final class AiTerminalUiFixtures {
                     BASE_TIME - (i * 6_000L)
             ));
         }
-        return new AiTerminalUiPreviewState(snapshot, sessions, "", true, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, sessions, "", true, "", List.of(), List.of(), -1, false);
+    }
+
+    private static AiTerminalUiPreviewState inputItemToken(UUID ownerId, String ownerName) {
+        UUID sessionId = fixedSessionId(11);
+        List<ChatMessage> messages = List.of(
+                new ChatMessage(ChatRole.ASSISTANT, "You can reference items with @ to give me precise context.", BASE_TIME)
+        );
+        SessionSnapshot snapshot = snapshot(
+                sessionId,
+                ownerId,
+                ownerName,
+                "Preview Item Token",
+                messages,
+                SessionState.IDLE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        );
+        ResourceLocation craftingTableId = ResourceLocation.tryParse("minecraft:crafting_table");
+        Item craftingTable = craftingTableId == null ? Items.CRAFTING_TABLE : BuiltInRegistries.ITEM.get(craftingTableId);
+        if (craftingTable == null || craftingTable == Items.AIR) {
+            craftingTable = Items.CRAFTING_TABLE;
+        }
+        List<ItemToken> tokens = List.of(
+                new ItemToken(craftingTable, "Crafting Table", "minecraft:crafting_table", 0xF0D27C, 0)
+        );
+        return new AiTerminalUiPreviewState(
+                snapshot, List.of(summary(snapshot)), "en_us", false,
+                "I want to craft @Crafting Table.  Tell me how to craft it.", List.of(), tokens, -1, false
+        );
     }
 
     private static AiTerminalUiPreviewState statusButton(UUID ownerId, String ownerName) {
@@ -239,7 +271,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, false);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), List.of(), -1, false);
     }
 
     private static AiTerminalUiPreviewState statusPanel(UUID ownerId, String ownerName) {
@@ -258,7 +290,7 @@ public final class AiTerminalUiFixtures {
                 Optional.empty(),
                 Optional.empty()
         );
-        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), -1, true);
+        return new AiTerminalUiPreviewState(snapshot, List.of(summary(snapshot)), "en_us", false, "", List.of(), List.of(), -1, true);
     }
 
     private static SessionSnapshot snapshot(

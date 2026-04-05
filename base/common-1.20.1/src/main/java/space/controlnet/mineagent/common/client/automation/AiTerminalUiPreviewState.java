@@ -1,6 +1,7 @@
 package space.controlnet.mineagent.common.client.automation;
 
 import space.controlnet.mineagent.common.client.screen.components.ItemSuggestion;
+import space.controlnet.mineagent.common.client.screen.components.ItemToken;
 import space.controlnet.mineagent.core.session.SessionSnapshot;
 import space.controlnet.mineagent.core.session.SessionSummary;
 
@@ -13,6 +14,7 @@ public record AiTerminalUiPreviewState(
         boolean sessionsOpen,
         String inputText,
         List<ItemSuggestion> itemSuggestions,
+        List<ItemToken> inputTokens,
         int selectedSuggestionIndex,
         boolean statusScreenOpen
 ) {
@@ -21,5 +23,6 @@ public record AiTerminalUiPreviewState(
         aiLocaleOverride = aiLocaleOverride == null ? "" : aiLocaleOverride;
         inputText = inputText == null ? "" : inputText;
         itemSuggestions = itemSuggestions == null ? List.of() : List.copyOf(itemSuggestions);
+        inputTokens = inputTokens == null ? List.of() : List.copyOf(inputTokens);
     }
 }

@@ -11,6 +11,7 @@ public enum AiTerminalUiScenarioId {
     ERROR_STATE,
     HTTP_RESULT,
     SESSION_LIST_DENSE,
+    INPUT_ITEM_TOKEN,
     STATUS_BUTTON,
     STATUS_PANEL,
     STATUS_PANEL_SCROLLED;

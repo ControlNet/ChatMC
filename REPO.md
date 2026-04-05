@@ -1009,3 +1009,10 @@ python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1
 - **Scroll-to-bottom automation:** Added `scrollToBottom()` method and `STATUS_PANEL_SCROLLED` capture scenario to prove scroll works end-to-end.
 - **MCP fixture expanded:** Capture fixture now registers 10 MCP tools (total 20 tools), enough to overflow the visible area and exercise scrolling.
 - **Files changed:** `AiTerminalStatusScreen.java`, `AiTerminalUiScenarioId.java`, `AiTerminalUiAssertions.java`, `AiTerminalUiAutomation.java`, `AiTerminalUiFixtures.java`, `scripts/capture_status_ui.py`.
+
+### 15.13 INPUT_ITEM_TOKEN Capture Scenario (2026-04-05)
+- **New scenario:** `INPUT_ITEM_TOKEN` renders the input field with a resolved item token pill (icon + colored label) to verify the `@item` reference visual effect.
+- **Preview state extended:** `AiTerminalUiPreviewState` gains a `List<ItemToken> inputTokens` field; `applyAutomationPreview` now populates `inputTokens` on the terminal screen.
+- **Snapshot extended:** `AiTerminalUiSnapshot` gains `inputTokenCount` so assertions can verify token presence.
+- **Fixture:** Input text `"Tell me how to craft @Crafting Table"` with one `ItemToken` for `minecraft:crafting_table`.
+- **Files changed:** `AiTerminalUiPreviewState.java`, `AiTerminalUiSnapshot.java`, `AiTerminalUiScenarioId.java`, `AiTerminalUiAssertions.java`, `AiTerminalUiFixtures.java`, `AiTerminalScreen.java`, `AiTerminalStatusScreen.java`, `scripts/capture_ui_preview.py`.
