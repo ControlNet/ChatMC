@@ -995,3 +995,10 @@ python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1
 ./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolRenderingRegressionTest'
 ./gradlew --no-daemon --configure-on-demand :base:common-1.20.1:test --tests 'space.controlnet.mineagent.common.tools.http.HttpToolDocumentationContractRegressionTest'
 ```
+
+### 15.11 AI Terminal Font Rendering Improvements (2026-04-05)
+- **Root cause:** Minecraft's default bitmap font (8x8 glyphs) was being rendered at `FONT_SCALE = 0.5f`, producing severe aliasing at ~4px character height. No text shadow was enabled, further reducing readability on the dark UI background.
+- **Font scale bumps:** `FONT_SCALE` 0.5→0.65, `TITLE_FONT_SCALE` 0.9→1.0, `TOOLTIP_FONT_SCALE` 0.4→0.5. The larger body scale reduces bitmap aliasing while still fitting ample text in the chat and status panels.
+- **Shadow rendering enabled:** All `drawString` calls in `AiTerminalScreen`, `AiTerminalStatusScreen`, and `FlatButton` now pass `shadow=true`. On the dark background, the shadow provides a pseudo-anti-aliasing effect that makes the bitmap font significantly more readable.
+- **Files changed:** `AiTerminalConstants.java` (scale values), `AiTerminalScreen.java` (drawScaledString + tooltip shadow), `AiTerminalStatusScreen.java` (drawScaledString shadow), `FlatButton.java` (button text shadow).
+- **Future consideration:** Bundling a TrueType font via Minecraft's `assets/<namespace>/font/<name>.json` provider system would enable proper anti-aliased rendering at any scale. The HTML design reference already uses JetBrains Mono / Rajdhani.

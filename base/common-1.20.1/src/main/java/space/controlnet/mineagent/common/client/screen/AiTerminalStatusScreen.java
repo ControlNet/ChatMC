@@ -351,7 +351,7 @@ public final class AiTerminalStatusScreen extends Screen {
         float scale = title ? TITLE_FONT_SCALE : FONT_SCALE;
         guiGraphics.pose().pushPose();
         guiGraphics.pose().scale(scale, scale, 1.0f);
-        guiGraphics.drawString(this.font, text, Math.round(x / scale), Math.round(y / scale), color, false);
+        guiGraphics.drawString(this.font, text, Math.round(x / scale), Math.round(y / scale), color, true);
         guiGraphics.pose().popPose();
     }
 

@@ -72,7 +72,7 @@ public final class FlatButton extends Button {
             guiGraphics.pose().scale(FONT_SCALE, FONT_SCALE, 1.0f);
             int scaledX = Math.round(textX / FONT_SCALE);
             int scaledY = Math.round(textY / FONT_SCALE);
-            guiGraphics.drawString(minecraft.font, this.getMessage(), scaledX, scaledY, text, false);
+            guiGraphics.drawString(minecraft.font, this.getMessage(), scaledX, scaledY, text, true);
             guiGraphics.pose().popPose();
         }
     }

@@ -67,9 +67,9 @@ public final class AiTerminalConstants {
     public static final int MAX_CHAT_MESSAGE_LENGTH = 65536;
 
     // ===== Font Scales =====
-    public static final float TITLE_FONT_SCALE = 0.9f;
-    public static final float FONT_SCALE = 0.5f;
-    public static final float TOOLTIP_FONT_SCALE = 0.4f;
+    public static final float TITLE_FONT_SCALE = 1.0f;
+    public static final float FONT_SCALE = 0.65f;
+    public static final float TOOLTIP_FONT_SCALE = 0.5f;
 
     // ===== Background Colors =====
     public static final int COLOR_BG_DARK = 0xFF0B0B0D;

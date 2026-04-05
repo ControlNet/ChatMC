@@ -1694,7 +1694,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         int textX = scaledX + padding;
         int textY = scaledY + padding;
         for (FormattedCharSequence line : wrapped) {
-            guiGraphics.drawString(this.font, line, textX, textY, COLOR_TEXT_MAIN, false);
+            guiGraphics.drawString(this.font, line, textX, textY, COLOR_TEXT_MAIN, true);
             textY += lineHeight;
         }
         guiGraphics.pose().popPose();
@@ -2273,7 +2273,7 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         guiGraphics.pose().scale(scale, scale, 1.0f);
         int scaledX = Math.round(x / scale);
         int scaledY = Math.round(y / scale);
-        guiGraphics.drawString(this.font, text, scaledX, scaledY, color, false);
+        guiGraphics.drawString(this.font, text, scaledX, scaledY, color, true);
         guiGraphics.pose().popPose();
     }
 
