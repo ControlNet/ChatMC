@@ -354,22 +354,6 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
 
     @Override
     protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        String brand = "AI TERMINAL";
-        int titleX = this.headerX + PADDING + SESSION_TOGGLE_WIDTH + 6;
-        int titleY = this.headerY + (this.headerH - this.font.lineHeight) / 2;
-        drawScaledString(guiGraphics, brand, titleX, titleY, COLOR_TEXT_MAIN, true);
-
-        SessionState state = sessionStateFromStatus();
-        String statusLabel = stateLabel(state).toUpperCase();
-        int statusTextWidth = scaledWidth(statusLabel);
-        int statusRight = headerStatusTextRightEdge();
-        int statusX = statusRight - statusTextWidth;
-        int statusY = this.headerY + (this.headerH - Math.round(this.font.lineHeight * FONT_SCALE)) / 2;
-        int dotX = statusX - STATUS_DOT_SIZE - 4;
-        int dotY = statusY + (Math.round(this.font.lineHeight * FONT_SCALE) - STATUS_DOT_SIZE - 2) / 2;
-        int dotColor = statusDotColor(state);
-        guiGraphics.fill(dotX, dotY, dotX + STATUS_DOT_SIZE, dotY + STATUS_DOT_SIZE, 0xFF000000 | dotColor);
-        drawScaledString(guiGraphics, statusLabel, statusX, statusY, dotColor, false);
     }
 
     @Override
@@ -412,6 +396,23 @@ public final class AiTerminalScreen extends AbstractContainerScreen<AiTerminalMe
         guiGraphics.renderOutline(inputBoxX, inputBoxY, this.inputW, INPUT_HEIGHT, inputBorder);
         int promptY = inputBoxY + (INPUT_HEIGHT - this.font.lineHeight) / 2 + 1;
         drawScaledString(guiGraphics, ">", this.inputX + 4, promptY, COLOR_ACCENT_CYAN, false);
+
+        String brand = "AI TERMINAL";
+        int titleX = this.headerX + PADDING + SESSION_TOGGLE_WIDTH + 6;
+        int titleY = this.headerY + (this.headerH - this.font.lineHeight) / 2;
+        drawScaledString(guiGraphics, brand, titleX, titleY, COLOR_TEXT_MAIN, true);
+
+        SessionState state = sessionStateFromStatus();
+        String statusLabel = stateLabel(state).toUpperCase();
+        int statusTextWidth = scaledWidth(statusLabel);
+        int statusRight = headerStatusTextRightEdge();
+        int statusX = statusRight - statusTextWidth;
+        int statusY = this.headerY + (this.headerH - Math.round(this.font.lineHeight * FONT_SCALE)) / 2;
+        int dotX = statusX - STATUS_DOT_SIZE - 4;
+        int dotY = statusY + (Math.round(this.font.lineHeight * FONT_SCALE) - STATUS_DOT_SIZE - 2) / 2;
+        int dotColor = statusDotColor(state);
+        guiGraphics.fill(dotX, dotY, dotX + STATUS_DOT_SIZE, dotY + STATUS_DOT_SIZE, 0xFF000000 | dotColor);
+        drawScaledString(guiGraphics, statusLabel, statusX, statusY, dotColor, false);
     }
 
     @Override
