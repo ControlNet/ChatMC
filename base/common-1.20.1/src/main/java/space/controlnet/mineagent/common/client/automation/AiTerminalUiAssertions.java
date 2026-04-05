@@ -82,6 +82,12 @@ public final class AiTerminalUiAssertions {
                 require("ui/status-panel/ext-ae-list-items", snapshot.extToolNames().contains("ae.list_items"));
                 require("ui/status-panel/mcp-statusdocs", snapshot.mcpToolNames().contains("mcp.statusdocs.search"));
             }
+            case STATUS_PANEL_SCROLLED -> {
+                requireEquals("ui/status-panel-scrolled/screen-class", "AiTerminalStatusScreen", snapshot.screenClassName());
+                requireAtLeast("ui/status-panel-scrolled/section-count", 3, snapshot.toolSectionCount());
+                requireAtLeast("ui/status-panel-scrolled/mcp-count", 5, snapshot.mcpToolCount());
+                require("ui/status-panel-scrolled/mcp-statusdocs", snapshot.mcpToolNames().contains("mcp.statusdocs.search"));
+            }
         }
     }
 

@@ -184,7 +184,7 @@ public final class AiTerminalStatusScreen extends Screen {
 
         this.sections = List.copyOf(refreshedSections);
         this.lines = buildLines(this.sections);
-        int visibleLines = Math.max(1, this.contentH / lineStep());
+        int visibleLines = Math.max(1, (this.contentH - PANEL_HEADER_HEIGHT - CONTENT_GAP) / lineStep());
         this.maxScrollLines = Math.max(0, this.lines.size() - visibleLines);
         this.scrollOffsetLines = clamp(this.scrollOffsetLines, 0, this.maxScrollLines);
     }
@@ -206,10 +206,14 @@ public final class AiTerminalStatusScreen extends Screen {
         drawScaledString(guiGraphics, "STATUS", this.left + PADDING, this.top + 9, COLOR_TEXT_MAIN, true);
         drawScaledString(guiGraphics, "TOOLS: " + totalToolCount(), this.contentX + PADDING, this.contentY + 5, COLOR_TEXT_DIM, false);
 
-        int textY = this.contentY + PANEL_HEADER_HEIGHT + CONTENT_GAP;
+        int clipTop = this.contentY + PANEL_HEADER_HEIGHT + 1;
+        int clipBottom = this.contentY + this.contentH;
+        guiGraphics.enableScissor(this.contentX + 1, clipTop, this.contentX + this.contentW - 1, clipBottom);
+
+        int textY = clipTop + CONTENT_GAP - 1;
         int startIndex = this.scrollOffsetLines;
         int maxVisible = Math.max(1, (this.contentH - PANEL_HEADER_HEIGHT - CONTENT_GAP) / lineStep());
-        int endIndex = Math.min(this.lines.size(), startIndex + maxVisible);
+        int endIndex = Math.min(this.lines.size(), startIndex + maxVisible + 1);
         int textMaxWidth = Math.max(1, Math.round((this.contentW - (PADDING * 2)) / FONT_SCALE));
 
         for (int i = startIndex; i < endIndex; i++) {
@@ -218,6 +222,8 @@ public final class AiTerminalStatusScreen extends Screen {
             drawScaledString(guiGraphics, trimmed, this.contentX + PADDING, textY, line.color(), false);
             textY += lineStep();
         }
+
+        guiGraphics.disableScissor();
     }
 
     private List<StatusLine> buildLines(List<ToolSection> sections) {
@@ -270,6 +276,10 @@ public final class AiTerminalStatusScreen extends Screen {
             count += section.tools().size();
         }
         return count;
+    }
+
+    public void scrollToBottom() {
+        this.scrollOffsetLines = this.maxScrollLines;
     }
 
     private boolean isWithinContent(double mouseX, double mouseY) {

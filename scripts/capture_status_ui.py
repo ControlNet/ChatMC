@@ -16,9 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 MCP_ALIAS = "statusdocs"
 MCP_TOOL_NAME = "search"
 MCP_TOOL_DESCRIPTION = "Search MCP docs for the status screen capture runtime."
+MCP_TOOL_COUNT = 10
 SCENARIOS = [
     "status_button",
     "status_panel",
+    "status_panel_scrolled",
 ]
 MCP_SERVER_SCRIPT = r"""#!/usr/bin/env python3
 import json
@@ -28,6 +30,7 @@ import sys
 SERVER_ALIAS = os.environ.get("CHATMC_SERVER_ALIAS", "statusdocs")
 TOOL_NAME = os.environ.get("CHATMC_TOOL_NAME", "search")
 TOOL_DESCRIPTION = os.environ.get("CHATMC_TOOL_DESCRIPTION", "Search MCP docs")
+TOOL_COUNT = int(os.environ.get("CHATMC_TOOL_COUNT", "1"))
 
 
 def send(message):
@@ -36,24 +39,23 @@ def send(message):
 
 
 def list_response(message):
+    tools = []
+    for i in range(TOOL_COUNT):
+        name = TOOL_NAME if i == 0 else f"{TOOL_NAME}_{i}"
+        desc = TOOL_DESCRIPTION if i == 0 else f"MCP fixture tool variant {i}."
+        tools.append({
+            "name": name,
+            "description": desc,
+            "inputSchema": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"]
+            }
+        })
     return {
         "jsonrpc": "2.0",
         "id": message["id"],
-        "result": {
-            "tools": [
-                {
-                    "name": TOOL_NAME,
-                    "description": TOOL_DESCRIPTION,
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string"}
-                        },
-                        "required": ["query"]
-                    }
-                }
-            ]
-        }
+        "result": {"tools": tools}
     }
 
 
@@ -195,6 +197,7 @@ def write_mcp_config(path: Path, fixture_script: Path) -> None:
                     "CHATMC_SERVER_ALIAS": MCP_ALIAS,
                     "CHATMC_TOOL_NAME": MCP_TOOL_NAME,
                     "CHATMC_TOOL_DESCRIPTION": MCP_TOOL_DESCRIPTION,
+                    "CHATMC_TOOL_COUNT": str(MCP_TOOL_COUNT),
                 },
                 "cwd": str(path),
             }

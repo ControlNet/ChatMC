@@ -12,7 +12,8 @@ public enum AiTerminalUiScenarioId {
     HTTP_RESULT,
     SESSION_LIST_DENSE,
     STATUS_BUTTON,
-    STATUS_PANEL;
+    STATUS_PANEL,
+    STATUS_PANEL_SCROLLED;
 
     public String externalName() {
         return name().toLowerCase(Locale.ROOT);

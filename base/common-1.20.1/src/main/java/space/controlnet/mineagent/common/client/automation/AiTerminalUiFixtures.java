@@ -42,7 +42,7 @@ public final class AiTerminalUiFixtures {
             case HTTP_RESULT -> httpResult(ownerId, ownerName);
             case SESSION_LIST_DENSE -> sessionListDense(ownerId, ownerName);
             case STATUS_BUTTON -> statusButton(ownerId, ownerName);
-            case STATUS_PANEL -> statusPanel(ownerId, ownerName);
+            case STATUS_PANEL, STATUS_PANEL_SCROLLED -> statusPanel(ownerId, ownerName);
         };
     }
 

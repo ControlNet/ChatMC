@@ -1001,3 +1001,11 @@ python3 scripts/capture_status_ui.py --loader forge --scenario all --display :1
 - **Shadow rendering enabled:** All `drawString` calls in `AiTerminalScreen`, `AiTerminalStatusScreen`, and `FlatButton` now pass `shadow=true`. On the dark background, the shadow provides a pseudo-anti-aliasing effect that makes the bitmap font significantly more readable.
 - **Font scales unchanged:** `FONT_SCALE` (0.5), `TITLE_FONT_SCALE` (0.9), `TOOLTIP_FONT_SCALE` (0.4) remain at their original values. Shadow alone was sufficient to resolve the readability issue without sacrificing information density.
 - **Files changed:** `AiTerminalScreen.java` (drawScaledString + tooltip shadow), `AiTerminalStatusScreen.java` (drawScaledString shadow), `FlatButton.java` (button text shadow).
+
+### 15.12 Status Panel Scroll Fix and Verification (2026-04-05)
+- **Bug:** `maxScrollLines` in `AiTerminalStatusScreen.refreshSections()` used `contentH / lineStep()` for visible-line count, but `renderText()` used the smaller `(contentH - PANEL_HEADER_HEIGHT - CONTENT_GAP) / lineStep()`. The 24 px discrepancy meant 3 lines at the bottom could be invisible without scroll being enabled.
+- **Fix:** Aligned `refreshSections` to use the same visible-line formula as `renderText`.
+- **Scissor clipping:** Added `enableScissor`/`disableScissor` around the tool-list text rendering to prevent partial lines from painting outside the content panel.
+- **Scroll-to-bottom automation:** Added `scrollToBottom()` method and `STATUS_PANEL_SCROLLED` capture scenario to prove scroll works end-to-end.
+- **MCP fixture expanded:** Capture fixture now registers 10 MCP tools (total 20 tools), enough to overflow the visible area and exercise scrolling.
+- **Files changed:** `AiTerminalStatusScreen.java`, `AiTerminalUiScenarioId.java`, `AiTerminalUiAssertions.java`, `AiTerminalUiAutomation.java`, `AiTerminalUiFixtures.java`, `scripts/capture_status_ui.py`.

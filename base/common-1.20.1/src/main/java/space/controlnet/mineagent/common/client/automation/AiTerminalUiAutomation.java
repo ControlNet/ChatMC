@@ -35,6 +35,7 @@ public final class AiTerminalUiAutomation {
     private static boolean previewApplied;
     private static boolean terminalOpenRequested;
     private static boolean statusScreenTriggered;
+    private static boolean scrollApplied;
     private static boolean screenshotTriggered;
     private static int ticksSinceOpen;
     private static int terminalOpenWaitTicks;
@@ -104,6 +105,14 @@ public final class AiTerminalUiAutomation {
         minecraft.getToasts().clear();
 
         if (!screenshotTriggered) {
+            if (!scrollApplied
+                    && request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL_SCROLLED
+                    && minecraft.screen instanceof AiTerminalStatusScreen statusScreen) {
+                statusScreen.scrollToBottom();
+                scrollApplied = true;
+                ticksSinceOpen = 0;
+                return;
+            }
             ticksSinceOpen++;
             if (ticksSinceOpen < request.settleTicks()) {
                 return;
@@ -174,6 +183,7 @@ public final class AiTerminalUiAutomation {
             ticksSinceOpen = 0;
             previewApplied = false;
             statusScreenTriggered = false;
+            scrollApplied = false;
             screenshotTriggered = false;
             toolCatalogWaitTicks = 0;
             pendingCapture = null;
@@ -209,18 +219,21 @@ public final class AiTerminalUiAutomation {
             return false;
         }
         return request.scenarioId() == AiTerminalUiScenarioId.STATUS_BUTTON
-                || request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL;
+                || request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL
+                || request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL_SCROLLED;
     }
 
     private static boolean shouldOpenStatusScreen() {
-        if (request != null && request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL) {
+        if (request != null && (request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL
+                || request.scenarioId() == AiTerminalUiScenarioId.STATUS_PANEL_SCROLLED)) {
             return true;
         }
         return previewState != null && previewState.statusScreenOpen();
     }
 
     private static boolean isStatusCatalogReady() {
-        if (request == null || request.scenarioId() != AiTerminalUiScenarioId.STATUS_PANEL) {
+        if (request == null || (request.scenarioId() != AiTerminalUiScenarioId.STATUS_PANEL
+                && request.scenarioId() != AiTerminalUiScenarioId.STATUS_PANEL_SCROLLED)) {
             return true;
         }
         boolean hasBuiltIn = false;
